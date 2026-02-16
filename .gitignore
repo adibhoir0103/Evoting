@@ -1,0 +1,21 @@
+node_modules
+.env
+.env.local
+.DS_Store
+
+# Hardhat files
+cache
+artifacts
+
+# Frontend
+frontend/build
+frontend/node_modules
+
+# Deployment info
+deployment-info.json
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
