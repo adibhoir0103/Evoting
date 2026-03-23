@@ -104,11 +104,16 @@ app.post('/api/auth/register', async (req, res) => {
         }
 
         // Check if user exists
-        const existingUser = db.exec(
-            `SELECT id FROM users WHERE email = '${email}' OR voter_id = '${voterId}'`
-        );
+        const stmtCheck = db.prepare('SELECT id FROM users WHERE email = ? OR voter_id = ?');
+        let existingUser;
+        try {
+            stmtCheck.bind([email, voterId]);
+            existingUser = stmtCheck.step();
+        } finally {
+            stmtCheck.free();
+        }
 
-        if (existingUser.length > 0 && existingUser[0].values.length > 0) {
+        if (existingUser) {
             return res.status(400).json({ error: 'User with this email or voter ID already exists' });
         }
 
@@ -141,18 +146,18 @@ app.post('/api/auth/login', async (req, res) => {
         }
 
         // Find user by email or voter_id
-        const result = db.exec(
-            `SELECT * FROM users WHERE email = '${identifier}' OR voter_id = '${identifier}'`
-        );
-
-        if (result.length === 0 || result[0].values.length === 0) {
-            return res.status(401).json({ error: 'Invalid credentials' });
+        const stmtLogin = db.prepare('SELECT * FROM users WHERE email = ? OR voter_id = ?');
+        let user;
+        try {
+            stmtLogin.bind([identifier, identifier]);
+            user = stmtLogin.step() ? stmtLogin.getAsObject() : null;
+        } finally {
+            stmtLogin.free();
         }
 
-        const columns = result[0].columns;
-        const row = result[0].values[0];
-        const user = {};
-        columns.forEach((col, idx) => user[col] = row[idx]);
+        if (!user) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
 
         // Check password
         const validPassword = await bcrypt.compare(password, user.password);
@@ -188,18 +193,18 @@ app.post('/api/auth/login', async (req, res) => {
 // Get current user
 app.get('/api/auth/me', authenticateToken, (req, res) => {
     try {
-        const result = db.exec(
-            `SELECT id, fullname, voter_id, email, wallet_address, has_voted FROM users WHERE id = ${req.user.id}`
-        );
-
-        if (result.length === 0 || result[0].values.length === 0) {
-            return res.status(404).json({ error: 'User not found' });
+        const stmtMe = db.prepare('SELECT id, fullname, voter_id, email, wallet_address, has_voted FROM users WHERE id = ?');
+        let user;
+        try {
+            stmtMe.bind([req.user.id]);
+            user = stmtMe.step() ? stmtMe.getAsObject() : null;
+        } finally {
+            stmtMe.free();
         }
 
-        const columns = result[0].columns;
-        const row = result[0].values[0];
-        const user = {};
-        columns.forEach((col, idx) => user[col] = row[idx]);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
 
         res.json({
             id: user.id,
@@ -248,8 +253,15 @@ app.post('/api/vote/record', authenticateToken, (req, res) => {
         }
 
         // Check if already voted
-        const userResult = db.exec(`SELECT has_voted FROM users WHERE id = ${req.user.id}`);
-        if (userResult.length > 0 && userResult[0].values[0][0] === 1) {
+        const stmtVoted = db.prepare('SELECT has_voted FROM users WHERE id = ?');
+        let voteCheckRow;
+        try {
+            stmtVoted.bind([req.user.id]);
+            voteCheckRow = stmtVoted.step() ? stmtVoted.getAsObject() : null;
+        } finally {
+            stmtVoted.free();
+        }
+        if (voteCheckRow && voteCheckRow.has_voted === 1) {
             return res.status(400).json({ error: 'You have already voted' });
         }
 
@@ -273,8 +285,15 @@ app.post('/api/vote/record', authenticateToken, (req, res) => {
 // Check if user has voted
 app.get('/api/vote/status', authenticateToken, (req, res) => {
     try {
-        const result = db.exec(`SELECT has_voted FROM users WHERE id = ${req.user.id}`);
-        const hasVoted = result.length > 0 && result[0].values[0][0] === 1;
+        const stmtStatus = db.prepare('SELECT has_voted FROM users WHERE id = ?');
+        let statusRow;
+        try {
+            stmtStatus.bind([req.user.id]);
+            statusRow = stmtStatus.step() ? stmtStatus.getAsObject() : null;
+        } finally {
+            stmtStatus.free();
+        }
+        const hasVoted = statusRow !== null && statusRow.has_voted === 1;
         res.json({ hasVoted });
     } catch (error) {
         console.error('Vote status error:', error);
@@ -299,18 +318,18 @@ app.post('/api/auth/send-otp', async (req, res) => {
         }
 
         // Check if user exists with this Aadhaar
-        const result = db.exec(
-            `SELECT id, fullname, aadhaar_number, email, mobile_number FROM users WHERE aadhaar_number = '${aadhaarNumber}'`
-        );
-
-        if (result.length === 0 || result[0].values.length === 0) {
-            return res.status(404).json({ error: 'No account found with this Aadhaar number. Please register first.' });
+        const stmtOtp = db.prepare('SELECT id, fullname, aadhaar_number, email, mobile_number FROM users WHERE aadhaar_number = ?');
+        let user;
+        try {
+            stmtOtp.bind([aadhaarNumber]);
+            user = stmtOtp.step() ? stmtOtp.getAsObject() : null;
+        } finally {
+            stmtOtp.free();
         }
 
-        const columns = result[0].columns;
-        const row = result[0].values[0];
-        const user = {};
-        columns.forEach((col, idx) => user[col] = row[idx]);
+        if (!user) {
+            return res.status(404).json({ error: 'No account found with this Aadhaar number. Please register first.' });
+        }
 
         // Determine which method to use and validate recipient
         let recipient;
@@ -346,11 +365,14 @@ app.post('/api/auth/send-otp', async (req, res) => {
         // Send OTP
         const otpResult = await otpService.sendOTP(recipient, aadhaarNumber, method, user.fullname);
 
-        res.json({
+        const response = {
             message: otpResult.message,
-            method: otpResult.method,
-            demoOTP: otpResult.demoOTP // For demo only!
-        });
+            method: otpResult.method
+        };
+        if (process.env.NODE_ENV !== 'production') {
+            response.demoOTP = otpResult.demoOTP;
+        }
+        res.json(response);
     } catch (error) {
         console.error('Send OTP error:', error);
         res.status(500).json({ error: 'Server error while sending OTP' });
@@ -374,18 +396,18 @@ app.post('/api/auth/verify-otp', async (req, res) => {
         }
 
         // Get user details
-        const result = db.exec(
-            `SELECT * FROM users WHERE aadhaar_number = '${aadhaarNumber}'`
-        );
-
-        if (result.length === 0 || result[0].values.length === 0) {
-            return res.status(404).json({ error: 'User not found' });
+        const stmtVerify = db.prepare('SELECT * FROM users WHERE aadhaar_number = ?');
+        let user;
+        try {
+            stmtVerify.bind([aadhaarNumber]);
+            user = stmtVerify.step() ? stmtVerify.getAsObject() : null;
+        } finally {
+            stmtVerify.free();
         }
 
-        const columns = result[0].columns;
-        const row = result[0].values[0];
-        const user = {};
-        columns.forEach((col, idx) => user[col] = row[idx]);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
 
         // Generate JWT
         const token = jwt.sign(
@@ -414,10 +436,10 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 
 // ===================== ADMIN ROUTES =====================
 
-// Admin credentials (for demo - in production, use database)
+// Admin credentials (configurable via environment variables)
 const ADMIN_CREDENTIALS = {
-    email: 'admin@evote.com',
-    password: 'admin123'
+    email: process.env.ADMIN_EMAIL || 'admin@evote.com',
+    password: process.env.ADMIN_PASSWORD || 'admin123'
 };
 
 // Admin login
