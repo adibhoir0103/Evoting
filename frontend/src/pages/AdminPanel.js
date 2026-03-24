@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BlockchainService } from '../services/blockchainService';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 function AdminPanel() {
     const navigate = useNavigate();
@@ -75,6 +76,16 @@ function AdminPanel() {
                 fetch('http://localhost:5000/api/admin/users', { headers }),
                 fetch('http://localhost:5000/api/admin/votes', { headers })
             ]);
+
+            // Server-side token validation: redirect if unauthorized
+            if (statsRes.status === 401 || statsRes.status === 403 ||
+                usersRes.status === 401 || usersRes.status === 403 ||
+                votesRes.status === 401 || votesRes.status === 403) {
+                localStorage.removeItem('adminToken');
+                localStorage.removeItem('admin');
+                navigate('/admin-login');
+                return;
+            }
 
             if (!statsRes.ok || !usersRes.ok || !votesRes.ok) {
                 throw new Error('Failed to load admin data');
@@ -464,26 +475,26 @@ function AdminPanel() {
                                         {blockchainCandidates.length > 0 ? (
                                             <>
                                                 <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                                                    <i className="fa-solid fa-ranking-star text-accent-saffron mr-2"></i> Leading Candidates Live
+                                                    <i className="fa-solid fa-chart-bar text-accent-saffron mr-2"></i> Live Results Chart
                                                 </h3>
-                                                <div className="space-y-3">
-                                                    {blockchainCandidates.map(c => (
-                                                        <div key={c.id} className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:border-primary transition-colors">
-                                                            <div className="flex items-center">
-                                                                <div className="w-8 h-8 rounded-full bg-blue-50 text-primary flex items-center justify-center font-bold mr-3 border border-blue-100">
-                                                                    #{c.id}
-                                                                </div>
-                                                                <div>
-                                                                    <span className="block font-bold text-gray-900">{c.name}</span>
-                                                                    <span className="text-xs text-gray-500">{c.partySymbol || c.partyName || 'Independent'}</span>
-                                                                </div>
-                                                            </div>
-                                                            <div className="text-right">
-                                                                <span className="block text-xl font-bold tracking-tight text-primary">{c.voteCount}</span>
-                                                                <span className="text-[10px] uppercase font-bold text-gray-400">Votes</span>
-                                                            </div>
-                                                        </div>
-                                                    ))}
+                                                <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                                                    <ResponsiveContainer width="100%" height={280}>
+                                                        <BarChart data={blockchainCandidates.map(c => ({ name: c.name.length > 12 ? c.name.slice(0,12) + '…' : c.name, votes: Number(c.voteCount), party: c.partySymbol || c.partyName || 'IND', fullName: c.name }))} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                                            <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6b7280', fontWeight: 600 }} />
+                                                            <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#6b7280' }} />
+                                                            <Tooltip
+                                                                contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
+                                                                formatter={(value, name, props) => [value, `Votes (${props.payload.party})`]}
+                                                                labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
+                                                            />
+                                                            <Bar dataKey="votes" fill="#1e40af" radius={[6, 6, 0, 0]} maxBarSize={50}>
+                                                                {blockchainCandidates.map((_, idx) => (
+                                                                    <Cell key={idx} fill={['#1e40af','#f97316','#10b981','#8b5cf6','#ef4444','#06b6d4','#d946ef','#f59e0b'][idx % 8]} />
+                                                                ))}
+                                                            </Bar>
+                                                        </BarChart>
+                                                    </ResponsiveContainer>
                                                 </div>
                                             </>
                                         ) : (
@@ -493,6 +504,84 @@ function AdminPanel() {
                                                 <button onClick={() => setActiveTab('election')} className="mt-4 text-primary font-bold hover:underline">Go to Election Controls <i className="fa-solid fa-arrow-right ml-1"></i></button>
                                             </div>
                                         )}
+                                    </div>
+                                </div>
+
+                                {/* Voter Turnout Analytics */}
+                                <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                    <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                                        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                                            <i className="fa-solid fa-chart-pie text-primary mr-2"></i> Voter Turnout Breakdown
+                                        </h3>
+                                        <ResponsiveContainer width="100%" height={220}>
+                                            <PieChart>
+                                                <Pie
+                                                    data={[
+                                                        { name: 'Voted', value: stats.votedUsers || 0 },
+                                                        { name: 'Pending', value: Math.max(0, (stats.totalUsers || 0) - (stats.votedUsers || 0)) }
+                                                    ]}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    innerRadius={55}
+                                                    outerRadius={85}
+                                                    paddingAngle={3}
+                                                    dataKey="value"
+                                                >
+                                                    <Cell fill="#10b981" />
+                                                    <Cell fill="#e5e7eb" />
+                                                </Pie>
+                                                <Tooltip formatter={(value) => [value, 'Voters']} />
+                                                <Legend
+                                                    verticalAlign="bottom"
+                                                    iconType="circle"
+                                                    formatter={(value) => <span className="text-sm font-semibold text-gray-700">{value}</span>}
+                                                />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+
+                                    <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                                        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                                            <i className="fa-solid fa-clipboard-list text-primary mr-2"></i> Quick Analytics
+                                        </h3>
+                                        <div className="space-y-4">
+                                            <div className="flex justify-between items-center p-3 bg-white rounded-lg border border-gray-200">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
+                                                        <i className="fa-solid fa-check-double"></i>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-xs text-gray-500 font-bold uppercase">Votes Cast</span>
+                                                        <span className="block text-lg font-bold text-gray-900">{stats.votedUsers}</span>
+                                                    </div>
+                                                </div>
+                                                <span className="text-green-600 font-bold text-lg">{stats.votingPercentage}%</span>
+                                            </div>
+                                            <div className="flex justify-between items-center p-3 bg-white rounded-lg border border-gray-200">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-red-100 text-red-500 flex items-center justify-center">
+                                                        <i className="fa-solid fa-clock"></i>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-xs text-gray-500 font-bold uppercase">Pending</span>
+                                                        <span className="block text-lg font-bold text-gray-900">{stats.totalUsers - stats.votedUsers}</span>
+                                                    </div>
+                                                </div>
+                                                <span className="text-red-500 font-bold text-lg">{stats.totalUsers > 0 ? (100 - parseFloat(stats.votingPercentage)).toFixed(1) : 0}%</span>
+                                            </div>
+                                            <div className="flex justify-between items-center p-3 bg-white rounded-lg border border-gray-200">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                                                        <i className="fa-solid fa-link"></i>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-xs text-gray-500 font-bold uppercase">Wallets Linked</span>
+                                                        <span className="block text-lg font-bold text-gray-900">{users.filter(u => u.wallet_address).length}</span>
+                                                    </div>
+                                                </div>
+                                                <span className="text-blue-600 font-bold text-lg">{stats.totalUsers > 0 ? ((users.filter(u => u.wallet_address).length / stats.totalUsers) * 100).toFixed(1) : 0}%</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

@@ -25,16 +25,6 @@ export const authService = {
      * Login user
      */
     async login(identifier, password) {
-        // MOCKED FOR ADMIN UI TESTING
-        if (identifier.includes('admin')) {
-            const adminData = {
-                token: 'mock_admin_token_123',
-                user: { id: 0, fullname: 'Chief Election Commissioner', email: 'admin@eci.gov.in', role: 'admin' }
-            };
-            localStorage.setItem('adminToken', adminData.token);
-            localStorage.setItem('admin', JSON.stringify(adminData.user));
-            return adminData;
-        }
 
         const response = await fetch(`${API_URL}/auth/login`, {
             method: 'POST',
@@ -180,9 +170,10 @@ export const authService = {
             body: JSON.stringify(data)
         });
 
+        const result = await response.json();
+
         if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.error || 'Failed to update profile');
+            throw new Error(result.error || 'Failed to update profile');
         }
 
         // Update stored user
@@ -192,7 +183,7 @@ export const authService = {
             localStorage.setItem('user', JSON.stringify(updatedUser));
         }
 
-        return await response.json();
+        return result;
     },
 
     /**

@@ -100,6 +100,9 @@ async function initDatabase() {
     try { db.run("ALTER TABLE users ADD COLUMN state_code INTEGER DEFAULT 0"); console.log('✅ Migration: Added state_code column'); } catch (e) { }
     try { db.run("ALTER TABLE users ADD COLUMN constituency_code INTEGER DEFAULT 0"); console.log('✅ Migration: Added constituency_code column'); } catch (e) { }
 
+    // Migration: Add address column for profile
+    try { db.run("ALTER TABLE users ADD COLUMN address TEXT"); console.log('✅ Migration: Added address column'); } catch (e) { }
+
     saveDatabase();
     console.log('✅ Tables initialized');
 }

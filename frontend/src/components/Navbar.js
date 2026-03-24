@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { authService } from '../services/authService';
 
-function Navbar({ user, onLogout }) {
+function Navbar({ user, onLogout, isAdmin }) {
     const [fontSize, setFontSize] = useState('normal');
     const [showLoginDropdown, setShowLoginDropdown] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const dropdownRef = useRef(null);
     const location = useLocation();
 
@@ -23,7 +24,15 @@ function Navbar({ user, onLogout }) {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // Close mobile menu on route change
+    useEffect(() => {
+        setMobileMenuOpen(false);
+    }, [location.pathname]);
+
     const isLoggedIn = authService.isLoggedIn();
+    const isAdminUser = isAdmin || localStorage.getItem('adminToken');
+
+    const navLinkClass = (path) => `text-sm font-semibold hover:text-primary transition-colors ${location.pathname === path ? 'text-primary border-b-2 border-primary pb-1' : 'text-gray-600'}`;
 
     return (
         <React.Fragment>
@@ -65,13 +74,37 @@ function Navbar({ user, onLogout }) {
                             </Link>
                         </div>
 
-                        {/* Navigation Links & Actions */}
+                        {/* Mobile Menu Button */}
+                        <button
+                            className="md:hidden flex items-center text-gray-600 hover:text-primary"
+                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            aria-label="Toggle navigation"
+                        >
+                            <i className={`fa-solid ${mobileMenuOpen ? 'fa-xmark' : 'fa-bars'} text-xl`}></i>
+                        </button>
+
+                        {/* Desktop Navigation */}
                         <div className="hidden md:flex items-center space-x-6">
-                            <Link to="/" className={`text-sm font-semibold hover:text-primary transition-colors ${location.pathname === '/' ? 'text-primary border-b-2 border-primary pb-1' : 'text-gray-600'}`}>Home</Link>
-                            <Link to="/guidelines" className={`text-sm font-semibold hover:text-primary transition-colors ${location.pathname === '/guidelines' ? 'text-primary border-b-2 border-primary pb-1' : 'text-gray-600'}`}>Guidelines</Link>
+                            <Link to="/" className={navLinkClass('/')}>Home</Link>
+                            <Link to="/guidelines" className={navLinkClass('/guidelines')}>Guidelines</Link>
+                            <Link to="/help" className={navLinkClass('/help')}>Help</Link>
                             
-                            {isLoggedIn && user && (
-                                <Link to="/dashboard" className={`text-sm font-semibold hover:text-primary transition-colors ${location.pathname === '/dashboard' ? 'text-primary border-b-2 border-primary pb-1' : 'text-gray-600'}`}>Dashboard</Link>
+                            {/* Voter-specific links */}
+                            {isLoggedIn && user && !isAdminUser && (
+                                <>
+                                    <Link to="/dashboard" className={navLinkClass('/dashboard')}>Dashboard</Link>
+                                    <Link to="/vote" className={navLinkClass('/vote')}>
+                                        <i className="fa-solid fa-vote-yea mr-1"></i>Vote
+                                    </Link>
+                                    <Link to="/candidates" className={navLinkClass('/candidates')}>Candidates</Link>
+                                </>
+                            )}
+
+                            {/* Admin-specific links */}
+                            {isAdminUser && (
+                                <Link to="/admin-panel" className={`text-sm font-semibold hover:text-red-600 transition-colors flex items-center gap-1.5 ${location.pathname === '/admin-panel' ? 'text-red-600 border-b-2 border-red-500 pb-1' : 'text-gray-600'}`}>
+                                    <i className="fa-solid fa-user-shield text-red-500"></i>Admin Panel
+                                </Link>
                             )}
 
                             <div className="h-6 w-px bg-gray-300 mx-2"></div>
@@ -79,10 +112,13 @@ function Navbar({ user, onLogout }) {
                             {isLoggedIn && user ? (
                                 <div className="flex items-center gap-4">
                                     <div className="flex items-center gap-2">
-                                        <div className="w-8 h-8 rounded-full bg-blue-100 text-primary flex items-center justify-center font-bold">
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${isAdminUser ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-primary'}`}>
                                             {user.fullname ? user.fullname.charAt(0).toUpperCase() : 'U'}
                                         </div>
-                                        <span className="text-sm font-medium text-gray-700 hidden lg:block">Welcome, {user.fullname?.split(' ')[0]}</span>
+                                        <div className="hidden lg:block">
+                                            <span className="text-sm font-medium text-gray-700 block leading-none">{user.fullname?.split(' ')[0]}</span>
+                                            {isAdminUser && <span className="text-[10px] font-bold text-red-500 uppercase">Admin</span>}
+                                        </div>
                                     </div>
                                     <button onClick={onLogout} className="btn-secondary py-1.5 px-4 text-sm">
                                         <i className="fa-solid fa-arrow-right-from-bracket mr-2"></i>Logout
@@ -119,6 +155,40 @@ function Navbar({ user, onLogout }) {
                             )}
                         </div>
                     </div>
+
+                    {/* Mobile Menu */}
+                    {mobileMenuOpen && (
+                        <div className="md:hidden border-t border-gray-200 py-4 space-y-2">
+                            <Link to="/" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Home</Link>
+                            <Link to="/guidelines" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Guidelines</Link>
+                            <Link to="/help" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Help</Link>
+                            
+                            {isLoggedIn && user && !isAdminUser && (
+                                <>
+                                    <Link to="/dashboard" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Dashboard</Link>
+                                    <Link to="/vote" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-vote-yea mr-2"></i>Vote</Link>
+                                    <Link to="/candidates" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Candidates</Link>
+                                </>
+                            )}
+
+                            {isAdminUser && (
+                                <Link to="/admin-panel" className="block px-3 py-2 rounded text-sm font-semibold text-red-600 hover:bg-red-50"><i className="fa-solid fa-user-shield mr-2"></i>Admin Panel</Link>
+                            )}
+
+                            <div className="border-t border-gray-200 pt-3 mt-3">
+                                {isLoggedIn && user ? (
+                                    <button onClick={onLogout} className="w-full text-left px-3 py-2 rounded text-sm font-semibold text-red-600 hover:bg-red-50">
+                                        <i className="fa-solid fa-arrow-right-from-bracket mr-2"></i>Logout
+                                    </button>
+                                ) : (
+                                    <>
+                                        <Link to="/login" className="block px-3 py-2 rounded text-sm font-semibold text-primary hover:bg-blue-50"><i className="fa-solid fa-user mr-2"></i>Voter Login</Link>
+                                        <Link to="/admin-login" className="block px-3 py-2 rounded text-sm font-semibold text-red-600 hover:bg-red-50"><i className="fa-solid fa-user-shield mr-2"></i>Admin Login</Link>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </header>
         </React.Fragment>
