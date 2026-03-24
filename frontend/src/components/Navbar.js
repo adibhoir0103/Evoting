@@ -4,6 +4,7 @@ import { authService } from '../services/authService';
 
 function Navbar({ user, onLogout, isAdmin }) {
     const [fontSize, setFontSize] = useState('normal');
+    const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
     const [showLoginDropdown, setShowLoginDropdown] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -13,6 +14,16 @@ function Navbar({ user, onLogout, isAdmin }) {
         document.documentElement.classList.remove('font-small', 'font-normal', 'font-large', 'font-xlarge');
         document.documentElement.classList.add(`font-${fontSize}`);
     }, [fontSize]);
+
+    // Dark mode persistence
+    useEffect(() => {
+        if (darkMode) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        localStorage.setItem('darkMode', darkMode);
+    }, [darkMode]);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -51,6 +62,14 @@ function Navbar({ user, onLogout, isAdmin }) {
                             <button className={`px-2 py-0.5 border-l border-r border-gray-300 hover:bg-gray-100 ${fontSize === 'normal' ? 'bg-gray-200 font-bold' : ''}`} onClick={() => setFontSize('normal')} title="Normal font size">A</button>
                             <button className={`px-2 py-0.5 hover:bg-gray-100 ${fontSize === 'large' ? 'bg-gray-200 font-bold' : ''}`} onClick={() => setFontSize('large')} title="Increase font size">A+</button>
                         </div>
+                        <button
+                            onClick={() => setDarkMode(!darkMode)}
+                            className="flex items-center justify-center w-7 h-7 rounded-full bg-white border border-gray-300 hover:bg-gray-200 transition-colors"
+                            title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                            aria-label={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                        >
+                            <i className={`fa-solid ${darkMode ? 'fa-sun text-amber-500' : 'fa-moon text-gray-600'} text-xs`}></i>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -88,6 +107,9 @@ function Navbar({ user, onLogout, isAdmin }) {
                             <Link to="/" className={navLinkClass('/')}>Home</Link>
                             <Link to="/guidelines" className={navLinkClass('/guidelines')}>Guidelines</Link>
                             <Link to="/help" className={navLinkClass('/help')}>Help</Link>
+                            <Link to="/results" className={navLinkClass('/results')}>
+                                <i className="fa-solid fa-chart-column mr-1"></i>Results
+                            </Link>
                             
                             {/* Voter-specific links */}
                             {isLoggedIn && user && !isAdminUser && (
@@ -162,6 +184,7 @@ function Navbar({ user, onLogout, isAdmin }) {
                             <Link to="/" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Home</Link>
                             <Link to="/guidelines" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Guidelines</Link>
                             <Link to="/help" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Help</Link>
+                            <Link to="/results" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-chart-column mr-2"></i>Results</Link>
                             
                             {isLoggedIn && user && !isAdminUser && (
                                 <>

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
+import { jsPDF } from 'jspdf';
+import QRCode from 'qrcode';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -394,9 +396,106 @@ function DashboardPage({ user, onUserUpdate }) {
                                         <span className="block text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1">Transaction Hash</span>
                                         <span className="font-mono text-xs text-gray-900 break-all">{voteReceipt.tx_hash}</span>
                                     </div>
-                                    <a href={`https://etherscan.io/tx/${voteReceipt.tx_hash}`} target="_blank" rel="noreferrer" className="text-xs text-primary font-bold hover:underline flex items-center mt-2">
-                                        Verify on Explorer <i className="fa-solid fa-arrow-up-right-from-square ml-1"></i>
-                                    </a>
+                                    <div className="flex flex-col sm:flex-row gap-2 mt-3">
+                                        <a href={`https://etherscan.io/tx/${voteReceipt.tx_hash}`} target="_blank" rel="noreferrer" className="text-xs text-primary font-bold hover:underline flex items-center">
+                                            Verify on Explorer <i className="fa-solid fa-arrow-up-right-from-square ml-1"></i>
+                                        </a>
+                                        <button
+                                            onClick={async () => {
+                                                try {
+                                                    const doc = new jsPDF();
+                                                    const pageW = doc.internal.pageSize.getWidth();
+
+                                                    // Header band
+                                                    doc.setFillColor(0, 0, 128);
+                                                    doc.rect(0, 0, pageW, 35, 'F');
+                                                    doc.setTextColor(255, 255, 255);
+                                                    doc.setFontSize(18);
+                                                    doc.setFont('helvetica', 'bold');
+                                                    doc.text('Election Commission of India', pageW / 2, 15, { align: 'center' });
+                                                    doc.setFontSize(11);
+                                                    doc.text('Bharat E-Vote — Digital Vote Receipt', pageW / 2, 25, { align: 'center' });
+
+                                                    // Saffron bar
+                                                    doc.setFillColor(255, 153, 51);
+                                                    doc.rect(0, 35, pageW, 3, 'F');
+
+                                                    // Body
+                                                    doc.setTextColor(51, 51, 51);
+                                                    doc.setFontSize(12);
+                                                    let y = 50;
+
+                                                    doc.setFont('helvetica', 'bold');
+                                                    doc.text('VOTER DETAILS', 20, y);
+                                                    doc.setDrawColor(200, 200, 200);
+                                                    doc.line(20, y + 2, pageW - 20, y + 2);
+                                                    y += 12;
+
+                                                    doc.setFont('helvetica', 'normal');
+                                                    doc.setFontSize(10);
+                                                    const details = [
+                                                        ['Name', profile?.fullname || '—'],
+                                                        ['Voter ID (EPIC)', profile?.voter_id || profile?.voterId || '—'],
+                                                        ['Date', new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })],
+                                                        ['Time', new Date().toLocaleTimeString('en-IN')]
+                                                    ];
+                                                    details.forEach(([label, val]) => {
+                                                        doc.setFont('helvetica', 'bold');
+                                                        doc.text(label + ':', 20, y);
+                                                        doc.setFont('helvetica', 'normal');
+                                                        doc.text(val, 70, y);
+                                                        y += 8;
+                                                    });
+
+                                                    y += 5;
+                                                    doc.setFont('helvetica', 'bold');
+                                                    doc.setFontSize(12);
+                                                    doc.text('BLOCKCHAIN VERIFICATION', 20, y);
+                                                    doc.line(20, y + 2, pageW - 20, y + 2);
+                                                    y += 12;
+
+                                                    doc.setFontSize(9);
+                                                    doc.setFont('helvetica', 'bold');
+                                                    doc.text('Transaction Hash:', 20, y);
+                                                    y += 6;
+                                                    doc.setFont('courier', 'normal');
+                                                    doc.setFontSize(8);
+                                                    doc.text(voteReceipt.tx_hash, 20, y, { maxWidth: pageW - 40 });
+                                                    y += 12;
+
+                                                    doc.setFont('helvetica', 'normal');
+                                                    doc.setFontSize(9);
+                                                    doc.setTextColor(0, 0, 128);
+                                                    doc.text('Verify: https://etherscan.io/tx/' + voteReceipt.tx_hash.slice(0, 20) + '...', 20, y);
+                                                    y += 15;
+
+                                                    // QR Code
+                                                    const qrDataUrl = await QRCode.toDataURL(voteReceipt.tx_hash, { width: 150, margin: 1 });
+                                                    doc.addImage(qrDataUrl, 'PNG', pageW / 2 - 25, y, 50, 50);
+                                                    y += 55;
+                                                    doc.setTextColor(100, 100, 100);
+                                                    doc.setFontSize(8);
+                                                    doc.text('Scan QR to verify on blockchain', pageW / 2, y, { align: 'center' });
+
+                                                    // Footer
+                                                    doc.setFillColor(19, 136, 8);
+                                                    doc.rect(0, 280, pageW, 17, 'F');
+                                                    doc.setTextColor(255, 255, 255);
+                                                    doc.setFontSize(8);
+                                                    doc.text('This receipt is for your records only. It does not reveal your vote.', pageW / 2, 288, { align: 'center' });
+                                                    doc.text('Jai Hind!', pageW / 2, 293, { align: 'center' });
+
+                                                    doc.save('BharatEVote_Receipt.pdf');
+                                                } catch (err) {
+                                                    alert('Failed to generate PDF: ' + err.message);
+                                                }
+                                            }}
+                                            className="inline-flex items-center text-xs font-bold text-green-700 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded border border-green-200 transition-colors"
+                                            aria-label="Download vote receipt as PDF"
+                                        >
+                                            <i className="fa-solid fa-file-pdf mr-1.5"></i>Download PDF Receipt
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         )}

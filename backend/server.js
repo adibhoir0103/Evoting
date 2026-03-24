@@ -103,6 +103,18 @@ async function initDatabase() {
     // Migration: Add address column for profile
     try { db.run("ALTER TABLE users ADD COLUMN address TEXT"); console.log('✅ Migration: Added address column'); } catch (e) { }
 
+    // Admin audit log table
+    db.run(`
+        CREATE TABLE IF NOT EXISTS admin_audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            admin_email TEXT NOT NULL,
+            action TEXT NOT NULL,
+            details TEXT,
+            ip_address TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
     saveDatabase();
     console.log('✅ Tables initialized');
 }
@@ -115,7 +127,19 @@ function saveDatabase() {
 }
 
 // Security Middleware
-app.use(helmet());
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
+            imgSrc: ["'self'", "data:", "https://upload.wikimedia.org", "https://*.wikimedia.org"],
+            connectSrc: ["'self'", "http://localhost:*", "ws://localhost:*"]
+        }
+    },
+    crossOriginEmbedderPolicy: false
+}));
 app.use(cors({
     origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
     credentials: true,
@@ -590,6 +614,8 @@ app.post('/api/admin/login', authLimiter, async (req, res) => {
             { expiresIn: '8h' }
         );
 
+        logAdminAction(trimmedEmail, 'LOGIN', 'Admin login successful', req.ip);
+
         res.json({
             message: 'Admin login successful',
             token,
@@ -684,6 +710,38 @@ app.get('/api/admin/stats', authenticateAdmin, (req, res) => {
         });
     } catch (error) {
         console.error('Get stats error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Helper: Log admin action
+function logAdminAction(adminEmail, action, details, ip) {
+    try {
+        db.run(
+            'INSERT INTO admin_audit_log (admin_email, action, details, ip_address) VALUES (?, ?, ?, ?)',
+            [adminEmail, action, details || '', ip || 'unknown']
+        );
+        saveDatabase();
+    } catch (e) {
+        console.error('Audit log error:', e);
+    }
+}
+
+// Get admin audit log
+app.get('/api/admin/audit-log', authenticateAdmin, (req, res) => {
+    try {
+        const result = db.exec('SELECT * FROM admin_audit_log ORDER BY created_at DESC LIMIT 100');
+        if (result.length === 0) return res.json({ logs: [] });
+
+        const columns = result[0].columns;
+        const logs = result[0].values.map(row => {
+            const log = {};
+            columns.forEach((col, idx) => log[col] = row[idx]);
+            return log;
+        });
+        res.json({ logs });
+    } catch (error) {
+        console.error('Get audit log error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });

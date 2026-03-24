@@ -20,6 +20,7 @@ import AdminPanel from './pages/AdminPanel';
 import DashboardPage from './pages/DashboardPage';
 import CandidatesPage from './pages/CandidatesPage';
 import SearchRollPage from './pages/SearchRollPage';
+import ResultsPage from './pages/ResultsPage';
 
 // Services
 import { authService } from './services/authService';
@@ -96,6 +97,29 @@ function App() {
         setUser(null);
         setIsAdmin(false);
     };
+
+    // Session timeout: auto-logout after 30 minutes of inactivity
+    useEffect(() => {
+        if (!user) return;
+        let idleTimer;
+        const IDLE_LIMIT = 30 * 60 * 1000; // 30 minutes
+        const resetTimer = () => {
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => {
+                alert('Session expired due to inactivity. Please log in again.');
+                handleLogout();
+                window.location.href = '/login';
+            }, IDLE_LIMIT);
+        };
+        const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+        events.forEach(e => window.addEventListener(e, resetTimer));
+        resetTimer();
+        return () => {
+            clearTimeout(idleTimer);
+            events.forEach(e => window.removeEventListener(e, resetTimer));
+        };
+        // eslint-disable-next-line
+    }, [user]);
 
     const handleUserUpdate = (updatedUser) => {
         setUser(updatedUser);
@@ -190,6 +214,14 @@ function App() {
                 <Route path="/help" element={<HelpPage />} />
                 <Route path="/candidates" element={<CandidatesPage />} />
                 <Route path="/search-roll" element={<SearchRollPage />} />
+
+                {/* Election Results — Public */}
+                <Route path="/results" element={
+                    <>
+                        <Navbar user={user} onLogout={handleLogout} isAdmin={isAdmin} />
+                        <ResultsPage />
+                    </>
+                } />
 
                 {/* Admin Dashboard */}
                 <Route
