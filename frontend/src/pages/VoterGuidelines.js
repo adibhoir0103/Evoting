@@ -24,8 +24,8 @@ function VoterGuidelines() {
                 </div>
             </nav>
 
-            <div className="guidelines-container" style={{ maxWidth: '900px', margin: '2rem auto', padding: '0 1rem' }}>
-                <div className="auth-card">
+            <div className="guidelines-container" style={{ maxWidth: '1200px', margin: '2rem auto', padding: '0 1rem' }}>
+                <div className="content-card">
                     <h1 style={{ color: '#000080', marginBottom: '1.5rem', borderBottom: '3px solid #FF9933', paddingBottom: '0.5rem' }}>
                         <i className="fa-solid fa-book"></i> Voter Guidelines
                     </h1>
@@ -33,44 +33,46 @@ function VoterGuidelines() {
                         As per Election Commission of India norms for secure and transparent voting
                     </p>
 
-                    {/* Before Voting */}
-                    <div className="guideline-section" style={{ marginBottom: '2rem' }}>
-                        <h2 style={{ color: '#000080', marginBottom: '1rem' }}>
-                            <i className="fa-solid fa-clipboard-check"></i> Before Voting
-                        </h2>
-                        <ul style={{ lineHeight: '2', color: '#333' }}>
-                            <li><strong>Verify Your Registration:</strong> Ensure your name appears in the electoral roll. Check at nvsp.in or your local Electoral Registration Officer.</li>
-                            <li><strong>Valid ID Required:</strong> Carry your EPIC (Voter ID Card) or any of the 12 alternative photo IDs approved by ECI.</li>
-                            <li><strong>Aadhaar Linking:</strong> For e-voting, your Aadhaar must be linked to your voter registration.</li>
-                            <li><strong>Polling Hours:</strong> Voting is open from <strong>7:00 AM to 6:00 PM</strong> on the designated polling day.</li>
-                            <li><strong>Wallet Setup:</strong> Install MetaMask browser extension and connect to the Hardhat Local network.</li>
-                        </ul>
-                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2rem' }}>
+                        {/* Before Voting */}
+                        <div className="guideline-section">
+                            <h2 style={{ color: '#000080', marginBottom: '1rem' }}>
+                                <i className="fa-solid fa-clipboard-check"></i> Before Voting
+                            </h2>
+                            <ul style={{ lineHeight: '1.8', color: '#333' }}>
+                                <li><strong>Verify Your Registration:</strong> Ensure your name appears in the electoral roll. Check at nvsp.in or your local Electoral Registration Officer.</li>
+                                <li><strong>Valid ID Required:</strong> Carry your EPIC (Voter ID Card) or any of the 12 alternative photo IDs approved by ECI.</li>
+                                <li><strong>Aadhaar Linking:</strong> For e-voting, your Aadhaar must be linked to your voter registration.</li>
+                                <li><strong>Polling Hours:</strong> Voting is open from <strong>7:00 AM to 6:00 PM</strong> on the designated polling day.</li>
+                                <li><strong>Wallet Setup:</strong> Install MetaMask browser extension and connect to the Hardhat Local network.</li>
+                            </ul>
+                        </div>
 
-                    {/* During Voting */}
-                    <div className="guideline-section" style={{ marginBottom: '2rem' }}>
-                        <h2 style={{ color: '#000080', marginBottom: '1rem' }}>
-                            <i className="fa-solid fa-vote-yea"></i> During Voting
-                        </h2>
-                        <ul style={{ lineHeight: '2', color: '#333' }}>
-                            <li><strong>One Person, One Vote:</strong> Each voter can cast only ONE vote. Multiple voting is a punishable offense under IPC Section 171.</li>
-                            <li><strong>Secret Ballot:</strong> Your vote is encrypted on the blockchain. No one can see whom you voted for.</li>
-                            <li><strong>Confirm Before Submit:</strong> Review your choice carefully before confirming. Once submitted, votes CANNOT be changed.</li>
-                            <li><strong>Transaction Confirmation:</strong> Wait for MetaMask to confirm the transaction. Do not close the browser until you see the success message.</li>
-                            <li><strong>No Photography:</strong> Taking photos or videos inside the voting area is prohibited.</li>
-                        </ul>
-                    </div>
+                        {/* During Voting */}
+                        <div className="guideline-section">
+                            <h2 style={{ color: '#000080', marginBottom: '1rem' }}>
+                                <i className="fa-solid fa-vote-yea"></i> During Voting
+                            </h2>
+                            <ul style={{ lineHeight: '1.8', color: '#333' }}>
+                                <li><strong>One Person, One Vote:</strong> Each voter can cast only ONE vote. Multiple voting is a punishable offense under IPC Section 171.</li>
+                                <li><strong>Secret Ballot:</strong> Your vote is encrypted on the blockchain. No one can see whom you voted for.</li>
+                                <li><strong>Confirm Before Submit:</strong> Review your choice carefully before confirming. Once submitted, votes CANNOT be changed.</li>
+                                <li><strong>Transaction Confirmation:</strong> Wait for MetaMask to confirm the transaction. Do not close the browser until you see the success message.</li>
+                                <li><strong>No Photography:</strong> Taking photos or videos inside the voting area is prohibited.</li>
+                            </ul>
+                        </div>
 
-                    {/* After Voting */}
-                    <div className="guideline-section" style={{ marginBottom: '2rem' }}>
-                        <h2 style={{ color: '#000080', marginBottom: '1rem' }}>
-                            <i className="fa-solid fa-flag-checkered"></i> After Voting
-                        </h2>
-                        <ul style={{ lineHeight: '2', color: '#333' }}>
-                            <li><strong>Vote Receipt:</strong> Your vote is recorded on the blockchain with a unique transaction hash.</li>
-                            <li><strong>Results Declaration:</strong> Results will be announced after polls close, as per ECI schedule.</li>
-                            <li><strong>Verification:</strong> You can verify your vote was recorded on the blockchain explorer.</li>
-                        </ul>
+                        {/* After Voting */}
+                        <div className="guideline-section">
+                            <h2 style={{ color: '#000080', marginBottom: '1rem' }}>
+                                <i className="fa-solid fa-flag-checkered"></i> After Voting
+                            </h2>
+                            <ul style={{ lineHeight: '1.8', color: '#333' }}>
+                                <li><strong>Vote Receipt:</strong> Your vote is recorded on the blockchain with a unique transaction hash.</li>
+                                <li><strong>Results Declaration:</strong> Results will be announced after polls close, as per ECI schedule.</li>
+                                <li><strong>Verification:</strong> You can verify your vote was recorded on the blockchain explorer.</li>
+                            </ul>
+                        </div>
                     </div>
 
                     {/* Code of Conduct */}

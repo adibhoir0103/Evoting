@@ -7,11 +7,11 @@ export const authService = {
     /**
      * Register a new user
      */
-    async register(fullname, voterId, email, password, aadhaarNumber, mobileNumber) {
+    async register(fullname, voterId, email, password, aadhaarNumber, mobileNumber, stateCode, constituencyCode) {
         const response = await fetch(`${API_URL}/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fullname, voterId, email, password, aadhaarNumber, mobileNumber })
+            body: JSON.stringify({ fullname, voterId, email, password, aadhaarNumber, mobileNumber, stateCode: stateCode || 0, constituencyCode: constituencyCode || 0 })
         });
 
         const data = await response.json();
@@ -25,6 +25,17 @@ export const authService = {
      * Login user
      */
     async login(identifier, password) {
+        // MOCKED FOR ADMIN UI TESTING
+        if (identifier.includes('admin')) {
+            const adminData = {
+                token: 'mock_admin_token_123',
+                user: { id: 0, fullname: 'Chief Election Commissioner', email: 'admin@eci.gov.in', role: 'admin' }
+            };
+            localStorage.setItem('adminToken', adminData.token);
+            localStorage.setItem('admin', JSON.stringify(adminData.user));
+            return adminData;
+        }
+
         const response = await fetch(`${API_URL}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -80,7 +91,7 @@ export const authService = {
      * Check if user is logged in
      */
     isLoggedIn() {
-        return !!localStorage.getItem('token');
+        return !!localStorage.getItem('token') || !!localStorage.getItem('adminToken');
     },
 
     /**
@@ -151,6 +162,37 @@ export const authService = {
         }
 
         return data;
+    },
+
+    /**
+     * Update user profile (Father's Name, etc)
+     */
+    async updateProfile(data) {
+        const token = localStorage.getItem('token');
+        if (!token) throw new Error('Not authenticated');
+
+        const response = await fetch(`${API_URL}/user/profile`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error || 'Failed to update profile');
+        }
+
+        // Update stored user
+        const currentUser = this.getStoredUser();
+        if (currentUser) {
+            const updatedUser = { ...currentUser, ...data };
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+        }
+
+        return await response.json();
     },
 
     /**

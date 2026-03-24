@@ -1,5 +1,7 @@
 // OTP Service for Aadhaar Authentication
 // Simulates OTP generation and verification for demo purposes
+const crypto = require('crypto');
+const emailService = require('./emailService');
 
 class OTPService {
     constructor() {
@@ -13,7 +15,7 @@ class OTPService {
      * Generate a 6-digit OTP
      */
     generateOTP() {
-        return Math.floor(100000 + Math.random() * 900000).toString();
+        return crypto.randomInt(100000, 999999).toString();
     }
 
     /**
@@ -41,31 +43,27 @@ class OTPService {
 
             // Send OTP based on method
             if (method === 'email') {
-                // For demo, we'll just log it
-                // In production, integrate emailService:
-                // const emailService = require('./emailService');
-                // await emailService.sendOTP(recipient, otp, userName);
-
-                console.log(`📧 Email OTP for ${recipient}: ${otp} (Valid for 5 minutes)`);
+                // Send via emailService (real or demo depending on config)
+                const emailResult = await emailService.sendOTP(recipient, otp, userName);
 
                 return {
                     success: true,
                     message: `OTP sent to ${recipient.slice(0, 3)}***${recipient.slice(-10)}`,
                     method: 'email',
-                    demoOTP: otp // For demo only!
+                    // Include demoOTP in dev mode when emailService is in demo mode
+                    ...(emailResult.demo && process.env.NODE_ENV !== 'production' && { demoOTP: otp })
                 };
             } else {
                 // Mobile SMS (simulated for demo)
-                console.log(`📱 Mobile OTP for ${recipient}: ${otp} (Valid for 5 minutes)`);
-
-                // In production, integrate with SMS gateway:
-                // await smsGateway.send(recipient, `Your Bharat E-Vote OTP is: ${otp}. Valid for 5 minutes.`);
+                if (process.env.NODE_ENV !== 'production') {
+                    console.log(`📱 OTP sent to ${recipient.slice(0, 2)}**** (dev mode)`);
+                }
 
                 return {
                     success: true,
                     message: `OTP sent to ${recipient.slice(0, 2)}****${recipient.slice(-2)}`,
                     method: 'mobile',
-                    demoOTP: otp // For demo only!
+                    ...(process.env.NODE_ENV !== 'production' && { demoOTP: otp })
                 };
             }
         } catch (error) {

@@ -3,8 +3,9 @@ pragma solidity ^0.8.19;
 
 /**
  * @title Voting
- * @dev Implements a secure blockchain-based e-voting system
- * @notice This contract allows an admin to register candidates and authorize voters
+ * @dev Enhanced blockchain-based e-voting system with constituency support,
+ *      party info, timeline controls, and vote receipts
+ * @notice Inspired by GeekyAnts/sample-e-voting-system-ethereum and Krish-Depani
  */
 contract Voting {
     // ============ State Variables ============
@@ -12,11 +13,20 @@ contract Voting {
     address public admin;
     bool public votingActive;
     
+    // Timeline controls
+    uint256 public votingStartTime;
+    uint256 public votingEndTime;
+    bool public timelineEnabled;
+    
     // ============ Data Structures ============
     
     struct Candidate {
         uint256 id;
         string name;
+        string partyName;
+        string partySymbol;
+        uint8 stateCode;
+        uint8 constituencyCode;
         uint256 voteCount;
     }
     
@@ -24,6 +34,8 @@ contract Voting {
         bool isAuthorized;
         bool hasVoted;
         uint256 votedCandidateId;
+        uint8 stateCode;
+        uint8 constituencyCode;
     }
     
     // ============ Mappings & Arrays ============
@@ -34,10 +46,11 @@ contract Voting {
     
     // ============ Events ============
     
-    event CandidateAdded(uint256 indexed candidateId, string name);
-    event VoterAuthorized(address indexed voter);
+    event CandidateAdded(uint256 indexed candidateId, string name, string partyName, uint8 stateCode, uint8 constituencyCode);
+    event VoterAuthorized(address indexed voter, uint8 stateCode, uint8 constituencyCode);
     event VoteCast(address indexed voter, uint256 indexed candidateId);
     event VotingStatusChanged(bool isActive);
+    event VotingTimelineSet(uint256 startTime, uint256 endTime);
     
     // ============ Modifiers ============
     
@@ -48,6 +61,10 @@ contract Voting {
     
     modifier votingIsActive() {
         require(votingActive, "Voting is not active");
+        if (timelineEnabled) {
+            require(block.timestamp >= votingStartTime, "Voting has not started yet");
+            require(block.timestamp <= votingEndTime, "Voting period has ended");
+        }
         _;
     }
     
@@ -61,51 +78,134 @@ contract Voting {
     constructor() {
         admin = msg.sender;
         votingActive = false;
+        timelineEnabled = false;
     }
     
     // ============ Admin Functions ============
     
     /**
-     * @dev Add a new candidate to the election
+     * @dev Add a new candidate with party and constituency info
      * @param _name Name of the candidate
-     * @notice Only admin can call this function and only when voting is not active
+     * @param _partyName Name of the political party
+     * @param _partySymbol Party symbol/abbreviation
+     * @param _stateCode Indian state code (0 = any/all states)
+     * @param _constituencyCode Constituency number (0 = any/all)
      */
-    function addCandidate(string memory _name) public onlyAdmin votingIsNotActive {
+    function addCandidate(
+        string memory _name,
+        string memory _partyName,
+        string memory _partySymbol,
+        uint8 _stateCode,
+        uint8 _constituencyCode
+    ) public onlyAdmin votingIsNotActive {
         require(bytes(_name).length > 0, "Candidate name cannot be empty");
         
         candidatesCount++;
-        candidates[candidatesCount] = Candidate(candidatesCount, _name, 0);
+        candidates[candidatesCount] = Candidate(
+            candidatesCount,
+            _name,
+            _partyName,
+            _partySymbol,
+            _stateCode,
+            _constituencyCode,
+            0
+        );
         
-        emit CandidateAdded(candidatesCount, _name);
+        emit CandidateAdded(candidatesCount, _name, _partyName, _stateCode, _constituencyCode);
+    }
+
+    /**
+     * @dev Legacy addCandidate for backward compatibility (no party/constituency)
+     */
+    function addCandidateSimple(string memory _name) public onlyAdmin votingIsNotActive {
+        require(bytes(_name).length > 0, "Candidate name cannot be empty");
+        
+        candidatesCount++;
+        candidates[candidatesCount] = Candidate(
+            candidatesCount,
+            _name,
+            "",    // no party
+            "",    // no symbol
+            0,     // all states
+            0,     // all constituencies
+            0
+        );
+        
+        emit CandidateAdded(candidatesCount, _name, "", 0, 0);
     }
     
     /**
-     * @dev Authorize a voter to participate in the election
-     * @param _voter Address of the voter to authorize
-     * @notice Only admin can authorize voters
+     * @dev Authorize a voter with constituency info
+     * @param _voter Address of the voter
+     * @param _stateCode Voter's state code
+     * @param _constituencyCode Voter's constituency code
      */
-    function authorizeVoter(address _voter) public onlyAdmin {
+    function authorizeVoter(
+        address _voter,
+        uint8 _stateCode,
+        uint8 _constituencyCode
+    ) public onlyAdmin {
         require(_voter != address(0), "Invalid voter address");
         require(!voters[_voter].isAuthorized, "Voter is already authorized");
         
         voters[_voter].isAuthorized = true;
         voters[_voter].hasVoted = false;
+        voters[_voter].stateCode = _stateCode;
+        voters[_voter].constituencyCode = _constituencyCode;
         
-        emit VoterAuthorized(_voter);
+        emit VoterAuthorized(_voter, _stateCode, _constituencyCode);
+    }
+
+    /**
+     * @dev Legacy authorizeVoter for backward compatibility (no constituency)
+     */
+    function authorizeVoterSimple(address _voter) public onlyAdmin {
+        require(_voter != address(0), "Invalid voter address");
+        require(!voters[_voter].isAuthorized, "Voter is already authorized");
+        
+        voters[_voter].isAuthorized = true;
+        voters[_voter].hasVoted = false;
+        voters[_voter].stateCode = 0;
+        voters[_voter].constituencyCode = 0;
+        
+        emit VoterAuthorized(_voter, 0, 0);
     }
     
     /**
-     * @dev Authorize multiple voters at once
-     * @param _voters Array of voter addresses to authorize
+     * @dev Authorize multiple voters at once (simple, no constituency)
      */
     function authorizeVotersBatch(address[] memory _voters) public onlyAdmin {
         for (uint256 i = 0; i < _voters.length; i++) {
             if (!voters[_voters[i]].isAuthorized && _voters[i] != address(0)) {
                 voters[_voters[i]].isAuthorized = true;
                 voters[_voters[i]].hasVoted = false;
-                emit VoterAuthorized(_voters[i]);
+                voters[_voters[i]].stateCode = 0;
+                voters[_voters[i]].constituencyCode = 0;
+                emit VoterAuthorized(_voters[i], 0, 0);
             }
         }
+    }
+
+    /**
+     * @dev Set voting timeline
+     * @param _startTime Unix timestamp for voting start
+     * @param _endTime Unix timestamp for voting end
+     */
+    function setVotingTimeline(uint256 _startTime, uint256 _endTime) public onlyAdmin votingIsNotActive {
+        require(_endTime > _startTime, "End time must be after start time");
+        votingStartTime = _startTime;
+        votingEndTime = _endTime;
+        timelineEnabled = true;
+        emit VotingTimelineSet(_startTime, _endTime);
+    }
+
+    /**
+     * @dev Disable timeline (voting controlled manually)
+     */
+    function disableTimeline() public onlyAdmin votingIsNotActive {
+        timelineEnabled = false;
+        votingStartTime = 0;
+        votingEndTime = 0;
     }
     
     /**
@@ -130,24 +230,35 @@ contract Voting {
     /**
      * @dev Cast a vote for a candidate
      * @param _candidateId ID of the candidate to vote for
-     * @notice Voter must be authorized and can only vote once
+     * @notice Voter must be authorized, can only vote once, and constituency must match
      */
     function vote(uint256 _candidateId) public votingIsActive {
+        Voter storage voter = voters[msg.sender];
+        
         // Security Check 1: Ensure voter is authorized
-        require(voters[msg.sender].isAuthorized, "You are not authorized to vote");
+        require(voter.isAuthorized, "You are not authorized to vote");
         
         // Security Check 2: Prevent double voting
-        require(!voters[msg.sender].hasVoted, "You have already voted");
+        require(!voter.hasVoted, "You have already voted");
         
         // Security Check 3: Validate candidate exists
         require(_candidateId > 0 && _candidateId <= candidatesCount, "Invalid candidate ID");
         
+        // Security Check 4: Constituency match (if both voter and candidate have constituency set)
+        Candidate storage candidate = candidates[_candidateId];
+        if (voter.stateCode != 0 && candidate.stateCode != 0) {
+            require(voter.stateCode == candidate.stateCode, "You can only vote for candidates in your state");
+        }
+        if (voter.constituencyCode != 0 && candidate.constituencyCode != 0) {
+            require(voter.constituencyCode == candidate.constituencyCode, "You can only vote for candidates in your constituency");
+        }
+        
         // Mark voter as having voted (prevents re-entrancy and double voting)
-        voters[msg.sender].hasVoted = true;
-        voters[msg.sender].votedCandidateId = _candidateId;
+        voter.hasVoted = true;
+        voter.votedCandidateId = _candidateId;
         
         // Increment candidate vote count
-        candidates[_candidateId].voteCount++;
+        candidate.voteCount++;
         
         emit VoteCast(msg.sender, _candidateId);
     }
@@ -156,7 +267,6 @@ contract Voting {
     
     /**
      * @dev Get all candidates with their vote counts
-     * @return Array of all candidates
      */
     function getAllCandidates() public view returns (Candidate[] memory) {
         Candidate[] memory allCandidates = new Candidate[](candidatesCount);
@@ -167,10 +277,36 @@ contract Voting {
         
         return allCandidates;
     }
+
+    /**
+     * @dev Get candidates filtered by constituency
+     */
+    function getCandidatesByConstituency(uint8 _stateCode, uint8 _constituencyCode) public view returns (Candidate[] memory) {
+        // First count matching candidates
+        uint256 count = 0;
+        for (uint256 i = 1; i <= candidatesCount; i++) {
+            if ((candidates[i].stateCode == _stateCode || candidates[i].stateCode == 0) &&
+                (candidates[i].constituencyCode == _constituencyCode || candidates[i].constituencyCode == 0)) {
+                count++;
+            }
+        }
+
+        // Build result array
+        Candidate[] memory result = new Candidate[](count);
+        uint256 idx = 0;
+        for (uint256 i = 1; i <= candidatesCount; i++) {
+            if ((candidates[i].stateCode == _stateCode || candidates[i].stateCode == 0) &&
+                (candidates[i].constituencyCode == _constituencyCode || candidates[i].constituencyCode == 0)) {
+                result[idx] = candidates[i];
+                idx++;
+            }
+        }
+
+        return result;
+    }
     
     /**
      * @dev Get a specific candidate's details
-     * @param _candidateId ID of the candidate
      */
     function getCandidate(uint256 _candidateId) public view returns (Candidate memory) {
         require(_candidateId > 0 && _candidateId <= candidatesCount, "Invalid candidate ID");
@@ -179,7 +315,6 @@ contract Voting {
     
     /**
      * @dev Check if an address is authorized to vote
-     * @param _voter Address to check
      */
     function isVoterAuthorized(address _voter) public view returns (bool) {
         return voters[_voter].isAuthorized;
@@ -187,7 +322,6 @@ contract Voting {
     
     /**
      * @dev Check if a voter has already voted
-     * @param _voter Address to check
      */
     function hasVoterVoted(address _voter) public view returns (bool) {
         return voters[_voter].hasVoted;
@@ -195,16 +329,28 @@ contract Voting {
     
     /**
      * @dev Get the candidate a voter voted for
-     * @param _voter Address of the voter
      */
     function getVoterChoice(address _voter) public view returns (uint256) {
         require(voters[_voter].hasVoted, "Voter has not voted yet");
         return voters[_voter].votedCandidateId;
     }
+
+    /**
+     * @dev Get voter's constituency info
+     */
+    function getVoterInfo(address _voter) public view returns (
+        bool isAuthorized,
+        bool hasVoted,
+        uint8 stateCode,
+        uint8 constituencyCode,
+        uint256 votedCandidateId
+    ) {
+        Voter memory v = voters[_voter];
+        return (v.isAuthorized, v.hasVoted, v.stateCode, v.constituencyCode, v.votedCandidateId);
+    }
     
     /**
      * @dev Get the winning candidate
-     * @return Candidate with the most votes
      */
     function getWinner() public view returns (Candidate memory) {
         require(candidatesCount > 0, "No candidates available");
@@ -232,5 +378,27 @@ contract Voting {
             total += candidates[i].voteCount;
         }
         return total;
+    }
+
+    /**
+     * @dev Get a vote receipt hash (proof of participation without revealing choice)
+     * @param _voter Address of the voter
+     * @return receiptHash A keccak256 hash that proves the voter participated
+     */
+    function getVoteReceipt(address _voter) public view returns (bytes32 receiptHash) {
+        require(voters[_voter].hasVoted, "Voter has not voted yet");
+        return keccak256(abi.encodePacked(_voter, voters[_voter].votedCandidateId, block.chainid));
+    }
+
+    /**
+     * @dev Get voting timeline info
+     */
+    function getVotingTimeline() public view returns (
+        bool _timelineEnabled,
+        uint256 _startTime,
+        uint256 _endTime,
+        bool _isActive
+    ) {
+        return (timelineEnabled, votingStartTime, votingEndTime, votingActive);
     }
 }

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
 function AdminLoginPage({ onAdminLogin }) {
     const navigate = useNavigate();
     const [email, setEmail] = useState('');
@@ -14,7 +16,7 @@ function AdminLoginPage({ onAdminLogin }) {
         setLoading(true);
 
         try {
-            const response = await fetch('http://localhost:5000/api/admin/login', {
+            const response = await fetch(`${API_URL}/admin/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password })
@@ -116,9 +118,8 @@ function AdminLoginPage({ onAdminLogin }) {
                     </form>
 
                     <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#fff3cd', borderRadius: '4px', fontSize: '0.85rem' }}>
-                        <strong><i className="fa-solid fa-info-circle"></i> Demo Credentials:</strong>
-                        <br />Email: admin@evote.com
-                        <br />Password: admin123
+                        <strong><i className="fa-solid fa-info-circle"></i> Authorized Personnel Only</strong>
+                        <br />Contact System Administrator for credentials.
                     </div>
 
                     <div className="auth-footer" style={{ marginTop: '1.5rem' }}>

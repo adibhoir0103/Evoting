@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
 function LoginPage({ onLogin }) {
     const navigate = useNavigate();
 
@@ -18,7 +20,7 @@ function LoginPage({ onLogin }) {
     const [otp, setOtp] = useState(['', '', '', '', '', '']);
     const [otpSent, setOtpSent] = useState(false);
     const [otpTimer, setOtpTimer] = useState(0);
-    const [demoOTP, setDemoOTP] = useState(''); // For demo display
+    const [demoOTP, setDemoOTP] = useState('');
 
     // Traditional Login
     const [identifier, setIdentifier] = useState('');
@@ -32,7 +34,6 @@ function LoginPage({ onLogin }) {
     // OTP input refs
     const otpRefs = useRef([]);
 
-    // Timer countdown
     useEffect(() => {
         if (otpTimer > 0) {
             const timer = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
@@ -40,35 +41,30 @@ function LoginPage({ onLogin }) {
         }
     }, [otpTimer]);
 
-    // Format timer as MM:SS
     const formatTimer = (seconds) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // Handle OTP input
     const handleOtpChange = (index, value) => {
-        if (!/^\d*$/.test(value)) return; // Only numbers
+        if (!/^\d*$/.test(value)) return;
 
         const newOtp = [...otp];
-        newOtp[index] = value.slice(-1); // Only last digit
+        newOtp[index] = value.slice(-1);
         setOtp(newOtp);
 
-        // Auto-focus next input
         if (value && index < 5) {
             otpRefs.current[index + 1]?.focus();
         }
     };
 
-    // Handle OTP backspace
     const handleOtpKeyDown = (index, e) => {
         if (e.key === 'Backspace' && !otp[index] && index > 0) {
             otpRefs.current[index - 1]?.focus();
         }
     };
 
-    // Send OTP
     const handleSendOTP = async (e) => {
         e.preventDefault();
         setError('');
@@ -76,19 +72,11 @@ function LoginPage({ onLogin }) {
         setLoading(true);
 
         try {
-            const payload = {
-                aadhaarNumber,
-                method: otpMethod
-            };
+            const payload = { aadhaarNumber, method: otpMethod };
+            if (otpMethod === 'email') payload.email = email;
+            else payload.mobileNumber = mobileNumber;
 
-            // Add email or mobile based on method
-            if (otpMethod === 'email') {
-                payload.email = email;
-            } else {
-                payload.mobileNumber = mobileNumber;
-            }
-
-            const response = await fetch('http://localhost:5000/api/auth/send-otp', {
+            const response = await fetch(`${API_URL}/auth/send-otp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -96,13 +84,11 @@ function LoginPage({ onLogin }) {
 
             const data = await response.json();
 
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to send OTP');
-            }
+            if (!response.ok) throw new Error(data.error || 'Failed to send OTP');
 
             setOtpSent(true);
-            setOtpTimer(300); // 5 minutes
-            setDemoOTP(data.demoOTP); // For demo
+            setOtpTimer(300);
+            setDemoOTP(data.demoOTP);
             setSuccess(data.message);
         } catch (err) {
             setError(err.message);
@@ -111,14 +97,12 @@ function LoginPage({ onLogin }) {
         }
     };
 
-    // Resend OTP
     const handleResendOTP = () => {
         setOtp(['', '', '', '', '', '']);
         setOtpSent(false);
         setDemoOTP('');
     };
 
-    // Verify OTP and Login
     const handleOTPLogin = async (e) => {
         e.preventDefault();
         setError('');
@@ -132,7 +116,7 @@ function LoginPage({ onLogin }) {
         }
 
         try {
-            const response = await fetch('http://localhost:5000/api/auth/verify-otp', {
+            const response = await fetch(`${API_URL}/auth/verify-otp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ aadhaarNumber, otp: otpCode })
@@ -140,11 +124,8 @@ function LoginPage({ onLogin }) {
 
             const data = await response.json();
 
-            if (!response.ok) {
-                throw new Error(data.error || 'OTP verification failed');
-            }
+            if (!response.ok) throw new Error(data.error || 'OTP verification failed');
 
-            // Store token and user
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
 
@@ -152,14 +133,13 @@ function LoginPage({ onLogin }) {
             navigate('/');
         } catch (err) {
             setError(err.message);
-            setOtp(['', '', '', '', '', '']); // Clear OTP on error
+            setOtp(['', '', '', '', '', '']);
             otpRefs.current[0]?.focus();
         } finally {
             setLoading(false);
         }
     };
 
-    // Traditional Login
     const handleTraditionalLogin = async (e) => {
         e.preventDefault();
         setError('');
@@ -177,187 +157,198 @@ function LoginPage({ onLogin }) {
     };
 
     return (
-        <div className="auth-page">
-            {/* Simplified Navbar for Auth Pages */}
-            <nav className="govt-navbar">
-                <div className="navbar-top">
-                    <span style={{ background: '#FF9933', padding: '2px 8px', borderRadius: '3px', marginRight: '10px', fontSize: '0.75rem', fontWeight: '600' }}>DEMO</span>
-                    <span>Bharat E-Vote | Blockchain Voting System</span>
+        <div className="min-h-screen bg-gov-bg flex flex-col font-sans">
+            {/* Simple Govt Navbar */}
+            <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
+                <div className="bg-gray-100 py-1 px-4 sm:px-6 lg:px-8 text-xs font-medium text-gray-600 flex justify-between items-center border-b border-gray-200">
+                    <div className="flex items-center gap-2">
+                        <span className="bg-accent-saffron text-white px-2 py-0.5 rounded font-bold text-[10px]">DEMO</span>
+                        <span>भारत सरकार | Government of India</span>
+                    </div>
                 </div>
-                <div className="navbar-main">
-                    <Link to="/" className="navbar-brand">
-                        <img
-                            src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg"
-                            alt="National Emblem of India"
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
+                    <Link to="/" className="flex items-center gap-3">
+                        <img 
+                            src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Emblem_of_India.svg/220px-Emblem_of_India.svg.png" 
+                            alt="Emblem of India" 
+                            className="h-10 w-auto"
                         />
-                        <div className="brand-text">
-                            <span className="title">Bharat E-Vote</span>
-                            <span className="subtitle">Final Year Project</span>
+                        <div>
+                            <span className="block text-xl font-bold text-primary leading-none">Bharat E-Vote</span>
+                            <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Citizen Authentication</span>
                         </div>
                     </Link>
-                    <Link to="/" className="btn btn-secondary">
-                        <i className="fa-solid fa-arrow-left"></i> Back to Home
+                    <Link to="/" className="btn-secondary text-sm py-1.5 px-4">
+                        <i className="fa-solid fa-arrow-left mr-2"></i> Back
                     </Link>
                 </div>
-            </nav>
+            </header>
 
-            <div className="auth-container">
-                <div className="auth-card" style={{ maxWidth: '550px' }}>
-                    <div className="auth-header">
-                        <div style={{ fontSize: '3rem', color: '#000080', marginBottom: '1rem' }}>
-                            <i className="fa-solid fa-user-shield"></i>
+            <main className="flex-grow p-4 py-8 md:py-12">
+                <div className="gov-card max-w-lg w-full mx-auto p-8 shadow-xl">
+                    <div className="text-center mb-8">
+                        <div className="inline-flex justify-center items-center w-16 h-16 rounded-full bg-blue-50 text-primary mb-4 border border-blue-100 shadow-inner">
+                            <i className="fa-solid fa-user-shield text-2xl"></i>
                         </div>
-                        <h2>Sign in to your account</h2>
-                        <p>Choose your preferred login method</p>
+                        <h2 className="text-2xl font-bold text-gray-900">Sign in to your account</h2>
+                        <p className="text-gray-500 mt-2">Choose your preferred secure login method</p>
                     </div>
 
-                    {/* Login Mode Selector - Inspired by RRB */}
-                    <div style={{ marginBottom: '2rem' }}>
+                    {/* Mode Selector */}
+                    <div className="flex flex-col sm:flex-row gap-3 mb-8">
                         <button
                             onClick={() => { setLoginMode('aadhaar'); setError(''); setSuccess(''); }}
-                            className="btn btn-block"
-                            style={{
-                                background: loginMode === 'aadhaar' ? '#FF9933' : '#fff',
-                                color: loginMode === 'aadhaar' ? '#fff' : '#000080',
-                                border: '2px solid #FF9933',
-                                marginBottom: '0.75rem'
-                            }}
+                            className={`flex-1 py-3 px-4 rounded-lg font-semibold border-2 transition-colors flex items-center justify-center gap-2 ${
+                                loginMode === 'aadhaar' 
+                                ? 'bg-accent-saffron border-accent-saffron text-white shadow-md' 
+                                : 'bg-white border-gray-200 text-gray-600 hover:border-accent-saffron/50 hover:bg-orange-50'
+                            }`}
                         >
-                            <i className="fa-solid fa-fingerprint"></i> Login with Aadhaar
+                            <i className="fa-solid fa-fingerprint"></i> Aadhaar Login
                         </button>
                         <button
                             onClick={() => { setLoginMode('credential'); setError(''); setSuccess(''); }}
-                            className="btn btn-block"
-                            style={{
-                                background: loginMode === 'credential' ? '#000080' : '#fff',
-                                color: loginMode === 'credential' ? '#fff' : '#000080',
-                                border: '2px solid #000080'
-                            }}
+                            className={`flex-1 py-3 px-4 rounded-lg font-semibold border-2 transition-colors flex items-center justify-center gap-2 ${
+                                loginMode === 'credential' 
+                                ? 'bg-primary border-primary text-white shadow-md' 
+                                : 'bg-white border-gray-200 text-gray-600 hover:border-primary/50 hover:bg-blue-50'
+                            }`}
                         >
-                            <i className="fa-solid fa-key"></i> Login with Account Credential
+                            <i className="fa-solid fa-key"></i> Passcode Login
                         </button>
                     </div>
 
-                    {error && <div className="error-message">{error}</div>}
-                    {success && <div className="success-message">{success}</div>}
+                    {error && (
+                        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r">
+                            <div className="flex">
+                                <div className="flex-shrink-0"><i className="fa-solid fa-circle-exclamation text-red-500"></i></div>
+                                <div className="ml-3"><p className="text-sm text-red-700">{error}</p></div>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {success && (
+                        <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-6 rounded-r">
+                            <div className="flex">
+                                <div className="flex-shrink-0"><i className="fa-solid fa-circle-check text-green-500"></i></div>
+                                <div className="ml-3"><p className="text-sm text-green-700">{success}</p></div>
+                            </div>
+                        </div>
+                    )}
 
-                    {/* AADHAAR OTP LOGIN */}
+                    {/* AADHAAR LOGIN */}
                     {loginMode === 'aadhaar' && (
                         !otpSent ? (
-                            <form onSubmit={handleSendOTP}>
-                                <div className="form-group">
-                                    <label htmlFor="aadhaar">
-                                        <i className="fa-solid fa-id-card"></i> Aadhaar Number
+                            <form onSubmit={handleSendOTP} className="space-y-5">
+                                <div>
+                                    <label htmlFor="aadhaar" className="block text-sm font-semibold text-gray-700 mb-1">
+                                        <i className="fa-solid fa-id-card text-gray-400 mr-2"></i>Aadhaar Number
                                     </label>
                                     <input
                                         type="text"
                                         id="aadhaar"
+                                        className="input-field text-center tracking-widest text-lg font-mono placeholder-gray-300"
                                         value={aadhaarNumber}
                                         onChange={(e) => setAadhaarNumber(e.target.value.replace(/\D/g, '').slice(0, 12))}
-                                        placeholder="Enter 12-digit Aadhaar number"
+                                        placeholder="XXXX XXXX XXXX"
                                         maxLength="12"
                                         required
                                     />
                                 </div>
 
-                                {/* OTP Method Selector */}
-                                <div className="form-group">
-                                    <label>
-                                        <i className="fa-solid fa-paper-plane"></i> Send OTP via
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        <i className="fa-solid fa-paper-plane text-gray-400 mr-2"></i>Send OTP via
                                     </label>
-                                    <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
-                                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1, padding: '0.75rem', border: `2px solid ${otpMethod === 'email' ? '#000080' : '#dee2e6'}`, borderRadius: '6px', background: otpMethod === 'email' ? '#f0f7ff' : 'white' }}>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <label className={`flex items-center p-3 border-2 rounded-lg cursor-pointer transition-colors ${otpMethod === 'email' ? 'border-primary bg-blue-50 text-primary' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
                                             <input
                                                 type="radio"
                                                 name="otpMethod"
                                                 value="email"
+                                                className="sr-only"
                                                 checked={otpMethod === 'email'}
                                                 onChange={(e) => setOtpMethod(e.target.value)}
-                                                style={{ marginRight: '0.5rem' }}
                                             />
-                                            <i className="fa-solid fa-envelope" style={{ marginRight: '0.5rem', color: '#000080' }}></i>
-                                            Email (Primary)
+                                            <i className="fa-solid fa-envelope w-6 text-center shadow-none"></i>
+                                            <span className="font-medium text-sm">Email</span>
                                         </label>
-                                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1, padding: '0.75rem', border: `2px solid ${otpMethod === 'mobile' ? '#000080' : '#dee2e6'}`, borderRadius: '6px', background: otpMethod === 'mobile' ? '#f0f7ff' : 'white' }}>
+                                        <label className={`flex items-center p-3 border-2 rounded-lg cursor-pointer transition-colors ${otpMethod === 'mobile' ? 'border-primary bg-blue-50 text-primary' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
                                             <input
                                                 type="radio"
                                                 name="otpMethod"
                                                 value="mobile"
+                                                className="sr-only"
                                                 checked={otpMethod === 'mobile'}
                                                 onChange={(e) => setOtpMethod(e.target.value)}
-                                                style={{ marginRight: '0.5rem' }}
                                             />
-                                            <i className="fa-solid fa-mobile" style={{ marginRight: '0.5rem', color: '#000080' }}></i>
-                                            Mobile (Backup)
+                                            <i className="fa-solid fa-mobile-screen w-6 text-center shadow-none"></i>
+                                            <span className="font-medium text-sm">Mobile SMS</span>
                                         </label>
                                     </div>
                                 </div>
 
-                                {/* Email or Mobile input based on method */}
                                 {otpMethod === 'email' ? (
-                                    <div className="form-group">
-                                        <label htmlFor="email">
-                                            <i className="fa-solid fa-envelope"></i> Registered Email
+                                    <div>
+                                        <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-1">
+                                            <i className="fa-solid fa-at text-gray-400 mr-2"></i>Registered Email
                                         </label>
                                         <input
                                             type="email"
                                             id="email"
+                                            className="input-field"
                                             value={email}
                                             onChange={(e) => setEmail(e.target.value)}
                                             placeholder="Enter your registered email"
                                             required
                                         />
-                                        <small style={{ color: '#777', fontSize: '0.8rem' }}>
-                                            OTP will be sent to this email
-                                        </small>
                                     </div>
                                 ) : (
-                                    <div className="form-group">
-                                        <label htmlFor="mobile">
-                                            <i className="fa-solid fa-mobile"></i> Registered Mobile Number
+                                    <div>
+                                        <label htmlFor="mobile" className="block text-sm font-semibold text-gray-700 mb-1">
+                                            <i className="fa-solid fa-phone text-gray-400 mr-2"></i>Registered Mobile
                                         </label>
-                                        <input
-                                            type="text"
-                                            id="mobile"
-                                            value={mobileNumber}
-                                            onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                                            placeholder="Enter 10-digit mobile number"
-                                            maxLength="10"
-                                            required
-                                        />
-                                        <small style={{ color: '#777', fontSize: '0.8rem' }}>
-                                            OTP will be sent via SMS
-                                        </small>
+                                        <div className="flex relative">
+                                            <span className="inline-flex flex-shrink-0 items-center px-4 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-500 font-medium">+91</span>
+                                            <input
+                                                type="text"
+                                                id="mobile"
+                                                className="input-field rounded-l-none"
+                                                value={mobileNumber}
+                                                onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                                                placeholder="Enter 10-digit number"
+                                                maxLength="10"
+                                                required
+                                            />
+                                        </div>
                                     </div>
                                 )}
 
                                 <button
                                     type="submit"
-                                    className="btn btn-primary btn-block btn-lg"
+                                    className="btn-primary w-full py-3.5 text-lg mt-2 flex items-center justify-center gap-2"
                                     disabled={loading || aadhaarNumber.length !== 12 || (otpMethod === 'email' ? !email : mobileNumber.length !== 10)}
                                 >
-                                    {loading ? 'Sending OTP...' : `Generate OTP via ${otpMethod === 'email' ? 'Email' : 'SMS'}`}
+                                    {loading ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <i className="fa-solid fa-shield-check"></i>}
+                                    {loading ? 'Sending Request...' : 'Generate Secure OTP'}
                                 </button>
                             </form>
                         ) : (
-                            <form onSubmit={handleOTPLogin}>
-                                <div className="form-group">
-                                    <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span>
-                                            <i className="fa-solid fa-key"></i> Enter OTP
-                                            <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem', color: '#777' }}>
-                                                (sent via {otpMethod === 'email' ? 'Email' : 'SMS'})
-                                            </span>
-                                        </span>
+                            <form onSubmit={handleOTPLogin} className="space-y-6">
+                                <div>
+                                    <div className="flex justify-between items-end mb-4">
+                                        <label className="block text-sm font-semibold text-gray-700">
+                                            Enter 6-digit OTP
+                                            <span className="block text-xs text-gray-500 font-normal mt-0.5">Sent via {otpMethod === 'email' ? 'Email' : 'SMS'}</span>
+                                        </label>
                                         {otpTimer > 0 && (
-                                            <span style={{ color: '#FF9933', fontSize: '0.9rem', fontWeight: '600' }}>
-                                                <i className="fa-solid fa-clock"></i> {formatTimer(otpTimer)}
+                                            <span className="text-accent-saffron font-mono font-bold text-lg bg-orange-50 px-2 rounded border border-orange-100">
+                                                {formatTimer(otpTimer)}
                                             </span>
                                         )}
-                                    </label>
+                                    </div>
 
-                                    {/* 6 OTP Boxes - RRB Style */}
-                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', margin: '1rem 0' }}>
+                                    <div className="flex justify-between gap-2 max-w-sm mx-auto">
                                         {otp.map((digit, index) => (
                                             <input
                                                 key={index}
@@ -365,64 +356,37 @@ function LoginPage({ onLogin }) {
                                                 type="text"
                                                 inputMode="numeric"
                                                 maxLength="1"
+                                                className="w-12 h-14 text-center text-2xl font-bold text-primary border-2 border-gray-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary focus:outline-none transition-colors shadow-sm"
                                                 value={digit}
                                                 onChange={(e) => handleOtpChange(index, e.target.value)}
                                                 onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                                                style={{
-                                                    width: '50px',
-                                                    height: '50px',
-                                                    textAlign: 'center',
-                                                    fontSize: '1.5rem',
-                                                    fontWeight: '700',
-                                                    border: '2px solid #000080',
-                                                    borderRadius: '8px',
-                                                    outline: 'none'
-                                                }}
                                                 required
                                             />
                                         ))}
                                     </div>
-
-                                    {/* Demo OTP Display */}
-                                    {demoOTP && (
-                                        <div style={{
-                                            background: '#fff8e6',
-                                            border: '1px solid #ffc107',
-                                            padding: '0.75rem',
-                                            borderRadius: '4px',
-                                            marginTop: '1rem',
-                                            fontSize: '0.9rem',
-                                            color: '#856404',
-                                            textAlign: 'center'
-                                        }}>
-                                            <i className="fa-solid fa-info-circle"></i> <strong>Demo OTP:</strong> {demoOTP}
-                                            <div style={{ fontSize: '0.75rem', marginTop: '0.25rem', opacity: 0.8 }}>
-                                                Check backend console or {otpMethod === 'email' ? 'your email' : 'your phone'}
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
 
                                 <button
                                     type="submit"
-                                    className="btn btn-primary btn-block btn-lg"
+                                    className="btn-primary w-full py-3.5 text-lg flex items-center justify-center gap-2"
                                     disabled={loading || otp.some(d => !d)}
                                 >
-                                    {loading ? 'Verifying...' : 'Login'}
+                                    {loading ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <i className="fa-solid fa-unlock-keyhole"></i>}
+                                    {loading ? 'Verifying Identity...' : 'Secure Login'}
                                 </button>
 
-                                <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                                <div className="text-center pt-2">
                                     {otpTimer > 0 ? (
-                                        <p style={{ color: '#777', fontSize: '0.9rem' }}>
-                                            Didn't receive OTP? Resend in {formatTimer(otpTimer)}
+                                        <p className="text-sm text-gray-500">
+                                            Didn't receive OTP? Resend in <span className="font-semibold text-gray-700">{formatTimer(otpTimer)}</span>
                                         </p>
                                     ) : (
                                         <button
                                             type="button"
                                             onClick={handleResendOTP}
-                                            className="btn btn-secondary"
+                                            className="text-primary hover:text-primary-800 font-semibold text-sm underline focus:outline-none"
                                         >
-                                            <i className="fa-solid fa-rotate"></i> Resend OTP
+                                            <i className="fa-solid fa-rotate-right mr-1"></i> Resend OTP Request
                                         </button>
                                     )}
                                 </div>
@@ -432,50 +396,58 @@ function LoginPage({ onLogin }) {
 
                     {/* TRADITIONAL LOGIN */}
                     {loginMode === 'credential' && (
-                        <form onSubmit={handleTraditionalLogin}>
-                            <div className="form-group">
-                                <label htmlFor="identifier">
-                                    <i className="fa-solid fa-user"></i> Email / Voter ID
+                        <form onSubmit={handleTraditionalLogin} className="space-y-5">
+                            <div>
+                                <label htmlFor="identifier" className="block text-sm font-semibold text-gray-700 mb-1">
+                                    <i className="fa-solid fa-user text-gray-400 mr-2"></i>Email Address / EPIC Number
                                 </label>
                                 <input
                                     type="text"
                                     id="identifier"
+                                    className="input-field"
                                     value={identifier}
                                     onChange={(e) => setIdentifier(e.target.value)}
-                                    placeholder="Enter email or voter ID"
+                                    placeholder="Enter your registered email or Voter ID"
                                     required
                                 />
                             </div>
 
-                            <div className="form-group">
-                                <label htmlFor="password">
-                                    <i className="fa-solid fa-lock"></i> Password
+                            <div>
+                                <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-1">
+                                    <i className="fa-solid fa-lock text-gray-400 mr-2"></i>Account Password
                                 </label>
                                 <input
                                     type="password"
                                     id="password"
+                                    className="input-field"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="Enter your password"
+                                    placeholder="••••••••"
                                     required
                                 />
                             </div>
 
                             <button
                                 type="submit"
-                                className="btn btn-primary btn-block btn-lg"
-                                disabled={loading}
+                                className="btn-primary w-full py-3.5 text-lg mt-4 flex items-center justify-center gap-2"
+                                disabled={loading || !identifier || !password}
                             >
-                                {loading ? 'Logging in...' : 'Login'}
+                                {loading ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <i className="fa-solid fa-right-to-bracket"></i>}
+                                {loading ? 'Authenticating...' : 'Sign In'}
                             </button>
                         </form>
                     )}
 
-                    <div className="auth-footer">
-                        <p>New voter? <Link to="/signup">Register here</Link></p>
+                    <div className="mt-8 pt-6 border-t border-gray-100 text-center">
+                        <p className="text-gray-600">
+                            Don't have a voting account?{' '}
+                            <Link to="/signup" className="text-accent-saffron font-bold hover:underline focus:outline-none">
+                                Register as a New Voter
+                            </Link>
+                        </p>
                     </div>
                 </div>
-            </div>
+            </main>
         </div>
     );
 }

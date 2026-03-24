@@ -138,8 +138,8 @@ function HelpPage() {
                 </div>
             </nav>
 
-            <div className="help-container" style={{ maxWidth: '1000px', margin: '2rem auto', padding: '0 1rem' }}>
-                <div className="auth-card">
+            <div className="help-container" style={{ maxWidth: '1200px', margin: '2rem auto', padding: '0 1rem' }}>
+                <div className="content-card">
                     <h1 style={{ color: '#000080', marginBottom: '0.5rem' }}>
                         <i className="fa-solid fa-circle-question"></i> Help & Troubleshooting
                     </h1>
@@ -160,44 +160,50 @@ function HelpPage() {
                         </ol>
                     </div>
 
-                    {/* FAQ Sections */}
-                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
-                        {faqData.map(section => (
-                            <button
-                                key={section.id}
-                                onClick={() => setActiveSection(section.id)}
-                                className={`btn ${activeSection === section.id ? 'btn-primary' : 'btn-secondary'}`}
-                                style={{ flex: '1 1 auto', minWidth: '150px' }}
-                            >
-                                <i className={`fa-solid ${section.icon}`}></i> {section.title}
-                            </button>
-                        ))}
-                    </div>
+                    <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+                        {/* Sidebar */}
+                        <div style={{ flex: '0 0 250px', minWidth: '200px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                {faqData.map(section => (
+                                    <button
+                                        key={section.id}
+                                        onClick={() => setActiveSection(section.id)}
+                                        className={`btn ${activeSection === section.id ? 'btn-primary' : 'btn-secondary'}`}
+                                        style={{ textAlign: 'left', justifyContent: 'flex-start' }}
+                                    >
+                                        <i className={`fa-solid ${section.icon}`} style={{ width: '25px' }}></i> {section.title}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
 
-                    {/* Active Section Content */}
-                    {faqData.filter(s => s.id === activeSection).map(section => (
-                        <div key={section.id}>
-                            <h2 style={{ color: '#000080', marginBottom: '1rem', borderBottom: '2px solid #FF9933', paddingBottom: '0.5rem' }}>
-                                <i className={`fa-solid ${section.icon}`}></i> {section.title}
-                            </h2>
-                            {section.content.map((item, idx) => (
-                                <div key={idx} style={{ marginBottom: '1.5rem', background: '#f8f9fa', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #000080' }}>
-                                    <h4 style={{ color: '#000080', marginBottom: '0.5rem' }}>
-                                        <i className="fa-solid fa-question-circle"></i> {item.q}
-                                    </h4>
-                                    <pre style={{
-                                        whiteSpace: 'pre-wrap',
-                                        fontFamily: 'inherit',
-                                        margin: 0,
-                                        color: '#333',
-                                        lineHeight: '1.6'
-                                    }}>
-                                        {item.a}
-                                    </pre>
+                        {/* Content */}
+                        <div style={{ flex: '1', minWidth: '300px' }}>
+                            {faqData.filter(s => s.id === activeSection).map(section => (
+                                <div key={section.id} className="fade-in">
+                                    <h2 style={{ color: '#000080', marginBottom: '1rem', borderBottom: '2px solid #FF9933', paddingBottom: '0.5rem', marginTop: 0 }}>
+                                        <i className={`fa-solid ${section.icon}`}></i> {section.title}
+                                    </h2>
+                                    {section.content.map((item, idx) => (
+                                        <div key={idx} style={{ marginBottom: '1.5rem', background: '#f8f9fa', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #000080' }}>
+                                            <h4 style={{ color: '#000080', marginBottom: '0.5rem' }}>
+                                                <i className="fa-solid fa-question-circle"></i> {item.q}
+                                            </h4>
+                                            <pre style={{
+                                                whiteSpace: 'pre-wrap',
+                                                fontFamily: 'inherit',
+                                                margin: 0,
+                                                color: '#333',
+                                                lineHeight: '1.6'
+                                            }}>
+                                                {item.a}
+                                            </pre>
+                                        </div>
+                                    ))}
                                 </div>
                             ))}
                         </div>
-                    ))}
+                    </div>
 
                     {/* Contact Support */}
                     <div style={{ marginTop: '2rem', background: '#f0f7ff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #000080' }}>

@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
@@ -5,14 +6,43 @@ const jwt = require('jsonwebtoken');
 const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const otpService = require('./services/otpService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const JWT_SECRET = process.env.JWT_SECRET || 'bharat-evote-secret-key-2026';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    console.error('⚠️  WARNING: JWT_SECRET is not set. Using insecure default for development only.');
+}
+const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'dev-only-insecure-key-' + Date.now();
 const DB_PATH = path.join(__dirname, 'evoting.db');
 
 let db = null;
+
+// Helper: Safe parameterized SELECT query (prevents SQL injection)
+function safeQuery(sql, params = []) {
+    const stmt = db.prepare(sql);
+    stmt.bind(params);
+    const results = [];
+    while (stmt.step()) {
+        results.push(stmt.getAsObject());
+    }
+    stmt.free();
+    return results;
+}
+
+// Helper: Basic input sanitization (XSS prevention)
+function sanitize(str) {
+    if (typeof str !== 'string') return str;
+    return str.trim()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+}
 
 // Initialize SQLite database
 async function initDatabase() {
@@ -54,6 +84,22 @@ async function initDatabase() {
         )
     `);
 
+    // Migration: Add father_name column if it doesn't exist
+    try {
+        db.run("ALTER TABLE users ADD COLUMN father_name TEXT");
+        console.log('✅ Migration: Added father_name column');
+    } catch (err) {
+        // Column likely exists
+    }
+
+    // Migration: Add gender and dob columns if they don't exist (future proofing)
+    try { db.run("ALTER TABLE users ADD COLUMN gender TEXT"); } catch (e) { }
+    try { db.run("ALTER TABLE users ADD COLUMN dob TEXT"); } catch (e) { }
+
+    // Migration: Add state_code and constituency_code for constituency-based voting
+    try { db.run("ALTER TABLE users ADD COLUMN state_code INTEGER DEFAULT 0"); console.log('✅ Migration: Added state_code column'); } catch (e) { }
+    try { db.run("ALTER TABLE users ADD COLUMN constituency_code INTEGER DEFAULT 0"); console.log('✅ Migration: Added constituency_code column'); } catch (e) { }
+
     saveDatabase();
     console.log('✅ Tables initialized');
 }
@@ -65,9 +111,32 @@ function saveDatabase() {
     fs.writeFileSync(DB_PATH, buffer);
 }
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// Security Middleware
+app.use(helmet());
+app.use(cors({
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed methods
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.use(express.json({ limit: '10kb' })); // Limit payload size
+
+// Rate limiters
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Increased for dev/testing
+    message: { error: 'Too many attempts. Please try again after 15 minutes.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+const otpLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000, // 5 minutes
+    max: 10, // Increased for dev/testing
+    message: { error: 'Too many OTP requests. Please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
 
 // Auth middleware
 const authenticateToken = (req, res, next) => {
@@ -78,7 +147,7 @@ const authenticateToken = (req, res, next) => {
         return res.status(401).json({ error: 'Access token required' });
     }
 
-    jwt.verify(token, JWT_SECRET, (err, user) => {
+    jwt.verify(token, EFFECTIVE_JWT_SECRET, (err, user) => {
         if (err) {
             return res.status(403).json({ error: 'Invalid or expired token' });
         }
@@ -89,36 +158,87 @@ const authenticateToken = (req, res, next) => {
 
 // ===================== AUTH ROUTES =====================
 
-// Register new user
-app.post('/api/auth/register', async (req, res) => {
+// Update User Profile (Father's Name, Gender, DOB, Address)
+app.put('/api/user/profile', authenticateToken, (req, res) => {
     try {
-        const { fullname, voterId, email, password, aadhaarNumber, mobileNumber } = req.body;
+        const { fatherName, gender, dob, address } = req.body;
+        const updates = [];
+        const params = [];
+
+        if (fatherName !== undefined) {
+            updates.push("father_name = ?");
+            params.push(sanitize(fatherName));
+        }
+        if (gender !== undefined) {
+            updates.push("gender = ?");
+            params.push(sanitize(gender));
+        }
+        if (dob !== undefined) {
+            updates.push("dob = ?");
+            params.push(sanitize(dob));
+        }
+        if (address !== undefined) {
+            updates.push("address = ?");
+            params.push(sanitize(address));
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ error: 'No fields to update' });
+        }
+
+        params.push(req.user.id);
+        const sql = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
+
+        db.run(sql, params);
+        saveDatabase();
+
+        res.json({ message: 'Profile updated successfully' });
+    } catch (error) {
+        console.error('Update profile error:', error);
+        res.status(500).json({ error: 'Server error updating profile' });
+    }
+});
+
+// Register new user
+app.post('/api/auth/register', authLimiter, async (req, res) => {
+    try {
+        const { fullname, voterId, email, password, aadhaarNumber, mobileNumber, stateCode, constituencyCode } = req.body;
 
         // Validation
         if (!fullname || !voterId || !email || !password) {
             return res.status(400).json({ error: 'All fields are required' });
         }
 
-        if (password.length < 6) {
-            return res.status(400).json({ error: 'Password must be at least 6 characters' });
+        // Strong password policy
+        if (password.length < 8) {
+            return res.status(400).json({ error: 'Password must be at least 8 characters' });
+        }
+        if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+            return res.status(400).json({ error: 'Password must include uppercase, lowercase, and a number' });
         }
 
-        // Check if user exists
-        const existingUser = db.exec(
-            `SELECT id FROM users WHERE email = '${email}' OR voter_id = '${voterId}'`
+        // Sanitize inputs
+        const cleanName = sanitize(fullname);
+        const cleanVoterId = sanitize(voterId);
+        const cleanEmail = email.trim().toLowerCase();
+
+        // Check if user exists (parameterized to prevent SQL injection)
+        const existingUser = safeQuery(
+            'SELECT id FROM users WHERE email = ? OR voter_id = ? OR (aadhaar_number IS NOT NULL AND aadhaar_number = ?)',
+            [cleanEmail, cleanVoterId, aadhaarNumber || '']
         );
 
-        if (existingUser.length > 0 && existingUser[0].values.length > 0) {
-            return res.status(400).json({ error: 'User with this email or voter ID already exists' });
+        if (existingUser.length > 0) {
+            return res.status(400).json({ error: 'User with this email, voter ID, or Aadhaar number already exists' });
         }
 
         // Hash password (optional for Aadhaar-only users)
         const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
 
-        // Insert user
+        // Insert user with constituency info
         db.run(
-            `INSERT INTO users (fullname, voter_id, email, password, aadhaar_number, mobile_number) VALUES (?, ?, ?, ?, ?, ?)`,
-            [fullname, voterId, email, hashedPassword, aadhaarNumber || null, mobileNumber || null]
+            `INSERT INTO users (fullname, voter_id, email, password, aadhaar_number, mobile_number, state_code, constituency_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [cleanName, cleanVoterId, cleanEmail, hashedPassword, aadhaarNumber || null, mobileNumber || null, stateCode || 0, constituencyCode || 0]
         );
         saveDatabase();
 
@@ -132,7 +252,7 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // Login
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
     try {
         const { identifier, password } = req.body;
 
@@ -140,19 +260,17 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(400).json({ error: 'Email/Voter ID and password are required' });
         }
 
-        // Find user by email or voter_id
-        const result = db.exec(
-            `SELECT * FROM users WHERE email = '${identifier}' OR voter_id = '${identifier}'`
+        // Find user by email or voter_id (parameterized to prevent SQL injection)
+        const results = safeQuery(
+            'SELECT * FROM users WHERE email = ? OR voter_id = ?',
+            [identifier, identifier]
         );
 
-        if (result.length === 0 || result[0].values.length === 0) {
+        if (results.length === 0) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        const columns = result[0].columns;
-        const row = result[0].values[0];
-        const user = {};
-        columns.forEach((col, idx) => user[col] = row[idx]);
+        const user = results[0];
 
         // Check password
         const validPassword = await bcrypt.compare(password, user.password);
@@ -163,8 +281,8 @@ app.post('/api/auth/login', async (req, res) => {
         // Generate JWT
         const token = jwt.sign(
             { id: user.id, voterId: user.voter_id, email: user.email },
-            JWT_SECRET,
-            { expiresIn: '24h' }
+            EFFECTIVE_JWT_SECRET,
+            { expiresIn: '4h' }
         );
 
         res.json({
@@ -176,7 +294,10 @@ app.post('/api/auth/login', async (req, res) => {
                 voterId: user.voter_id,
                 email: user.email,
                 hasVoted: user.has_voted === 1,
-                walletAddress: user.wallet_address
+                walletAddress: user.wallet_address,
+                fatherName: user.father_name,
+                gender: user.gender,
+                dob: user.dob
             }
         });
     } catch (error) {
@@ -188,18 +309,16 @@ app.post('/api/auth/login', async (req, res) => {
 // Get current user
 app.get('/api/auth/me', authenticateToken, (req, res) => {
     try {
-        const result = db.exec(
-            `SELECT id, fullname, voter_id, email, wallet_address, has_voted FROM users WHERE id = ${req.user.id}`
+        const results = safeQuery(
+            'SELECT id, fullname, voter_id, email, wallet_address, has_voted, father_name, gender, dob FROM users WHERE id = ?',
+            [req.user.id]
         );
 
-        if (result.length === 0 || result[0].values.length === 0) {
+        if (results.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        const columns = result[0].columns;
-        const row = result[0].values[0];
-        const user = {};
-        columns.forEach((col, idx) => user[col] = row[idx]);
+        const user = results[0];
 
         res.json({
             id: user.id,
@@ -207,7 +326,10 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
             voterId: user.voter_id,
             email: user.email,
             hasVoted: user.has_voted === 1,
-            walletAddress: user.wallet_address
+            walletAddress: user.wallet_address,
+            fatherName: user.father_name,
+            gender: user.gender,
+            dob: user.dob
         });
     } catch (error) {
         console.error('Get user error:', error);
@@ -247,9 +369,9 @@ app.post('/api/vote/record', authenticateToken, (req, res) => {
             return res.status(400).json({ error: 'Candidate ID is required' });
         }
 
-        // Check if already voted
-        const userResult = db.exec(`SELECT has_voted FROM users WHERE id = ${req.user.id}`);
-        if (userResult.length > 0 && userResult[0].values[0][0] === 1) {
+        // Check if already voted (parameterized)
+        const userResult = safeQuery('SELECT has_voted FROM users WHERE id = ?', [req.user.id]);
+        if (userResult.length > 0 && userResult[0].has_voted === 1) {
             return res.status(400).json({ error: 'You have already voted' });
         }
 
@@ -273,8 +395,8 @@ app.post('/api/vote/record', authenticateToken, (req, res) => {
 // Check if user has voted
 app.get('/api/vote/status', authenticateToken, (req, res) => {
     try {
-        const result = db.exec(`SELECT has_voted FROM users WHERE id = ${req.user.id}`);
-        const hasVoted = result.length > 0 && result[0].values[0][0] === 1;
+        const results = safeQuery('SELECT has_voted FROM users WHERE id = ?', [req.user.id]);
+        const hasVoted = results.length > 0 && results[0].has_voted === 1;
         res.json({ hasVoted });
     } catch (error) {
         console.error('Vote status error:', error);
@@ -282,12 +404,27 @@ app.get('/api/vote/status', authenticateToken, (req, res) => {
     }
 });
 
+// Get vote receipt (for dashboard display)
+app.get('/api/vote/receipt', authenticateToken, (req, res) => {
+    try {
+        const results = safeQuery(
+            'SELECT candidate_id, tx_hash, voted_at FROM votes WHERE voter_id = ?',
+            [req.user.voterId]
+        );
+        res.json({ vote: results.length > 0 ? results[0] : null });
+    } catch (error) {
+        console.error('Vote receipt error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // ===================== AADHAAR OTP ROUTES =====================
 
 // Send OTP via email or mobile
-app.post('/api/auth/send-otp', async (req, res) => {
+app.post('/api/auth/send-otp', otpLimiter, async (req, res) => {
     try {
         const { aadhaarNumber, email, mobileNumber, method = 'email' } = req.body;
+        console.log('DEBUG: Received OTP Request:', { aadhaarNumber, email, mobileNumber, method });
 
         if (!aadhaarNumber) {
             return res.status(400).json({ error: 'Aadhaar number is required' });
@@ -298,19 +435,17 @@ app.post('/api/auth/send-otp', async (req, res) => {
             return res.status(400).json({ error: 'Invalid Aadhaar number format' });
         }
 
-        // Check if user exists with this Aadhaar
-        const result = db.exec(
-            `SELECT id, fullname, aadhaar_number, email, mobile_number FROM users WHERE aadhaar_number = '${aadhaarNumber}'`
+        // Check if user exists with this Aadhaar (parameterized)
+        const results = safeQuery(
+            'SELECT id, fullname, aadhaar_number, email, mobile_number FROM users WHERE aadhaar_number = ?',
+            [aadhaarNumber]
         );
 
-        if (result.length === 0 || result[0].values.length === 0) {
+        if (results.length === 0) {
             return res.status(404).json({ error: 'No account found with this Aadhaar number. Please register first.' });
         }
 
-        const columns = result[0].columns;
-        const row = result[0].values[0];
-        const user = {};
-        columns.forEach((col, idx) => user[col] = row[idx]);
+        const user = results[0];
 
         // Determine which method to use and validate recipient
         let recipient;
@@ -349,7 +484,8 @@ app.post('/api/auth/send-otp', async (req, res) => {
         res.json({
             message: otpResult.message,
             method: otpResult.method,
-            demoOTP: otpResult.demoOTP // For demo only!
+            // Only include demo OTP in development mode
+            ...(process.env.NODE_ENV !== 'production' && { demoOTP: otpResult.demoOTP })
         });
     } catch (error) {
         console.error('Send OTP error:', error);
@@ -358,7 +494,7 @@ app.post('/api/auth/send-otp', async (req, res) => {
 });
 
 // Verify OTP and login
-app.post('/api/auth/verify-otp', async (req, res) => {
+app.post('/api/auth/verify-otp', authLimiter, async (req, res) => {
     try {
         const { aadhaarNumber, otp } = req.body;
 
@@ -373,25 +509,23 @@ app.post('/api/auth/verify-otp', async (req, res) => {
             return res.status(400).json({ error: verifyResult.message });
         }
 
-        // Get user details
-        const result = db.exec(
-            `SELECT * FROM users WHERE aadhaar_number = '${aadhaarNumber}'`
+        // Get user details (parameterized)
+        const results = safeQuery(
+            'SELECT * FROM users WHERE aadhaar_number = ?',
+            [aadhaarNumber]
         );
 
-        if (result.length === 0 || result[0].values.length === 0) {
+        if (results.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        const columns = result[0].columns;
-        const row = result[0].values[0];
-        const user = {};
-        columns.forEach((col, idx) => user[col] = row[idx]);
+        const user = results[0];
 
         // Generate JWT
         const token = jwt.sign(
             { id: user.id, voterId: user.voter_id, email: user.email },
-            JWT_SECRET,
-            { expiresIn: '24h' }
+            EFFECTIVE_JWT_SECRET,
+            { expiresIn: '4h' }
         );
 
         res.json({
@@ -414,14 +548,13 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 
 // ===================== ADMIN ROUTES =====================
 
-// Admin credentials (for demo - in production, use database)
-const ADMIN_CREDENTIALS = {
-    email: 'admin@evote.com',
-    password: 'admin123'
-};
+// Admin credentials (use env vars in production)
+// Default password: 'admin123' — hashed with bcrypt (10 rounds)
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@evote.com';
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || '$2a$10$Kt0pL8Whn56ONQcrVNJNiOvGqmaPl6lDurpEoWOKd8QK21AU8y0dS';
 
 // Admin login
-app.post('/api/admin/login', async (req, res) => {
+app.post('/api/admin/login', authLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
 
@@ -429,20 +562,28 @@ app.post('/api/admin/login', async (req, res) => {
         const trimmedEmail = email ? email.trim().toLowerCase() : '';
         const trimmedPassword = password ? password.trim() : '';
 
-        console.log('Admin login attempt:', { email: trimmedEmail });
+        if (process.env.NODE_ENV !== 'production') {
+            console.log('Admin login attempt:', { email: trimmedEmail });
+        }
 
         if (!trimmedEmail || !trimmedPassword) {
             return res.status(400).json({ error: 'Email and password are required' });
         }
 
-        if (trimmedEmail !== ADMIN_CREDENTIALS.email || trimmedPassword !== ADMIN_CREDENTIALS.password) {
-            console.log('Failed login - credentials mismatch');
+        // Check email match
+        if (trimmedEmail !== ADMIN_EMAIL) {
+            return res.status(401).json({ error: 'Invalid admin credentials' });
+        }
+
+        // Verify password with bcrypt
+        const isValidPassword = await bcrypt.compare(trimmedPassword, ADMIN_PASSWORD_HASH);
+        if (!isValidPassword) {
             return res.status(401).json({ error: 'Invalid admin credentials' });
         }
 
         const token = jwt.sign(
             { id: 0, email: email, role: 'admin' },
-            JWT_SECRET,
+            EFFECTIVE_JWT_SECRET,
             { expiresIn: '8h' }
         );
 
@@ -466,7 +607,7 @@ const authenticateAdmin = (req, res, next) => {
         return res.status(401).json({ error: 'Admin access token required' });
     }
 
-    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    jwt.verify(token, EFFECTIVE_JWT_SECRET, (err, decoded) => {
         if (err || decoded.role !== 'admin') {
             return res.status(403).json({ error: 'Admin access denied' });
         }
@@ -478,7 +619,7 @@ const authenticateAdmin = (req, res, next) => {
 // Get all registered users (Admin only)
 app.get('/api/admin/users', authenticateAdmin, (req, res) => {
     try {
-        const result = db.exec('SELECT id, fullname, voter_id, email, aadhaar_number, mobile_number, has_voted, created_at FROM users');
+        const result = db.exec('SELECT id, fullname, voter_id, email, aadhaar_number, mobile_number, wallet_address, state_code, constituency_code, has_voted, created_at FROM users');
 
         if (result.length === 0) {
             return res.json({ users: [] });

@@ -4,6 +4,7 @@ import contractAddress from '../contracts/contract-address.json';
 
 /**
  * Blockchain service to interact with the Voting smart contract
+ * Enhanced with constituency, party, timeline, and vote receipt support
  */
 export class BlockchainService {
     constructor() {
@@ -21,6 +22,35 @@ export class BlockchainService {
     }
 
     /**
+     * Switch MetaMask to the Hardhat localhost network
+     */
+    async switchToHardhatNetwork() {
+        const HARDHAT_CHAIN_ID = '0x539'; // 1337 in hex
+
+        try {
+            await window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: HARDHAT_CHAIN_ID }],
+            });
+        } catch (switchError) {
+            // Chain not added yet — add it
+            if (switchError.code === 4902) {
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [{
+                        chainId: HARDHAT_CHAIN_ID,
+                        chainName: 'Hardhat Localhost',
+                        rpcUrls: ['http://127.0.0.1:8545'],
+                        nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                    }],
+                });
+            } else {
+                throw switchError;
+            }
+        }
+    }
+
+    /**
      * Connect to MetaMask wallet
      * @returns {Promise<string>} Connected wallet address
      */
@@ -29,6 +59,9 @@ export class BlockchainService {
             if (!window.ethereum) {
                 throw new Error('MetaMask is not installed. Please install MetaMask to use this application.');
             }
+
+            // Switch to Hardhat network first
+            await this.switchToHardhatNetwork();
 
             // Request account access
             const accounts = await window.ethereum.request({
@@ -56,7 +89,6 @@ export class BlockchainService {
 
     /**
      * Get the current connected account
-     * @returns {Promise<string>} Current account address
      */
     async getCurrentAccount() {
         try {
@@ -72,27 +104,27 @@ export class BlockchainService {
 
     /**
      * Check if the current user is the admin
-     * @returns {Promise<boolean>}
      */
     async isAdmin() {
         try {
             const currentAccount = await this.getCurrentAccount();
             const adminAddress = await this.contract.admin();
+            console.log('Current account:', currentAccount, 'Admin address:', adminAddress);
             return currentAccount.toLowerCase() === adminAddress.toLowerCase();
         } catch (error) {
             console.error('Error checking admin status:', error);
-            return false;
+            throw new Error('Cannot verify admin status. Make sure Hardhat node is running and contract is deployed. Error: ' + error.message);
         }
     }
 
+    // ============ Admin Functions ============
+
     /**
-     * Add a new candidate (Admin only)
-     * @param {string} candidateName
-     * @returns {Promise<object>} Transaction receipt
+     * Add a new candidate with full details
      */
-    async addCandidate(candidateName) {
+    async addCandidate(candidateName, partyName = '', partySymbol = '', stateCode = 0, constituencyCode = 0) {
         try {
-            const tx = await this.contract.addCandidate(candidateName);
+            const tx = await this.contract.addCandidate(candidateName, partyName, partySymbol, stateCode, constituencyCode);
             console.log('⏳ Transaction sent:', tx.hash);
             const receipt = await tx.wait();
             console.log('✅ Candidate added successfully');
@@ -104,13 +136,32 @@ export class BlockchainService {
     }
 
     /**
-     * Authorize a voter (Admin only)
-     * @param {string} voterAddress
-     * @returns {Promise<object>} Transaction receipt
+     * Add a simple candidate (backward compatible)
      */
-    async authorizeVoter(voterAddress) {
+    async addCandidateSimple(candidateName) {
         try {
-            const tx = await this.contract.authorizeVoter(voterAddress);
+            const tx = await this.contract.addCandidateSimple(candidateName);
+            console.log('⏳ Transaction sent:', tx.hash);
+            const receipt = await tx.wait();
+            console.log('✅ Candidate added successfully');
+            return receipt;
+        } catch (error) {
+            console.error('Error adding candidate:', error);
+            throw this.handleError(error);
+        }
+    }
+
+    /**
+     * Authorize a voter with constituency info
+     */
+    async authorizeVoter(voterAddress, stateCode = 0, constituencyCode = 0) {
+        try {
+            let tx;
+            if (stateCode === 0 && constituencyCode === 0) {
+                tx = await this.contract.authorizeVoterSimple(voterAddress);
+            } else {
+                tx = await this.contract.authorizeVoter(voterAddress, stateCode, constituencyCode);
+            }
             console.log('⏳ Transaction sent:', tx.hash);
             const receipt = await tx.wait();
             console.log('✅ Voter authorized successfully');
@@ -122,9 +173,7 @@ export class BlockchainService {
     }
 
     /**
-     * Authorize multiple voters in batch (Admin only)
-     * @param {string[]} voterAddresses
-     * @returns {Promise<object>} Transaction receipt
+     * Authorize multiple voters in batch
      */
     async authorizeVotersBatch(voterAddresses) {
         try {
@@ -140,8 +189,39 @@ export class BlockchainService {
     }
 
     /**
-     * Start voting (Admin only)
-     * @returns {Promise<object>} Transaction receipt
+     * Set voting timeline
+     */
+    async setVotingTimeline(startTime, endTime) {
+        try {
+            const tx = await this.contract.setVotingTimeline(startTime, endTime);
+            console.log('⏳ Transaction sent:', tx.hash);
+            const receipt = await tx.wait();
+            console.log('✅ Voting timeline set');
+            return receipt;
+        } catch (error) {
+            console.error('Error setting timeline:', error);
+            throw this.handleError(error);
+        }
+    }
+
+    /**
+     * Disable voting timeline
+     */
+    async disableTimeline() {
+        try {
+            const tx = await this.contract.disableTimeline();
+            console.log('⏳ Transaction sent:', tx.hash);
+            const receipt = await tx.wait();
+            console.log('✅ Timeline disabled');
+            return receipt;
+        } catch (error) {
+            console.error('Error disabling timeline:', error);
+            throw this.handleError(error);
+        }
+    }
+
+    /**
+     * Start voting
      */
     async startVoting() {
         try {
@@ -157,8 +237,7 @@ export class BlockchainService {
     }
 
     /**
-     * End voting (Admin only)
-     * @returns {Promise<object>} Transaction receipt
+     * End voting
      */
     async endVoting() {
         try {
@@ -175,8 +254,6 @@ export class BlockchainService {
 
     /**
      * Cast a vote
-     * @param {number} candidateId
-     * @returns {Promise<object>} Transaction receipt
      */
     async vote(candidateId) {
         try {
@@ -191,9 +268,10 @@ export class BlockchainService {
         }
     }
 
+    // ============ View Functions ============
+
     /**
      * Get all candidates
-     * @returns {Promise<Array>} Array of candidates
      */
     async getAllCandidates() {
         try {
@@ -201,6 +279,10 @@ export class BlockchainService {
             return candidates.map(c => ({
                 id: Number(c.id),
                 name: c.name,
+                partyName: c.partyName || '',
+                partySymbol: c.partySymbol || '',
+                stateCode: Number(c.stateCode),
+                constituencyCode: Number(c.constituencyCode),
                 voteCount: Number(c.voteCount)
             }));
         } catch (error) {
@@ -215,8 +297,28 @@ export class BlockchainService {
     }
 
     /**
+     * Get candidates by constituency
+     */
+    async getCandidatesByConstituency(stateCode, constituencyCode) {
+        try {
+            const candidates = await this.contract.getCandidatesByConstituency(stateCode, constituencyCode);
+            return candidates.map(c => ({
+                id: Number(c.id),
+                name: c.name,
+                partyName: c.partyName || '',
+                partySymbol: c.partySymbol || '',
+                stateCode: Number(c.stateCode),
+                constituencyCode: Number(c.constituencyCode),
+                voteCount: Number(c.voteCount)
+            }));
+        } catch (error) {
+            console.error('Error getting candidates by constituency:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Get voting status
-     * @returns {Promise<boolean>}
      */
     async isVotingActive() {
         try {
@@ -229,8 +331,6 @@ export class BlockchainService {
 
     /**
      * Check if user has voted
-     * @param {string} address
-     * @returns {Promise<boolean>}
      */
     async hasVoted(address) {
         try {
@@ -243,8 +343,6 @@ export class BlockchainService {
 
     /**
      * Check if user is authorized to vote
-     * @param {string} address
-     * @returns {Promise<boolean>}
      */
     async isAuthorized(address) {
         try {
@@ -256,8 +354,26 @@ export class BlockchainService {
     }
 
     /**
+     * Get voter info including constituency
+     */
+    async getVoterInfo(address) {
+        try {
+            const info = await this.contract.getVoterInfo(address);
+            return {
+                isAuthorized: info[0],
+                hasVoted: info[1],
+                stateCode: Number(info[2]),
+                constituencyCode: Number(info[3]),
+                votedCandidateId: Number(info[4])
+            };
+        } catch (error) {
+            console.error('Error getting voter info:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Get total votes cast
-     * @returns {Promise<number>}
      */
     async getTotalVotes() {
         try {
@@ -271,7 +387,6 @@ export class BlockchainService {
 
     /**
      * Get the winner
-     * @returns {Promise<object>} Winner candidate
      */
     async getWinner() {
         try {
@@ -279,6 +394,8 @@ export class BlockchainService {
             return {
                 id: Number(winner.id),
                 name: winner.name,
+                partyName: winner.partyName || '',
+                partySymbol: winner.partySymbol || '',
                 voteCount: Number(winner.voteCount)
             };
         } catch (error) {
@@ -288,9 +405,37 @@ export class BlockchainService {
     }
 
     /**
-     * Listen to VoteCast events
-     * @param {Function} callback
+     * Get vote receipt
      */
+    async getVoteReceipt(address) {
+        try {
+            return await this.contract.getVoteReceipt(address);
+        } catch (error) {
+            console.error('Error getting vote receipt:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get voting timeline
+     */
+    async getVotingTimeline() {
+        try {
+            const timeline = await this.contract.getVotingTimeline();
+            return {
+                timelineEnabled: timeline[0],
+                startTime: Number(timeline[1]),
+                endTime: Number(timeline[2]),
+                isActive: timeline[3]
+            };
+        } catch (error) {
+            console.error('Error getting timeline:', error);
+            throw error;
+        }
+    }
+
+    // ============ Event Listeners ============
+
     onVoteCast(callback) {
         if (!this.contract) return () => { };
 
@@ -305,17 +450,14 @@ export class BlockchainService {
         return () => this.contract.off('VoteCast');
     }
 
-    /**
-     * Listen to CandidateAdded events
-     * @param {Function} callback
-     */
     onCandidateAdded(callback) {
         if (!this.contract) return () => { };
 
-        this.contract.on('CandidateAdded', (candidateId, name, event) => {
+        this.contract.on('CandidateAdded', (candidateId, name, partyName, stateCode, constituencyCode, event) => {
             callback({
                 candidateId: Number(candidateId),
                 name,
+                partyName,
                 blockNumber: event.log.blockNumber
             });
         });
@@ -323,9 +465,6 @@ export class BlockchainService {
         return () => this.contract.off('CandidateAdded');
     }
 
-    /**
-     * Remove all event listeners
-     */
     removeAllListeners() {
         if (this.contract) {
             this.contract.removeAllListeners();
@@ -334,8 +473,6 @@ export class BlockchainService {
 
     /**
      * Handle and format blockchain errors
-     * @param {Error} error
-     * @returns {Error} Formatted error
      */
     handleError(error) {
         if (error.code === 'ACTION_REJECTED') {
@@ -356,6 +493,22 @@ export class BlockchainService {
 
         if (error.message.includes('not active')) {
             return new Error('Voting is not currently active');
+        }
+
+        if (error.message.includes('your state')) {
+            return new Error('You can only vote for candidates in your state');
+        }
+
+        if (error.message.includes('your constituency')) {
+            return new Error('You can only vote for candidates in your constituency');
+        }
+
+        if (error.message.includes('not started yet')) {
+            return new Error('Voting has not started yet');
+        }
+
+        if (error.message.includes('period has ended')) {
+            return new Error('Voting period has ended');
         }
 
         return error;

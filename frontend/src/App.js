@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // Styles
-import './styles/BharatStyles.css';
+// Using global Tailwind CSS in index.css
 
 // Components
 import Navbar from './components/Navbar';
@@ -17,6 +17,9 @@ import VoterGuidelines from './pages/VoterGuidelines';
 import HelpPage from './pages/HelpPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminPanel from './pages/AdminPanel';
+import DashboardPage from './pages/DashboardPage';
+import CandidatesPage from './pages/CandidatesPage';
+import SearchRollPage from './pages/SearchRollPage';
 
 // Services
 import { authService } from './services/authService';
@@ -113,14 +116,20 @@ function App() {
     return (
         <Router>
             <Routes>
-                {/* Landing Page */}
+                {/* Landing Page - Redirect if logged in */}
                 <Route
                     path="/"
                     element={
-                        <>
-                            <Navbar user={user} onLogout={handleLogout} />
-                            <LandingPage user={user} />
-                        </>
+                        isAdmin ? (
+                            <Navigate to="/admin" replace />
+                        ) : user ? (
+                            <Navigate to="/dashboard" replace />
+                        ) : (
+                            <>
+                                <Navbar user={user} onLogout={handleLogout} />
+                                <LandingPage user={user} />
+                            </>
+                        )
                     }
                 />
 
@@ -129,7 +138,7 @@ function App() {
                     path="/login"
                     element={
                         user ? (
-                            <Navigate to="/" replace />
+                            <Navigate to="/dashboard" replace />
                         ) : (
                             <LoginPage onLogin={handleLogin} />
                         )
@@ -141,9 +150,24 @@ function App() {
                     path="/signup"
                     element={
                         user ? (
-                            <Navigate to="/" replace />
+                            <Navigate to="/dashboard" replace />
                         ) : (
                             <SignupPage />
+                        )
+                    }
+                />
+
+                {/* Voter Dashboard */}
+                <Route
+                    path="/dashboard"
+                    element={
+                        user ? (
+                            <>
+                                <Navbar user={user} onLogout={handleLogout} />
+                                <DashboardPage user={user} onUserUpdate={handleUserUpdate} />
+                            </>
+                        ) : (
+                            <Navigate to="/login" replace />
                         )
                     }
                 />
@@ -164,6 +188,8 @@ function App() {
 
                 {/* Help Page */}
                 <Route path="/help" element={<HelpPage />} />
+                <Route path="/candidates" element={<CandidatesPage />} />
+                <Route path="/search-roll" element={<SearchRollPage />} />
 
                 {/* Admin Dashboard */}
                 <Route
@@ -188,8 +214,10 @@ function App() {
                 {/* Admin Login Page */}
                 <Route path="/admin-login" element={<AdminLoginPage />} />
 
-                {/* Admin Data Panel */}
-                <Route path="/admin-panel" element={<AdminPanel />} />
+                {/* Admin Data Panel — Protected */}
+                <Route path="/admin-panel" element={
+                    localStorage.getItem('adminToken') ? <AdminPanel /> : <Navigate to="/admin-login" replace />
+                } />
 
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />

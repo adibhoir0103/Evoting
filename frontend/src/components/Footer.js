@@ -12,27 +12,6 @@ function Footer() {
                     />
                     <span>Government of India</span>
                 </div>
-                <div className="footer-logo">
-                    <img
-                        src="https://upload.wikimedia.org/wikipedia/en/thumb/e/e8/Digital_India_logo.svg/220px-Digital_India_logo.svg.png"
-                        alt="Digital India"
-                    />
-                    <span>Digital India</span>
-                </div>
-                <div className="footer-logo">
-                    <img
-                        src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/National_Informatics_Centre_logo.svg/200px-National_Informatics_Centre_logo.svg.png"
-                        alt="NIC"
-                    />
-                    <span>NIC</span>
-                </div>
-                <div className="footer-logo">
-                    <img
-                        src="https://www.stqc.gov.in/sites/default/files/stqc_logo.png"
-                        alt="STQC"
-                    />
-                    <span>STQC</span>
-                </div>
             </div>
 
             {/* Security Disclaimer */}

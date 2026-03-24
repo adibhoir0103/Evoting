@@ -2,142 +2,203 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Footer from '../components/Footer';
 
-function LandingPage({ user }) {
+function LandingPage() {
     const navigate = useNavigate();
 
-    const handleVoteNow = () => {
-        if (user) {
-            navigate('/vote');
-        } else {
-            navigate('/login');
-        }
-    };
-
     return (
-        <>
-            {/* Hero Section */}
-            <section id="main-content" className="hero-section">
-                <div className="hero-content">
-                    <span className="hero-badge">
-                        <i className="fa-solid fa-graduation-cap"></i> Final Year Project Demo
-                    </span>
-
-                    <h1>Blockchain-Based E-Voting System</h1>
-
-                    <p>
-                        A demonstration of secure electronic voting using blockchain technology.
-                        This project showcases transparent, immutable, and verifiable voting.
-                    </p>
-
-                    {user?.hasVoted ? (
-                        <div style={{
-                            background: 'rgba(255,255,255,0.1)',
-                            padding: '2rem',
-                            borderRadius: '8px',
-                            border: '2px solid #138808'
-                        }}>
-                            <i className="fa-solid fa-check-circle" style={{ fontSize: '3rem', color: '#138808', marginBottom: '1rem', display: 'block' }}></i>
-                            <h2 style={{ marginBottom: '0.5rem' }}>Thank You, {user.fullname}!</h2>
-                            <p style={{ margin: 0, opacity: 0.9 }}>You have successfully cast your vote. Jai Hind!</p>
-                        </div>
-                    ) : (
-                        <>
-                            <button onClick={handleVoteNow} className="hero-btn">
-                                <i className="fa-solid fa-fingerprint"></i> Access Voting Terminal
-                            </button>
-
-                            <div className="hero-warning">
-                                <i className="fa-solid fa-shield-halved"></i>
-                                Authentication requires OTP & Biometric verification
-                            </div>
-                        </>
-                    )}
+        <div className="flex flex-col min-h-screen bg-gov-bg font-sans">
+            {/* GOI Top Banner */}
+            <div className="bg-gray-100 border-b border-gray-200 py-1 px-4 sm:px-6 lg:px-8 text-xs font-medium text-gray-600 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                    <span className="text-gray-500">🇮🇳</span>
+                    <span>भारत सरकार | Government of India</span>
                 </div>
-            </section>
-
-            {/* Information Cards - NO LIVE RESULTS */}
-            <section className="info-section">
-                <div className="info-grid">
-                    {/* Election Schedule Card */}
-                    <div className="info-card">
-                        <div className="info-card-icon">
-                            <i className="fa-solid fa-calendar-days"></i>
-                        </div>
-                        <h3>Election Schedule</h3>
-                        <p>Polling hours for General Election 2026</p>
-                        <div className="schedule">
-                            <div className="schedule-item">
-                                <span className="label">Opens At</span>
-                                <span className="time">7:00 AM</span>
-                            </div>
-                            <div className="schedule-item">
-                                <span className="label">Closes At</span>
-                                <span className="time">6:00 PM</span>
-                            </div>
-                        </div>
+                <div className="hidden sm:flex gap-4">
+                    <a href="#main-content" className="hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-accent-saffron">Skip to main content</a>
+                    <div className="flex items-center gap-2 border-l border-gray-300 pl-4">
+                        <button className="px-1.5 py-0.5 bg-white border border-gray-300 rounded text-[10px] hover:bg-gray-50 font-bold focus:outline-none focus:ring-2 focus:ring-accent-saffron">A-</button>
+                        <button className="px-1.5 py-0.5 bg-primary text-white border border-primary rounded text-[10px] hover:bg-primary-800 font-bold focus:outline-none focus:ring-2 focus:ring-accent-saffron">A</button>
+                        <button className="px-1.5 py-0.5 bg-white border border-gray-300 rounded text-[10px] hover:bg-gray-50 font-bold focus:outline-none focus:ring-2 focus:ring-accent-saffron">A+</button>
                     </div>
+                </div>
+            </div>
 
-                    {/* Voter Turnout Card - NO Party-wise results */}
-                    <div className="info-card">
-                        <div className="info-card-icon">
-                            <i className="fa-solid fa-chart-pie"></i>
+            {/* Main Header */}
+            <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                            <img 
+                                src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Emblem_of_India.svg/220px-Emblem_of_India.svg.png" 
+                                alt="Emblem of India" 
+                                className="h-16 w-auto"
+                            />
+                            <div>
+                                <h1 className="text-2xl font-bold text-primary mb-0.5">Bharat E-Vote</h1>
+                                <p className="text-sm font-semibold text-gray-600 uppercase tracking-widest">Election Commission of India</p>
+                            </div>
                         </div>
-                        <h3>Voter Turnout</h3>
-                        <p>Current polling participation status</p>
-                        <div className="turnout-bar">
-                            <div className="turnout-fill" style={{ width: '45%' }}></div>
-                        </div>
-                        <div className="turnout-label">
-                            <span>0%</span>
-                            <span className="highlight" style={{ fontSize: '1.2rem' }}>45% Polling Completed</span>
-                            <span>100%</span>
-                        </div>
-                        <p style={{ fontSize: '0.85rem', color: '#777', marginTop: '0.5rem' }}>
-                            * Results will be declared after polls close
-                        </p>
-                    </div>
-
-                    {/* Helpdesk Card */}
-                    <div className="info-card">
-                        <div className="info-card-icon">
-                            <i className="fa-solid fa-headset"></i>
-                        </div>
-                        <h3>Voter Helpdesk</h3>
-                        <p>Need assistance? We're here to help 24/7</p>
-                        <span className="helpdesk-number">1950</span>
-                        <p className="helpdesk-note">Toll-Free | Available in 22 Languages</p>
-                        <div style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#555' }}>
-                            <p><i className="fa-solid fa-envelope"></i> complaints@eci.gov.in</p>
+                        <div className="hidden md:flex items-center gap-6">
+                            <nav className="flex gap-6 font-medium text-gray-700">
+                                <a href="#" className="text-primary border-b-2 border-primary pb-1 focus:outline-none hover:text-primary-800">Home</a>
+                                <a href="#" className="hover:text-primary transition-colors focus:outline-none focus:border-b-2 focus:border-accent-saffron pb-1">Guidelines</a>
+                                <a href="#" className="hover:text-primary transition-colors focus:outline-none focus:border-b-2 focus:border-accent-saffron pb-1">Voter Search</a>
+                                <a href="#" className="hover:text-primary transition-colors focus:outline-none focus:border-b-2 focus:border-accent-saffron pb-1">Help Desk</a>
+                            </nav>
                         </div>
                     </div>
                 </div>
-            </section>
+            </header>
 
-            {/* Guidelines Section */}
-            <section style={{ padding: '3rem 5%', background: '#F5F7FA' }}>
-                <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-                    <h2 style={{ textAlign: 'center', color: '#000080', marginBottom: '2rem' }}>
-                        Voting Guidelines
-                    </h2>
-                    <div className="info-grid">
-                        <div className="info-card" style={{ borderTop: '4px solid #FF9933' }}>
-                            <h3><i className="fa-solid fa-id-card" style={{ color: '#FF9933', marginRight: '0.5rem' }}></i> Step 1: Verify Identity</h3>
-                            <p>Login using your Aadhaar number and complete OTP verification sent to your registered mobile.</p>
+            <main id="main-content" className="flex-grow">
+                {/* Hero Section */}
+                <section className="bg-white relative overflow-hidden border-b border-gray-200">
+                    {/* Background accents */}
+                    <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-primary-50 to-transparent opacity-50 z-0 pointer-events-none"></div>
+                    <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-accent-saffron via-white to-accent-green z-10"></div>
+                    
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24 relative z-10 flex flex-col lg:flex-row items-center gap-12">
+                        <div className="w-full lg:w-3/5 space-y-8">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-800 text-sm font-semibold">
+                                <i className="fa-solid fa-shield-halved text-primary"></i>
+                                GIGW 3.0 & WCAG 2.1 AA Compliant
+                            </div>
+                            
+                            <h2 className="text-4xl lg:text-5xl font-extrabold text-gray-900 leading-tight tracking-tight">
+                                Secure, Transparent, and <br/>
+                                <span className="text-primary block mt-2">Verifiable E-Voting</span>
+                            </h2>
+                            
+                            <p className="text-lg text-gray-600 max-w-2xl leading-relaxed">
+                                Empowering every Indian citizen with blockchain-backed digital voting. 
+                                Exercise your democratic right securely from anywhere using Aadhaar biometric authentication.
+                            </p>
+                            
+                            <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                                <button 
+                                    onClick={() => navigate('/login')} 
+                                    className="btn-primary text-lg px-8 py-4 shadow-lg shadow-primary/20 flex items-center justify-center gap-3"
+                                    aria-label="Login as Voter"
+                                >
+                                    <i className="fa-solid fa-right-to-bracket text-xl"></i>
+                                    Login to Vote
+                                </button>
+                                <button 
+                                    onClick={() => navigate('/signup')} 
+                                    className="btn-secondary text-lg px-8 py-4 flex items-center justify-center gap-3"
+                                    aria-label="Register New Voter"
+                                >
+                                    <i className="fa-solid fa-user-plus text-primary text-xl"></i>
+                                    New Voter Registration
+                                </button>
+                            </div>
                         </div>
-                        <div className="info-card" style={{ borderTop: '4px solid #FFFFFF' }}>
-                            <h3><i className="fa-solid fa-wallet" style={{ color: '#000080', marginRight: '0.5rem' }}></i> Step 2: Connect Wallet</h3>
-                            <p>Connect your MetaMask wallet for blockchain-based vote authentication and transparency.</p>
-                        </div>
-                        <div className="info-card" style={{ borderTop: '4px solid #138808' }}>
-                            <h3><i className="fa-solid fa-check-to-slot" style={{ color: '#138808', marginRight: '0.5rem' }}></i> Step 3: Cast Vote</h3>
-                            <p>Select your candidate and confirm. Your vote is encrypted and recorded on the blockchain.</p>
+                        
+                        <div className="w-full lg:w-2/5 flex justify-center lg:justify-end">
+                            <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-100 max-w-md w-full relative">
+                                <div className="absolute -top-4 -right-4 bg-accent-green text-white p-3 rounded-full shadow-lg">
+                                    <i className="fa-solid fa-lock text-xl"></i>
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-100 pb-4">Digital Electoral Process</h3>
+                                <ul className="space-y-4">
+                                    <li className="flex items-start gap-3">
+                                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-accent-saffron/10 text-accent-saffron flex items-center justify-center font-bold">1</div>
+                                        <div>
+                                            <p className="font-semibold text-gray-900">Aadhaar Verification</p>
+                                            <p className="text-sm text-gray-500">Identity verification via UIDAI</p>
+                                        </div>
+                                    </li>
+                                    <li className="flex items-start gap-3">
+                                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-100 text-primary flex items-center justify-center font-bold">2</div>
+                                        <div>
+                                            <p className="font-semibold text-gray-900">Wallet Authorization</p>
+                                            <p className="text-sm text-gray-500">Secure blockchain session creation</p>
+                                        </div>
+                                    </li>
+                                    <li className="flex items-start gap-3">
+                                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-accent-green/10 text-accent-green flex items-center justify-center font-bold">3</div>
+                                        <div>
+                                            <p className="font-semibold text-gray-900">Cast Ballot</p>
+                                            <p className="text-sm text-gray-500">Immutable vote recording</p>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </section>
+                </section>
+
+                {/* Features Grid */}
+                <section className="py-16 bg-gov-bg">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="text-center mb-12">
+                            <h2 className="text-3xl font-bold text-gray-900">Why Bharat E-Vote?</h2>
+                            <p className="mt-4 text-lg text-gray-600">Built on advanced blockchain technology for absolute integrity.</p>
+                        </div>
+                        
+                        <div className="grid md:grid-cols-3 gap-8">
+                            <div className="gov-card flex flex-col items-center text-center">
+                                <div className="w-16 h-16 rounded-2xl bg-blue-50 text-primary flex items-center justify-center mb-6 shadow-sm border border-blue-100">
+                                    <i className="fa-solid fa-link text-2xl"></i>
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-900 mb-3">Immutable Ledger</h3>
+                                <p className="text-gray-600 leading-relaxed">
+                                    Every vote is permanently recorded on a decentralized blockchain. It cannot be altered, deleted, or tampered with by anyone.
+                                </p>
+                            </div>
+                            
+                            <div className="gov-card flex flex-col items-center text-center">
+                                <div className="w-16 h-16 rounded-2xl bg-orange-50 text-accent-saffron flex items-center justify-center mb-6 shadow-sm border border-orange-100">
+                                    <i className="fa-solid fa-user-shield text-2xl"></i>
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-900 mb-3">Voter Privacy</h3>
+                                <p className="text-gray-600 leading-relaxed">
+                                    Advanced cryptography ensures your identity is securely detached from your vote, maintaining absolute ballot secrecy.
+                                </p>
+                            </div>
+                            
+                            <div className="gov-card flex flex-col items-center text-center">
+                                <div className="w-16 h-16 rounded-2xl bg-green-50 text-accent-green flex items-center justify-center mb-6 shadow-sm border border-green-100">
+                                    <i className="fa-solid fa-file-contract text-2xl"></i>
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-900 mb-3">Mathematical Proof</h3>
+                                <p className="text-gray-600 leading-relaxed">
+                                    Receive a unique cryptographic hash receipt to independently verify that your vote was included in the final tally.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                {/* Info Bar */}
+                <section className="bg-primary text-white py-12 border-t-4 border-accent-saffron">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="grid md:grid-cols-3 gap-8 text-center divide-y md:divide-y-0 md:divide-x divide-primary-800">
+                            <div className="px-4 py-2">
+                                <i className="fa-solid fa-headset text-3xl mb-4 text-primary-300"></i>
+                                <h4 className="text-lg font-bold mb-2">Voter Helpline</h4>
+                                <p className="text-2xl font-black text-white">1950</p>
+                                <p className="text-sm text-primary-200 mt-2">Toll-Free, 22 Languages</p>
+                            </div>
+                            <div className="px-4 pt-8 md:pt-2 pb-2">
+                                <i className="fa-solid fa-envelope-open-text text-3xl mb-4 text-primary-300"></i>
+                                <h4 className="text-lg font-bold mb-2">Email Support</h4>
+                                <p className="text-lg font-bold text-white">complaints@eci.gov.in</p>
+                                <p className="text-sm text-primary-200 mt-2">24/7 Response Time</p>
+                            </div>
+                            <div className="px-4 pt-8 md:pt-2 pb-2">
+                                <i className="fa-solid fa-building-flag text-3xl mb-4 text-primary-300"></i>
+                                <h4 className="text-lg font-bold mb-2">Registered Office</h4>
+                                <p className="text-sm text-white font-medium">Nirvachan Sadan</p>
+                                <p className="text-sm text-primary-200 mt-1">Ashoka Road, New Delhi 110001</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
 
             <Footer />
-        </>
+        </div>
     );
 }
 

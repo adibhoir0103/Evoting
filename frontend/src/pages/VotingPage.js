@@ -16,6 +16,29 @@ function VotingPage({ user, onUserUpdate }) {
     const [walletConnected, setWalletConnected] = useState(false);
     const [walletAddress, setWalletAddress] = useState('');
     const [selectedCandidate, setSelectedCandidate] = useState(null);
+    const [voterConstituencyInfo, setVoterConstituencyInfo] = useState(null);
+
+    const indianStates = [
+        { code: 1, name: 'Andhra Pradesh' }, { code: 2, name: 'Arunachal Pradesh' },
+        { code: 3, name: 'Assam' }, { code: 4, name: 'Bihar' },
+        { code: 5, name: 'Chhattisgarh' }, { code: 6, name: 'Goa' },
+        { code: 7, name: 'Gujarat' }, { code: 8, name: 'Haryana' },
+        { code: 9, name: 'Himachal Pradesh' }, { code: 10, name: 'Jharkhand' },
+        { code: 11, name: 'Karnataka' }, { code: 12, name: 'Kerala' },
+        { code: 13, name: 'Madhya Pradesh' }, { code: 14, name: 'Maharashtra' },
+        { code: 15, name: 'Manipur' }, { code: 16, name: 'Meghalaya' },
+        { code: 17, name: 'Mizoram' }, { code: 18, name: 'Nagaland' },
+        { code: 19, name: 'Odisha' }, { code: 20, name: 'Punjab' },
+        { code: 21, name: 'Rajasthan' }, { code: 22, name: 'Sikkim' },
+        { code: 23, name: 'Tamil Nadu' }, { code: 24, name: 'Telangana' },
+        { code: 25, name: 'Tripura' }, { code: 26, name: 'Uttar Pradesh' },
+        { code: 27, name: 'Uttarakhand' }, { code: 28, name: 'West Bengal' },
+        { code: 29, name: 'Delhi (NCT)' }, { code: 30, name: 'Jammu & Kashmir' },
+        { code: 31, name: 'Ladakh' }, { code: 32, name: 'Puducherry' },
+        { code: 33, name: 'Chandigarh' }, { code: 34, name: 'Andaman & Nicobar' },
+        { code: 35, name: 'Dadra & Nagar Haveli' }, { code: 36, name: 'Lakshadweep' }
+    ];
+    const getStateName = (code) => (indianStates.find(s => s.code === Number(code)) || {}).name || '';
 
     useEffect(() => {
         if (!user) {
@@ -70,17 +93,29 @@ function VotingPage({ user, onUserUpdate }) {
 
     const loadBlockchainData = async (service, address) => {
         try {
-            const [candidatesData, status, voted, authorized] = await Promise.all([
-                service.getAllCandidates(),
+            const [status, voted, authorized, vInfo] = await Promise.all([
                 service.isVotingActive(),
                 service.hasVoted(address),
-                service.isAuthorized(address)
+                service.isAuthorized(address),
+                service.getVoterInfo(address)
             ]);
 
-            setCandidates(candidatesData);
             setVotingActive(status);
             setHasVoted(voted || user?.hasVoted);
             setIsAuthorized(authorized);
+            setVoterConstituencyInfo(vInfo);
+
+            // Fetch candidates and filter based on constituency rules
+            // If vInfo.stateCode is 0, they can see all candidates marked 0 for state
+            // If candidate stateCode is 0, it applies to all states
+            const allCandidates = await service.getAllCandidates();
+            const filteredCandidates = allCandidates.filter(c => {
+                const stateMatch = c.stateCode === 0 || c.stateCode === vInfo.stateCode;
+                const constituencyMatch = c.constituencyCode === 0 || c.constituencyCode === vInfo.constituencyCode;
+                return stateMatch && constituencyMatch;
+            });
+
+            setCandidates(filteredCandidates);
         } catch (err) {
             setError('Failed to load voting data: ' + err.message);
         } finally {
@@ -322,7 +357,7 @@ function VotingPage({ user, onUserUpdate }) {
             <div className="candidates-grid">
                 {candidates.length === 0 ? (
                     <div className="auth-card" style={{ textAlign: 'center', gridColumn: '1 / -1' }}>
-                        <p style={{ color: '#555' }}>No candidates available</p>
+                        <p style={{ color: '#555' }}>No candidates available in your constituency</p>
                     </div>
                 ) : (
                     candidates.map(candidate => (
@@ -332,11 +367,17 @@ function VotingPage({ user, onUserUpdate }) {
                             onClick={() => votingActive && isAuthorized && confirmVote(candidate)}
                             style={{ cursor: votingActive && isAuthorized ? 'pointer' : 'not-allowed', opacity: votingActive && isAuthorized ? 1 : 0.6 }}
                         >
-                            <div className="candidate-avatar">
-                                {candidate.id}
+                            <div className="candidate-avatar" style={{ fontSize: '1.5rem', background: '#eef2f5', color: '#000080' }}>
+                                {candidate.partySymbol || <i className="fa-solid fa-user-tie"></i>}
                             </div>
                             <h3>{candidate.name}</h3>
-                            <p>Candidate #{candidate.id}</p>
+                            <p style={{ fontWeight: 'bold', color: '#138808', marginBottom: '0.2rem' }}>
+                                {candidate.partyName || 'Independent'}
+                            </p>
+                            <p style={{ fontSize: '0.8rem', color: '#777' }}>
+                                Candidate #{candidate.id}
+                                {candidate.stateCode ? ` | ${getStateName(candidate.stateCode)}` : ' | National'}
+                            </p>
                             {votingActive && isAuthorized && (
                                 <button className="btn btn-primary" style={{ marginTop: '1rem' }}>
                                     Select Candidate
@@ -363,11 +404,17 @@ function VotingPage({ user, onUserUpdate }) {
                             textAlign: 'center',
                             marginBottom: '1.5rem'
                         }}>
-                            <div className="candidate-avatar" style={{ margin: '0 auto 1rem' }}>
-                                {selectedCandidate.id}
+                            <div className="candidate-avatar" style={{ margin: '0 auto 1rem', fontSize: '2rem', background: '#eef2f5', color: '#000080' }}>
+                                {selectedCandidate.partySymbol || <i className="fa-solid fa-user-tie"></i>}
                             </div>
-                            <h3 style={{ color: '#000080' }}>{selectedCandidate.name}</h3>
-                            <p style={{ color: '#555' }}>Candidate #{selectedCandidate.id}</p>
+                            <h3 style={{ color: '#000080', marginBottom: '0.2rem' }}>{selectedCandidate.name}</h3>
+                            <p style={{ fontWeight: 'bold', color: '#138808', fontSize: '1.1rem', marginBottom: '0.5rem' }}>
+                                {selectedCandidate.partyName || 'Independent'}
+                            </p>
+                            <p style={{ color: '#555', fontSize: '0.9rem' }}>
+                                Candidate #{selectedCandidate.id}
+                                {selectedCandidate.stateCode ? ` | ${getStateName(selectedCandidate.stateCode)} Constituency: ${selectedCandidate.constituencyCode}` : ' | National List'}
+                            </p>
                         </div>
 
                         <div style={{
