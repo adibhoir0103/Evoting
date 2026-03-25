@@ -7,49 +7,6 @@ function LandingPage() {
 
     return (
         <div className="flex flex-col min-h-screen bg-gov-bg font-sans">
-            {/* GOI Top Banner */}
-            <div className="bg-gray-100 border-b border-gray-200 py-1 px-4 sm:px-6 lg:px-8 text-xs font-medium text-gray-600 flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                    <span className="text-gray-500">🇮🇳</span>
-                    <span>भारत सरकार | Government of India</span>
-                </div>
-                <div className="hidden sm:flex gap-4">
-                    <a href="#main-content" className="hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-accent-saffron">Skip to main content</a>
-                    <div className="flex items-center gap-2 border-l border-gray-300 pl-4">
-                        <button className="px-1.5 py-0.5 bg-white border border-gray-300 rounded text-[10px] hover:bg-gray-50 font-bold focus:outline-none focus:ring-2 focus:ring-accent-saffron">A-</button>
-                        <button className="px-1.5 py-0.5 bg-primary text-white border border-primary rounded text-[10px] hover:bg-primary-800 font-bold focus:outline-none focus:ring-2 focus:ring-accent-saffron">A</button>
-                        <button className="px-1.5 py-0.5 bg-white border border-gray-300 rounded text-[10px] hover:bg-gray-50 font-bold focus:outline-none focus:ring-2 focus:ring-accent-saffron">A+</button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Main Header */}
-            <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                    <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-4">
-                            <img 
-                                src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Emblem_of_India.svg/220px-Emblem_of_India.svg.png" 
-                                alt="Emblem of India" 
-                                className="h-16 w-auto"
-                            />
-                            <div>
-                                <h1 className="text-2xl font-bold text-primary mb-0.5">Bharat E-Vote</h1>
-                                <p className="text-sm font-semibold text-gray-600 uppercase tracking-widest">Election Commission of India</p>
-                            </div>
-                        </div>
-                        <div className="hidden md:flex items-center gap-6">
-                            <nav className="flex gap-6 font-medium text-gray-700">
-                                <a href="#" className="text-primary border-b-2 border-primary pb-1 focus:outline-none hover:text-primary-800">Home</a>
-                                <a href="#" className="hover:text-primary transition-colors focus:outline-none focus:border-b-2 focus:border-accent-saffron pb-1">Guidelines</a>
-                                <a href="#" className="hover:text-primary transition-colors focus:outline-none focus:border-b-2 focus:border-accent-saffron pb-1">Voter Search</a>
-                                <a href="#" className="hover:text-primary transition-colors focus:outline-none focus:border-b-2 focus:border-accent-saffron pb-1">Help Desk</a>
-                            </nav>
-                        </div>
-                    </div>
-                </div>
-            </header>
-
             <main id="main-content" className="flex-grow">
                 {/* Hero Section */}
                 <section className="bg-white relative overflow-hidden border-b border-gray-200">

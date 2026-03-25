@@ -180,7 +180,7 @@ function Navbar({ user, onLogout, isAdmin }) {
 
                     {/* Mobile Menu */}
                     {mobileMenuOpen && (
-                        <div className="md:hidden border-t border-gray-200 py-4 space-y-2">
+                        <div className="md:hidden absolute top-full left-0 w-full bg-white shadow-xl border-t border-gray-200 py-4 px-4 space-y-2 z-50">
                             <Link to="/" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Home</Link>
                             <Link to="/guidelines" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Guidelines</Link>
                             <Link to="/help" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Help</Link>
