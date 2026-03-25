@@ -8,7 +8,26 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const otpService = require('./services/otpService');
 
+const { createClient } = require('@supabase/supabase-js');
+
 const prisma = new PrismaClient();
+
+// Initialize Supabase Admin Client
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+let supabase;
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('❌ ERROR: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required in backend/.env for Auth.');
+} else {
+    // Admin client (bypasses RLS strictly for backend provisioning)
+    supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    });
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -119,8 +138,8 @@ const otpLimiter = rateLimit({
     legacyHeaders: false
 });
 
-// Auth middleware
-const authenticateToken = (req, res, next) => {
+// Auth middleware using Supabase
+const authenticateToken = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -128,13 +147,28 @@ const authenticateToken = (req, res, next) => {
         return res.status(401).json({ error: 'Access token required' });
     }
 
-    jwt.verify(token, EFFECTIVE_JWT_SECRET, (err, user) => {
-        if (err) {
-            return res.status(403).json({ error: 'Invalid or expired token' });
-        }
-        req.user = user;
+    const { data, error } = await supabase.auth.getUser(token);
+    
+    if (error || !data.user) {
+        return res.status(403).json({ error: 'Invalid or expired token' });
+    }
+
+    // Connect Supabase Auth Identity with Local Data Structure
+    try {
+        const localUser = await prisma.user.findUnique({ where: { email: data.user.email } });
+        if (!localUser) return res.status(403).json({ error: 'User demographic data not found' });
+        
+        req.user = {
+            id: localUser.id,
+            voterId: localUser.voter_id,
+            email: localUser.email,
+            auth_id: data.user.id
+        };
         next();
-    });
+    } catch (dbError) {
+        console.error('Session validation error:', dbError);
+        return res.status(500).json({ error: 'Database session validation error' });
+    }
 };
 
 // ===================== AUTH ROUTES =====================
@@ -204,16 +238,28 @@ app.post('/api/v1/auth/register', authLimiter, async (req, res) => {
             return res.status(400).json({ error: 'User with this email, voter ID, or Aadhaar number already exists' });
         }
 
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
+        // Create user in Supabase Auth
+        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+            email: cleanEmail,
+            password: password,
+            email_confirm: true,
+            user_metadata: {
+                fullname: cleanName,
+                voter_id: cleanVoterId
+            }
+        });
 
-        // Insert user
+        if (authError) {
+            return res.status(400).json({ error: authError.message });
+        }
+
+        // Insert user into local DB
         await prisma.user.create({
             data: {
                 fullname: cleanName,
                 voter_id: cleanVoterId,
                 email: cleanEmail,
-                password: hashedPassword,
+                password: null, // Password handled by Supabase
                 aadhaar_number: aadhaarNumber || null,
                 mobile_number: mobileNumber || null,
                 state_code: stateCode || 0,
@@ -239,32 +285,35 @@ app.post('/api/v1/auth/login', authLimiter, async (req, res) => {
             return res.status(400).json({ error: 'Email/Voter ID and password are required' });
         }
 
-        // Find user by email or voter_id
-        const user = await prisma.user.findFirst({
-            where: {
-                OR: [
-                    { email: identifier },
-                    { voter_id: identifier }
-                ]
-            }
+        let emailToLogin = identifier;
+        
+        // If identifier is not an email (e.g. voter_id), find the email from Prisma
+        if (!identifier.includes('@')) {
+            const userLookup = await prisma.user.findFirst({ where: { voter_id: identifier }, select: { email: true }});
+            if (!userLookup) return res.status(401).json({ error: 'Invalid credentials' });
+            emailToLogin = userLookup.email;
+        }
+
+        // Authenticate with Supabase
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+            email: emailToLogin,
+            password: password,
         });
 
-        if (!user || !user.password) {
+        if (authError || !authData.session) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // Check password
-        const validPassword = await bcrypt.compare(password, user.password);
-        if (!validPassword) {
+        // Fetch local demographic profile
+        const user = await prisma.user.findUnique({
+            where: { email: emailToLogin }
+        });
+
+        if (!user) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // Generate JWT
-        const token = jwt.sign(
-            { id: user.id, voterId: user.voter_id, email: user.email },
-            EFFECTIVE_JWT_SECRET,
-            { expiresIn: '4h' }
-        );
+        const token = authData.session.access_token;
 
         res.json({
             message: 'Login successful',
@@ -482,14 +531,18 @@ app.post('/api/v1/auth/send-otp', otpLimiter, async (req, res) => {
             }
         }
 
-        // Send OTP
-        const otpResult = await otpService.sendOTP(recipient, aadhaarNumber, method, user.fullname);
+        // Send OTP via Supabase
+        const { data, error } = await supabase.auth.signInWithOtp({
+            email: recipient
+        });
+
+        if (error) {
+            return res.status(400).json({ error: error.message });
+        }
 
         res.json({
-            message: otpResult.message,
-            method: otpResult.method,
-            // Only include demo OTP in development mode
-            ...(process.env.NODE_ENV !== 'production' && { demoOTP: otpResult.demoOTP })
+            message: `OTP securely sent via Supabase to ${method}`,
+            method: method
         });
     } catch (error) {
         console.error('Send OTP error:', error);
@@ -506,14 +559,7 @@ app.post('/api/v1/auth/verify-otp', authLimiter, async (req, res) => {
             return res.status(400).json({ error: 'Aadhaar number and OTP are required' });
         }
 
-        // Verify OTP
-        const verifyResult = otpService.verifyOTP(aadhaarNumber, otp);
-
-        if (!verifyResult.success) {
-            return res.status(400).json({ error: verifyResult.message });
-        }
-
-        // Get user details
+        // Find user to map Aadhaar to Email
         const user = await prisma.user.findFirst({
             where: { aadhaar_number: aadhaarNumber }
         });
@@ -522,16 +568,20 @@ app.post('/api/v1/auth/verify-otp', authLimiter, async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        // Generate JWT
-        const token = jwt.sign(
-            { id: user.id, voterId: user.voter_id, email: user.email },
-            EFFECTIVE_JWT_SECRET,
-            { expiresIn: '4h' }
-        );
+        // Verify OTP via Supabase
+        const { data: authData, error: authError } = await supabase.auth.verifyOtp({
+            email: user.email,
+            token: otp,
+            type: 'email'
+        });
+
+        if (authError || !authData?.session) {
+            return res.status(400).json({ error: 'Invalid or expired OTP' });
+        }
 
         res.json({
             message: 'OTP verified. Login successful!',
-            token,
+            token: authData.session.access_token,
             user: {
                 id: user.id,
                 fullname: user.fullname,
