@@ -7,7 +7,7 @@
  * Uses Web Crypto API + BigInt for Pedersen commitments and Schnorr proofs.
  */
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
 
 // Prime field constants (must match ZKPVoting.sol and backend zkpService.js)
 const PRIME = BigInt('0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141');

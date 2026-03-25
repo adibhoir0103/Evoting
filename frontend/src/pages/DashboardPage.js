@@ -4,7 +4,7 @@ import { authService } from '../services/authService';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
 
 function DashboardPage({ user, onUserUpdate }) {
     const navigate = useNavigate();

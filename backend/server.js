@@ -235,7 +235,7 @@ const authenticateToken = (req, res, next) => {
 // ===================== AUTH ROUTES =====================
 
 // Update User Profile (Father's Name, Gender, DOB, Address)
-app.put('/api/user/profile', authenticateToken, (req, res) => {
+app.('/api/v1/user/profile', authenticateToken, (req, res) => {
     try {
         const { fatherName, gender, dob, address } = req.body;
         const updates = [];
@@ -276,7 +276,7 @@ app.put('/api/user/profile', authenticateToken, (req, res) => {
 });
 
 // Register new user
-app.post('/api/auth/register', authLimiter, async (req, res) => {
+app.('/api/v1/auth/register', authLimiter, async (req, res) => {
     try {
         const { fullname, voterId, email, password, aadhaarNumber, mobileNumber, stateCode, constituencyCode } = req.body;
 
@@ -328,7 +328,7 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
 });
 
 // Login
-app.post('/api/auth/login', authLimiter, async (req, res) => {
+app.('/api/v1/auth/login', authLimiter, async (req, res) => {
     try {
         const { identifier, password } = req.body;
 
@@ -383,7 +383,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
 });
 
 // Get current user
-app.get('/api/auth/me', authenticateToken, (req, res) => {
+app.('/api/v1/auth/me', authenticateToken, (req, res) => {
     try {
         const results = safeQuery(
             'SELECT id, fullname, voter_id, email, wallet_address, has_voted, father_name, gender, dob FROM users WHERE id = ?',
@@ -416,7 +416,7 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
 // ===================== WALLET ROUTES =====================
 
 // Link wallet address to user
-app.post('/api/user/link-wallet', authenticateToken, (req, res) => {
+app.('/api/v1/user/link-wallet', authenticateToken, (req, res) => {
     try {
         const { walletAddress } = req.body;
 
@@ -437,7 +437,7 @@ app.post('/api/user/link-wallet', authenticateToken, (req, res) => {
 // ===================== VOTE ROUTES =====================
 
 // Record vote (after blockchain transaction)
-app.post('/api/vote/record', authenticateToken, (req, res) => {
+app.('/api/v1/vote/record', authenticateToken, (req, res) => {
     try {
         const { candidateId, txHash } = req.body;
 
@@ -469,7 +469,7 @@ app.post('/api/vote/record', authenticateToken, (req, res) => {
 });
 
 // Check if user has voted
-app.get('/api/vote/status', authenticateToken, (req, res) => {
+app.('/api/v1/vote/status', authenticateToken, (req, res) => {
     try {
         const results = safeQuery('SELECT has_voted FROM users WHERE id = ?', [req.user.id]);
         const hasVoted = results.length > 0 && results[0].has_voted === 1;
@@ -481,7 +481,7 @@ app.get('/api/vote/status', authenticateToken, (req, res) => {
 });
 
 // Get vote receipt (for dashboard display)
-app.get('/api/vote/receipt', authenticateToken, (req, res) => {
+app.('/api/v1/vote/receipt', authenticateToken, (req, res) => {
     try {
         const results = safeQuery(
             'SELECT candidate_id, tx_hash, voted_at FROM votes WHERE voter_id = ?',
@@ -497,7 +497,7 @@ app.get('/api/vote/receipt', authenticateToken, (req, res) => {
 // ===================== AADHAAR OTP ROUTES =====================
 
 // Send OTP via email or mobile
-app.post('/api/auth/send-otp', otpLimiter, async (req, res) => {
+app.('/api/v1/auth/send-otp', otpLimiter, async (req, res) => {
     try {
         const { aadhaarNumber, email, mobileNumber, method = 'email' } = req.body;
         console.log('DEBUG: Received OTP Request:', { aadhaarNumber, email, mobileNumber, method });
@@ -570,7 +570,7 @@ app.post('/api/auth/send-otp', otpLimiter, async (req, res) => {
 });
 
 // Verify OTP and login
-app.post('/api/auth/verify-otp', authLimiter, async (req, res) => {
+app.('/api/v1/auth/verify-otp', authLimiter, async (req, res) => {
     try {
         const { aadhaarNumber, otp } = req.body;
 
@@ -634,7 +634,7 @@ if (!ADMIN_PASSWORD_HASH) {
 const EFFECTIVE_ADMIN_HASH = ADMIN_PASSWORD_HASH || bcrypt.hashSync('admin123', 10);
 
 // Admin login
-app.post('/api/admin/login', authLimiter, async (req, res) => {
+app.('/api/v1/admin/login', authLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
 
@@ -699,7 +699,7 @@ const authenticateAdmin = (req, res, next) => {
 };
 
 // Get all registered users (Admin only)
-app.get('/api/admin/users', authenticateAdmin, (req, res) => {
+app.('/api/v1/admin/users', authenticateAdmin, (req, res) => {
     try {
         const result = db.exec('SELECT id, fullname, voter_id, email, aadhaar_number, mobile_number, wallet_address, state_code, constituency_code, has_voted, created_at FROM users');
 
@@ -722,7 +722,7 @@ app.get('/api/admin/users', authenticateAdmin, (req, res) => {
 });
 
 // Get all votes (Admin only)
-app.get('/api/admin/votes', authenticateAdmin, (req, res) => {
+app.('/api/v1/admin/votes', authenticateAdmin, (req, res) => {
     try {
         const result = db.exec('SELECT * FROM votes');
 
@@ -745,7 +745,7 @@ app.get('/api/admin/votes', authenticateAdmin, (req, res) => {
 });
 
 // Get statistics (Admin only)
-app.get('/api/admin/stats', authenticateAdmin, (req, res) => {
+app.('/api/v1/admin/stats', authenticateAdmin, (req, res) => {
     try {
         const usersResult = db.exec('SELECT COUNT(*) as total FROM users');
         const votedResult = db.exec('SELECT COUNT(*) as voted FROM users WHERE has_voted = 1');
@@ -781,7 +781,7 @@ function logAdminAction(adminEmail, action, details, ip) {
 }
 
 // Get admin audit log
-app.get('/api/admin/audit-log', authenticateAdmin, (req, res) => {
+app.('/api/v1/admin/audit-log', authenticateAdmin, (req, res) => {
     try {
         const result = db.exec('SELECT * FROM admin_audit_log ORDER BY created_at DESC LIMIT 100');
         if (result.length === 0) return res.json({ logs: [] });
@@ -805,7 +805,7 @@ const zkpService = require('./services/zkpService');
 const ipfsService = require('./services/ipfsService');
 
 // Get ZKP status
-app.get('/api/zkp/status', apiLimiter, (req, res) => {
+app.('/api/v1/zkp/status', apiLimiter, (req, res) => {
     res.json({
         zkpEnabled: true,
         electionId: 'bharat-evote-2026',
@@ -814,7 +814,7 @@ app.get('/api/zkp/status', apiLimiter, (req, res) => {
 });
 
 // Generate vote commitment
-app.post('/api/zkp/generate-commitment', zkpLimiter, authenticateToken, (req, res) => {
+app.('/api/v1/zkp/generate-commitment', zkpLimiter, authenticateToken, (req, res) => {
     try {
         const { candidateId } = req.body;
         if (!candidateId || candidateId < 1) {
@@ -834,7 +834,7 @@ app.post('/api/zkp/generate-commitment', zkpLimiter, authenticateToken, (req, re
 });
 
 // Generate ZK proof
-app.post('/api/zkp/generate-proof', zkpLimiter, authenticateToken, (req, res) => {
+app.('/api/v1/zkp/generate-proof', zkpLimiter, authenticateToken, (req, res) => {
     try {
         const { candidateId, randomness, candidatesCount, commitment, nullifierHash } = req.body;
 
@@ -857,7 +857,7 @@ app.post('/api/zkp/generate-proof', zkpLimiter, authenticateToken, (req, res) =>
 });
 
 // Generate nullifier
-app.post('/api/zkp/generate-nullifier', zkpLimiter, authenticateToken, (req, res) => {
+app.('/api/v1/zkp/generate-nullifier', zkpLimiter, authenticateToken, (req, res) => {
     try {
         const { voterSecret, electionId } = req.body;
 
@@ -881,7 +881,7 @@ app.post('/api/zkp/generate-nullifier', zkpLimiter, authenticateToken, (req, res
 });
 
 // Verify ZK proof (public endpoint — rate limited to prevent proof-grinding)
-app.post('/api/zkp/verify-proof', zkpLimiter, (req, res) => {
+app.('/api/v1/zkp/verify-proof', zkpLimiter, (req, res) => {
     try {
         const { commitment, nullifierHash, proof, candidatesCount } = req.body;
 
@@ -910,7 +910,7 @@ app.post('/api/zkp/verify-proof', zkpLimiter, (req, res) => {
 });
 
 // Generate complete vote package
-app.post('/api/zkp/generate-vote-package', zkpLimiter, authenticateToken, (req, res) => {
+app.('/api/v1/zkp/generate-vote-package', zkpLimiter, authenticateToken, (req, res) => {
     try {
         const { candidateId, voterSecret, candidatesCount, electionId } = req.body;
 
@@ -936,7 +936,7 @@ app.post('/api/zkp/generate-vote-package', zkpLimiter, authenticateToken, (req, 
 // ===================== IPFS ROUTES =====================
 
 // Pin vote metadata to IPFS
-app.post('/api/ipfs/pin-vote', ipfsLimiter, authenticateToken, async (req, res) => {
+app.('/api/v1/ipfs/pin-vote', ipfsLimiter, authenticateToken, async (req, res) => {
     try {
         const { commitment, nullifierHash, timestamp } = req.body;
 
@@ -968,7 +968,7 @@ app.post('/api/ipfs/pin-vote', ipfsLimiter, authenticateToken, async (req, res) 
 });
 
 // Pin candidate metadata to IPFS
-app.post('/api/ipfs/pin-candidate', ipfsLimiter, authenticateAdmin, async (req, res) => {
+app.('/api/v1/ipfs/pin-candidate', ipfsLimiter, authenticateAdmin, async (req, res) => {
     try {
         const { id, name, partyName, partySymbol, stateCode, constituencyCode } = req.body;
 
@@ -992,7 +992,7 @@ app.post('/api/ipfs/pin-candidate', ipfsLimiter, authenticateAdmin, async (req, 
 });
 
 // Retrieve from IPFS
-app.get('/api/ipfs/:hash', apiLimiter, async (req, res) => {
+app.('/api/v1/ipfs/:hash', apiLimiter, async (req, res) => {
     try {
         const hash = req.params.hash;
         if (!isValidIPFSHash(hash)) {
@@ -1008,7 +1008,7 @@ app.get('/api/ipfs/:hash', apiLimiter, async (req, res) => {
 });
 
 // List all pinned items
-app.get('/api/ipfs', apiLimiter, authenticateAdmin, async (req, res) => {
+app.('/api/v1/ipfs', apiLimiter, authenticateAdmin, async (req, res) => {
     try {
         const pins = await ipfsService.listPins();
         res.json({ pins });
@@ -1021,7 +1021,7 @@ app.get('/api/ipfs', apiLimiter, authenticateAdmin, async (req, res) => {
 // ===================== META-TX RELAY =====================
 
 // Relay a gasless meta-transaction
-app.post('/api/meta-tx/relay', metaTxLimiter, authenticateToken, async (req, res) => {
+app.('/api/v1/meta-tx/relay', metaTxLimiter, authenticateToken, async (req, res) => {
     try {
         const { request, signature } = req.body;
 

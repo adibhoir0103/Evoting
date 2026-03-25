@@ -73,7 +73,7 @@ function ZKPVerificationPanel({
         setError('');
         try {
             if (ipfsHash) {
-                const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/ipfs/${ipfsHash}`);
+                const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1'}/ipfs/${ipfsHash}`);
                 if (response.ok) {
                     const data = await response.json();
                     setIpfsVerified(true);

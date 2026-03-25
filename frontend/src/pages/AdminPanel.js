@@ -72,9 +72,9 @@ function AdminPanel() {
             const headers = { 'Authorization': `Bearer ${adminToken}` };
 
             const [statsRes, usersRes, votesRes] = await Promise.all([
-                fetch('http://localhost:5000/api/admin/stats', { headers }),
-                fetch('http://localhost:5000/api/admin/users', { headers }),
-                fetch('http://localhost:5000/api/admin/votes', { headers })
+                fetch('http://localhost:5000/api/v1/admin/stats', { headers }),
+                fetch('http://localhost:5000/api/v1/admin/users', { headers }),
+                fetch('http://localhost:5000/api/v1/admin/votes', { headers })
             ]);
 
             // Server-side token validation: redirect if unauthorized
