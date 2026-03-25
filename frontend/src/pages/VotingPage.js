@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BlockchainService } from '../services/blockchainService';
 import { authService } from '../services/authService';
+import { zkpClientService } from '../services/zkpService';
+import ZKPVerificationPanel from '../components/ZKPVerificationPanel';
 
 function VotingPage({ user, onUserUpdate }) {
     const navigate = useNavigate();
@@ -17,6 +19,12 @@ function VotingPage({ user, onUserUpdate }) {
     const [walletAddress, setWalletAddress] = useState('');
     const [selectedCandidate, setSelectedCandidate] = useState(null);
     const [voterConstituencyInfo, setVoterConstituencyInfo] = useState(null);
+
+    // ZKP State
+    const [zkpMode, setZkpMode] = useState(false);
+    const [zkpVoteData, setZkpVoteData] = useState(null);
+    const [showVerification, setShowVerification] = useState(false);
+    const [voterSecret, setVoterSecret] = useState('');
 
     const indianStates = [
         { code: 1, name: 'Andhra Pradesh' }, { code: 2, name: 'Arunachal Pradesh' },
@@ -139,25 +147,120 @@ function VotingPage({ user, onUserUpdate }) {
             setError('');
 
             const service = BlockchainService.getInstance();
-            const receipt = await service.vote(selectedCandidate.id);
 
-            await authService.recordVote(selectedCandidate.id, receipt.hash);
-
-            setSuccess('Vote cast successfully! Thank you for participating.');
-            setHasVoted(true);
-            setSelectedCandidate(null);
-
-            if (onUserUpdate) {
-                onUserUpdate({ ...user, hasVoted: true });
+            // Check if ZKP mode is enabled
+            let isZKP = false;
+            try {
+                isZKP = await service.isZKPEnabled();
+            } catch (e) {
+                // ZKP check failed, proceed with legacy
             }
 
-            await loadBlockchainData(BlockchainService.getInstance(), walletAddress);
+            if (isZKP && voterSecret) {
+                // ===== ZKP VOTING FLOW =====
+                // Step 1: Generate vote package locally (privacy preserved)
+                const votePackage = await zkpClientService.generateVotePackage(
+                    selectedCandidate.id,
+                    voterSecret,
+                    candidates.length,
+                    'bharat-evote-2026'
+                );
+
+                // Step 2: Pin vote metadata to IPFS
+                let ipfsHash = '';
+                try {
+                    const ipfsResult = await zkpClientService.pinVoteToIPFS(
+                        votePackage.commitment,
+                        votePackage.nullifierHash
+                    );
+                    ipfsHash = ipfsResult.ipfsHash || '';
+                } catch (e) {
+                    console.log('IPFS pinning skipped:', e.message);
+                }
+
+                // Step 3: Submit encrypted vote to blockchain
+                const receipt = await service.submitEncryptedVote(
+                    votePackage.commitment,
+                    votePackage.nullifierHash,
+                    votePackage.identityCommitment,
+                    votePackage.proof,
+                    ipfsHash
+                );
+
+                // Step 4: Record in backend database
+                await authService.recordVote(selectedCandidate.id, receipt.hash);
+
+                // Step 5: Show COMPULSORY verification panel
+                setZkpVoteData({
+                    nullifierHash: votePackage.nullifierHash,
+                    commitment: votePackage.commitment,
+                    ipfsHash: ipfsHash,
+                    txHash: receipt.hash
+                });
+                setShowVerification(true);
+                setSelectedCandidate(null);
+            } else {
+                // ===== LEGACY VOTING FLOW =====
+                const receipt = await service.vote(selectedCandidate.id);
+                await authService.recordVote(selectedCandidate.id, receipt.hash);
+
+                setSuccess('Vote cast successfully! Thank you for participating.');
+                setHasVoted(true);
+                setSelectedCandidate(null);
+
+                if (onUserUpdate) {
+                    onUserUpdate({ ...user, hasVoted: true });
+                }
+
+                await loadBlockchainData(BlockchainService.getInstance(), walletAddress);
+            }
         } catch (err) {
             setError(err.message || 'Failed to cast vote');
         } finally {
             setTxLoading(false);
         }
     };
+
+    const handleVerificationComplete = () => {
+        setShowVerification(false);
+        setSuccess('Vote cast and verified successfully via Zero-Knowledge Proof! Thank you for participating.');
+        setHasVoted(true);
+        if (onUserUpdate) {
+            onUserUpdate({ ...user, hasVoted: true });
+        }
+    };
+
+    // ===== ZKP COMPULSORY VERIFICATION SCREEN =====
+    if (showVerification && zkpVoteData) {
+        return (
+            <div className="voting-container">
+                <nav className="govt-navbar">
+                    <div className="navbar-top">
+                        <span>भारत निर्वाचन आयोग | Election Commission of India</span>
+                    </div>
+                    <div className="navbar-main">
+                        <Link to="/" className="navbar-brand">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" alt="National Emblem" />
+                            <div className="brand-text">
+                                <span className="title">Election Commission of India</span>
+                                <span className="subtitle">ZKP Vote Verification</span>
+                            </div>
+                        </Link>
+                    </div>
+                </nav>
+
+                <div style={{ padding: '2rem 1rem' }}>
+                    <ZKPVerificationPanel
+                        nullifierHash={zkpVoteData.nullifierHash}
+                        commitment={zkpVoteData.commitment}
+                        ipfsHash={zkpVoteData.ipfsHash}
+                        blockchainService={BlockchainService.getInstance()}
+                        onVerificationComplete={handleVerificationComplete}
+                    />
+                </div>
+            </div>
+        );
+    }
 
     // Render wallet connection screen
     if (!walletConnected && !loading) {

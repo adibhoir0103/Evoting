@@ -511,6 +511,228 @@ export class BlockchainService {
             return new Error('Voting period has ended');
         }
 
+        if (error.message.includes('ZKP mode')) {
+            return new Error('ZKP mode is active: use the ZKP voting contract instead');
+        }
+
         return error;
     }
+
+    // ============ ZKP Functions ============
+
+    /**
+     * Check if ZKP mode is enabled on the main Voting contract
+     */
+    async isZKPEnabled() {
+        try {
+            return await this.contract.zkpEnabled();
+        } catch (error) {
+            console.error('Error checking ZKP mode:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Enable/disable ZKP mode (admin only)
+     */
+    async setZKPMode(enabled) {
+        try {
+            const tx = await this.contract.setZKPMode(enabled);
+            await tx.wait();
+            console.log(`✅ ZKP mode ${enabled ? 'enabled' : 'disabled'}`);
+            return true;
+        } catch (error) {
+            console.error('Error setting ZKP mode:', error);
+            throw this.handleError(error);
+        }
+    }
+
+    /**
+     * Set trusted forwarder for ERC-2771 meta-transactions
+     */
+    async setTrustedForwarder(forwarderAddress) {
+        try {
+            const tx = await this.contract.setTrustedForwarder(forwarderAddress);
+            await tx.wait();
+            console.log('✅ Trusted forwarder set:', forwarderAddress);
+            return true;
+        } catch (error) {
+            console.error('Error setting trusted forwarder:', error);
+            throw this.handleError(error);
+        }
+    }
+
+    /**
+     * Set election IPFS metadata hash
+     */
+    async setElectionIPFSHash(ipfsHash) {
+        try {
+            const tx = await this.contract.setElectionIPFSHash(ipfsHash);
+            await tx.wait();
+            console.log('✅ Election IPFS hash set:', ipfsHash);
+            return true;
+        } catch (error) {
+            console.error('Error setting IPFS hash:', error);
+            throw this.handleError(error);
+        }
+    }
+
+    // ============ ZKP Contract Functions ============
+
+    /**
+     * Initialize the ZKP voting contract
+     */
+    async initZKPContract(zkpContractAddress, zkpAbi) {
+        try {
+            if (!this.signer) {
+                await this.connectWallet();
+            }
+            this.zkpContract = new ethers.Contract(zkpContractAddress, zkpAbi, this.signer);
+            console.log('✅ ZKP contract initialized at:', zkpContractAddress);
+            return true;
+        } catch (error) {
+            console.error('Error initializing ZKP contract:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Submit an encrypted ZKP vote
+     */
+    async submitEncryptedVote(commitment, nullifierHash, identityCommitment, proof, ipfsHash) {
+        try {
+            const contract = this.zkpContract || this.contract;
+            const proofArray = proof.map(p => BigInt(p));
+            
+            const tx = await contract.submitEncryptedVote(
+                commitment,
+                nullifierHash,
+                identityCommitment,
+                proofArray,
+                ipfsHash || ''
+            );
+            console.log('⏳ ZKP vote transaction sent:', tx.hash);
+            const receipt = await tx.wait();
+            console.log('✅ ZKP vote submitted successfully');
+            return receipt;
+        } catch (error) {
+            console.error('Error submitting ZKP vote:', error);
+            throw this.handleError(error);
+        }
+    }
+
+    /**
+     * Register an eligible voter via identity commitment (admin)
+     */
+    async registerEligibleVoter(identityCommitment) {
+        try {
+            const contract = this.zkpContract || this.contract;
+            const tx = await contract.registerEligibleVoter(identityCommitment);
+            await tx.wait();
+            console.log('✅ Voter registered with ZKP identity commitment');
+            return true;
+        } catch (error) {
+            console.error('Error registering ZKP voter:', error);
+            throw this.handleError(error);
+        }
+    }
+
+    /**
+     * Get ZKP vote receipt
+     */
+    async getZKVoteReceipt(nullifierHash) {
+        try {
+            const contract = this.zkpContract || this.contract;
+            const receipt = await contract.getZKVoteReceipt(nullifierHash);
+            return {
+                commitment: receipt[0],
+                timestamp: Number(receipt[1]),
+                ipfsHash: receipt[2],
+                verified: receipt[3]
+            };
+        } catch (error) {
+            console.error('Error getting ZKP receipt:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Verify vote inclusion in the tally
+     */
+    async verifyVoteInclusion(commitment) {
+        try {
+            const contract = this.zkpContract || this.contract;
+            const result = await contract.verifyVoteInclusion(commitment);
+            return {
+                included: result[0],
+                index: Number(result[1])
+            };
+        } catch (error) {
+            console.error('Error verifying inclusion:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get all commitments for universal verification
+     */
+    async getAllZKPCommitments() {
+        try {
+            const contract = this.zkpContract || this.contract;
+            return await contract.getAllCommitments();
+        } catch (error) {
+            console.error('Error getting commitments:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get ZKP election summary
+     */
+    async getElectionSummary() {
+        try {
+            const contract = this.zkpContract || this.contract;
+            const summary = await contract.getElectionSummary();
+            return {
+                totalZKPVotes: Number(summary[0]),
+                totalCommitments: Number(summary[1]),
+                totalNullifiers: Number(summary[2]),
+                zkpEnabled: summary[3],
+                electionId: summary[4]
+            };
+        } catch (error) {
+            console.error('Error getting election summary:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Check if a nullifier has been used
+     */
+    async isNullifierUsed(nullifierHash) {
+        try {
+            const contract = this.zkpContract || this.contract;
+            return await contract.isNullifierUsed(nullifierHash);
+        } catch (error) {
+            console.error('Error checking nullifier:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Mark a vote as verified
+     */
+    async markVoteVerified(nullifierHash) {
+        try {
+            const contract = this.zkpContract || this.contract;
+            const tx = await contract.markVoteVerified(nullifierHash);
+            await tx.wait();
+            console.log('✅ Vote marked as verified');
+            return true;
+        } catch (error) {
+            console.error('Error marking verified:', error);
+            throw this.handleError(error);
+        }
+    }
 }
+

@@ -1,0 +1,96 @@
+# Bharat E-Vote Subgraph Schema
+# Decentralized event indexing via The Graph
+
+type Candidate @entity {
+  id: ID!
+  candidateId: BigInt!
+  name: String!
+  partyName: String!
+  stateCode: Int!
+  constituencyCode: Int!
+  voteCount: BigInt!
+  ipfsMetadataHash: String
+  createdAt: BigInt!
+  blockNumber: BigInt!
+}
+
+type Vote @entity {
+  id: ID!
+  voter: Bytes!
+  candidateId: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type Voter @entity {
+  id: ID!
+  address: Bytes!
+  stateCode: Int!
+  constituencyCode: Int!
+  isAuthorized: Boolean!
+  hasVoted: Boolean!
+  authorizedAt: BigInt!
+}
+
+type VotingStatus @entity {
+  id: ID!
+  isActive: Boolean!
+  updatedAt: BigInt!
+}
+
+type VotingTimeline @entity {
+  id: ID!
+  startTime: BigInt!
+  endTime: BigInt!
+  setAt: BigInt!
+}
+
+# ZKP Entities
+
+type ZKPVote @entity {
+  id: ID!
+  nullifierHash: Bytes!
+  commitment: Bytes!
+  ipfsHash: String!
+  timestamp: BigInt!
+  verified: Boolean!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type EligibleVoter @entity {
+  id: ID!
+  identityCommitment: Bytes!
+  registeredAt: BigInt!
+  blockNumber: BigInt!
+}
+
+type VoteVerification @entity {
+  id: ID!
+  nullifierHash: Bytes!
+  isValid: Boolean!
+  verifiedAt: BigInt!
+}
+
+type ZKPStatus @entity {
+  id: ID!
+  enabled: Boolean!
+  updatedAt: BigInt!
+}
+
+type CandidateMetadata @entity {
+  id: ID!
+  candidateId: BigInt!
+  ipfsHash: String!
+  storedAt: BigInt!
+}
+
+type ElectionSummary @entity {
+  id: ID!
+  totalVotes: BigInt!
+  totalZKPVotes: BigInt!
+  totalCandidates: BigInt!
+  zkpEnabled: Boolean!
+  lastUpdated: BigInt!
+}

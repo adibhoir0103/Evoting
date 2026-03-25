@@ -17,6 +17,15 @@ contract Voting {
     uint256 public votingStartTime;
     uint256 public votingEndTime;
     bool public timelineEnabled;
+
+    // ZKP mode: when enabled, plain vote() reverts — must use ZKP path
+    bool public zkpEnabled;
+
+    // ERC-2771 trusted forwarder for gasless meta-transactions
+    address public trustedForwarder;
+
+    // IPFS metadata hash for election-level data
+    string public electionIPFSHash;
     
     // ============ Data Structures ============
     
@@ -79,6 +88,52 @@ contract Voting {
         admin = msg.sender;
         votingActive = false;
         timelineEnabled = false;
+        zkpEnabled = false;
+        trustedForwarder = address(0);
+    }
+
+    // ============ ERC-2771 Meta-Transaction Support ============
+
+    /**
+     * @dev Check if an address is the trusted forwarder
+     */
+    function isTrustedForwarder(address forwarder) public view returns (bool) {
+        return forwarder == trustedForwarder;
+    }
+
+    /**
+     * @dev Override msg.sender for ERC-2771 compatibility
+     */
+    function _msgSender() internal view returns (address sender) {
+        if (msg.data.length >= 20 && isTrustedForwarder(msg.sender)) {
+            assembly {
+                sender := shr(96, calldataload(sub(calldatasize(), 20)))
+            }
+        } else {
+            sender = msg.sender;
+        }
+    }
+
+    /**
+     * @dev Set trusted forwarder for gasless meta-transactions
+     */
+    function setTrustedForwarder(address _forwarder) external onlyAdmin {
+        trustedForwarder = _forwarder;
+    }
+
+    /**
+     * @dev Enable/disable ZKP mode
+     * When ZKP is enabled, plain vote() is disabled — voters must use ZKP contract
+     */
+    function setZKPMode(bool _enabled) external onlyAdmin {
+        zkpEnabled = _enabled;
+    }
+
+    /**
+     * @dev Set election-level IPFS metadata hash
+     */
+    function setElectionIPFSHash(string memory _hash) external onlyAdmin {
+        electionIPFSHash = _hash;
     }
     
     // ============ Admin Functions ============
@@ -233,7 +288,8 @@ contract Voting {
      * @notice Voter must be authorized, can only vote once, and constituency must match
      */
     function vote(uint256 _candidateId) public votingIsActive {
-        Voter storage voter = voters[msg.sender];
+        require(!zkpEnabled, "ZKP mode is active: use the ZKP voting contract instead");
+        Voter storage voter = voters[_msgSender()];
         
         // Security Check 1: Ensure voter is authorized
         require(voter.isAuthorized, "You are not authorized to vote");
@@ -260,7 +316,7 @@ contract Voting {
         // Increment candidate vote count
         candidate.voteCount++;
         
-        emit VoteCast(msg.sender, _candidateId);
+        emit VoteCast(_msgSender(), _candidateId);
     }
     
     // ============ View Functions ============
