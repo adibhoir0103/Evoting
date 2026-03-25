@@ -1,13 +1,55 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id               Int      @id @default(autoincrement())
+  fullname         String
+  voter_id         String   @unique
+  email            String   @unique
+  password         String?
+  aadhaar_number   String?  @unique
+  mobile_number    String?
+  wallet_address   String?
+  has_voted        Boolean  @default(false)
+  created_at       DateTime @default(now())
+  father_name      String?
+  gender           String?
+  dob              String?
+  state_code       Int      @default(0)
+  constituency_code Int     @default(0)
+  address          String?
+
+  votes            Vote[]
+}
+
+model Vote {
+  id           Int      @id @default(autoincrement())
+  voter_id     String
+  candidate_id Int
+  tx_hash      String?
+  voted_at     DateTime @default(now())
+
+  user         User     @relation(fields: [voter_id], references: [voter_id])
+}
+
+model AdminAuditLog {
+  id           Int      @id @default(autoincrement())
+  admin_email  String
+  action       String
+  details      String?
+  ip_address   String?
+  created_at   DateTime @default(now())
 }

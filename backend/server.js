@@ -3,12 +3,12 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const initSqlJs = require('sql.js');
-const fs = require('fs');
-const path = require('path');
+const { PrismaClient } = require('@prisma/client');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const otpService = require('./services/otpService');
+
+const prisma = new PrismaClient();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -17,21 +17,6 @@ if (!JWT_SECRET) {
     console.error('⚠️  WARNING: JWT_SECRET is not set. Using insecure default for development only.');
 }
 const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'dev-only-insecure-key-' + Date.now();
-const DB_PATH = path.join(__dirname, 'evoting.db');
-
-let db = null;
-
-// Helper: Safe parameterized SELECT query (prevents SQL injection)
-function safeQuery(sql, params = []) {
-    const stmt = db.prepare(sql);
-    stmt.bind(params);
-    const results = [];
-    while (stmt.step()) {
-        results.push(stmt.getAsObject());
-    }
-    stmt.free();
-    return results;
-}
 
 // Helper: Basic input sanitization (XSS prevention)
 function sanitize(str) {
@@ -57,87 +42,7 @@ function isValidIPFSHash(str) {
     return /^(Qm[a-zA-Z0-9]{44}|bafy[a-zA-Z0-9]{55,60})$/.test(str);
 }
 
-// Initialize SQLite database
-async function initDatabase() {
-    const SQL = await initSqlJs();
-
-    // Load existing database or create new
-    if (fs.existsSync(DB_PATH)) {
-        const fileBuffer = fs.readFileSync(DB_PATH);
-        db = new SQL.Database(fileBuffer);
-        console.log('✅ Database loaded from file');
-    } else {
-        db = new SQL.Database();
-        console.log('✅ New database created');
-    }
-
-    // Create tables
-    db.run(`
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            fullname TEXT NOT NULL,
-            voter_id TEXT UNIQUE NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            password TEXT,
-            aadhaar_number TEXT UNIQUE,
-            mobile_number TEXT,
-            wallet_address TEXT,
-            has_voted INTEGER DEFAULT 0,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-    db.run(`
-        CREATE TABLE IF NOT EXISTS votes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            voter_id TEXT NOT NULL,
-            candidate_id INTEGER NOT NULL,
-            tx_hash TEXT,
-            voted_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-    // Migration: Add father_name column if it doesn't exist
-    try {
-        db.run("ALTER TABLE users ADD COLUMN father_name TEXT");
-        console.log('✅ Migration: Added father_name column');
-    } catch (err) {
-        // Column likely exists
-    }
-
-    // Migration: Add gender and dob columns if they don't exist (future proofing)
-    try { db.run("ALTER TABLE users ADD COLUMN gender TEXT"); } catch (e) { }
-    try { db.run("ALTER TABLE users ADD COLUMN dob TEXT"); } catch (e) { }
-
-    // Migration: Add state_code and constituency_code for constituency-based voting
-    try { db.run("ALTER TABLE users ADD COLUMN state_code INTEGER DEFAULT 0"); console.log('✅ Migration: Added state_code column'); } catch (e) { }
-    try { db.run("ALTER TABLE users ADD COLUMN constituency_code INTEGER DEFAULT 0"); console.log('✅ Migration: Added constituency_code column'); } catch (e) { }
-
-    // Migration: Add address column for profile
-    try { db.run("ALTER TABLE users ADD COLUMN address TEXT"); console.log('✅ Migration: Added address column'); } catch (e) { }
-
-    // Admin audit log table
-    db.run(`
-        CREATE TABLE IF NOT EXISTS admin_audit_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            admin_email TEXT NOT NULL,
-            action TEXT NOT NULL,
-            details TEXT,
-            ip_address TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-    saveDatabase();
-    console.log('✅ Tables initialized');
-}
-
-// Save database to file
-function saveDatabase() {
-    const data = db.export();
-    const buffer = Buffer.from(data);
-    fs.writeFileSync(DB_PATH, buffer);
-}
+// Legacy SQLite functions removed
 
 // Security Middleware
 app.use(helmet({
@@ -235,38 +140,24 @@ const authenticateToken = (req, res, next) => {
 // ===================== AUTH ROUTES =====================
 
 // Update User Profile (Father's Name, Gender, DOB, Address)
-app.('/api/v1/user/profile', authenticateToken, (req, res) => {
+app.put('/api/v1/user/profile', authenticateToken, async (req, res) => {
     try {
         const { fatherName, gender, dob, address } = req.body;
-        const updates = [];
-        const params = [];
+        const updates = {};
+        
+        if (fatherName !== undefined) updates.father_name = sanitize(fatherName);
+        if (gender !== undefined) updates.gender = sanitize(gender);
+        if (dob !== undefined) updates.dob = sanitize(dob);
+        if (address !== undefined) updates.address = sanitize(address);
 
-        if (fatherName !== undefined) {
-            updates.push("father_name = ?");
-            params.push(sanitize(fatherName));
-        }
-        if (gender !== undefined) {
-            updates.push("gender = ?");
-            params.push(sanitize(gender));
-        }
-        if (dob !== undefined) {
-            updates.push("dob = ?");
-            params.push(sanitize(dob));
-        }
-        if (address !== undefined) {
-            updates.push("address = ?");
-            params.push(sanitize(address));
-        }
-
-        if (updates.length === 0) {
+        if (Object.keys(updates).length === 0) {
             return res.status(400).json({ error: 'No fields to update' });
         }
 
-        params.push(req.user.id);
-        const sql = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
-
-        db.run(sql, params);
-        saveDatabase();
+        await prisma.user.update({
+            where: { id: req.user.id },
+            data: updates
+        });
 
         res.json({ message: 'Profile updated successfully' });
     } catch (error) {
@@ -276,7 +167,7 @@ app.('/api/v1/user/profile', authenticateToken, (req, res) => {
 });
 
 // Register new user
-app.('/api/v1/auth/register', authLimiter, async (req, res) => {
+app.post('/api/v1/auth/register', authLimiter, async (req, res) => {
     try {
         const { fullname, voterId, email, password, aadhaarNumber, mobileNumber, stateCode, constituencyCode } = req.body;
 
@@ -298,25 +189,37 @@ app.('/api/v1/auth/register', authLimiter, async (req, res) => {
         const cleanVoterId = sanitize(voterId);
         const cleanEmail = email.trim().toLowerCase();
 
-        // Check if user exists (parameterized to prevent SQL injection)
-        const existingUser = safeQuery(
-            'SELECT id FROM users WHERE email = ? OR voter_id = ? OR (aadhaar_number IS NOT NULL AND aadhaar_number = ?)',
-            [cleanEmail, cleanVoterId, aadhaarNumber || '']
-        );
+        // Check if user exists using Prisma
+        const existingUser = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { email: cleanEmail },
+                    { voter_id: cleanVoterId },
+                    { aadhaar_number: aadhaarNumber ? aadhaarNumber : undefined }
+                ]
+            }
+        });
 
-        if (existingUser.length > 0) {
+        if (existingUser) {
             return res.status(400).json({ error: 'User with this email, voter ID, or Aadhaar number already exists' });
         }
 
-        // Hash password (optional for Aadhaar-only users)
-        const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Insert user with constituency info
-        db.run(
-            `INSERT INTO users (fullname, voter_id, email, password, aadhaar_number, mobile_number, state_code, constituency_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [cleanName, cleanVoterId, cleanEmail, hashedPassword, aadhaarNumber || null, mobileNumber || null, stateCode || 0, constituencyCode || 0]
-        );
-        saveDatabase();
+        // Insert user
+        await prisma.user.create({
+            data: {
+                fullname: cleanName,
+                voter_id: cleanVoterId,
+                email: cleanEmail,
+                password: hashedPassword,
+                aadhaar_number: aadhaarNumber || null,
+                mobile_number: mobileNumber || null,
+                state_code: stateCode || 0,
+                constituency_code: constituencyCode || 0
+            }
+        });
 
         res.status(201).json({
             message: 'Registration successful'
@@ -328,7 +231,7 @@ app.('/api/v1/auth/register', authLimiter, async (req, res) => {
 });
 
 // Login
-app.('/api/v1/auth/login', authLimiter, async (req, res) => {
+app.post('/api/v1/auth/login', authLimiter, async (req, res) => {
     try {
         const { identifier, password } = req.body;
 
@@ -336,17 +239,19 @@ app.('/api/v1/auth/login', authLimiter, async (req, res) => {
             return res.status(400).json({ error: 'Email/Voter ID and password are required' });
         }
 
-        // Find user by email or voter_id (parameterized to prevent SQL injection)
-        const results = safeQuery(
-            'SELECT * FROM users WHERE email = ? OR voter_id = ?',
-            [identifier, identifier]
-        );
+        // Find user by email or voter_id
+        const user = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { email: identifier },
+                    { voter_id: identifier }
+                ]
+            }
+        });
 
-        if (results.length === 0) {
+        if (!user || !user.password) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
-
-        const user = results[0];
 
         // Check password
         const validPassword = await bcrypt.compare(password, user.password);
@@ -369,7 +274,7 @@ app.('/api/v1/auth/login', authLimiter, async (req, res) => {
                 fullname: user.fullname,
                 voterId: user.voter_id,
                 email: user.email,
-                hasVoted: user.has_voted === 1,
+                hasVoted: user.has_voted,
                 walletAddress: user.wallet_address,
                 fatherName: user.father_name,
                 gender: user.gender,
@@ -383,25 +288,33 @@ app.('/api/v1/auth/login', authLimiter, async (req, res) => {
 });
 
 // Get current user
-app.('/api/v1/auth/me', authenticateToken, (req, res) => {
+app.get('/api/v1/auth/me', authenticateToken, async (req, res) => {
     try {
-        const results = safeQuery(
-            'SELECT id, fullname, voter_id, email, wallet_address, has_voted, father_name, gender, dob FROM users WHERE id = ?',
-            [req.user.id]
-        );
+        const user = await prisma.user.findUnique({
+            where: { id: req.user.id },
+            select: {
+                id: true,
+                fullname: true,
+                voter_id: true,
+                email: true,
+                wallet_address: true,
+                has_voted: true,
+                father_name: true,
+                gender: true,
+                dob: true
+            }
+        });
 
-        if (results.length === 0) {
+        if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
-
-        const user = results[0];
 
         res.json({
             id: user.id,
             fullname: user.fullname,
             voterId: user.voter_id,
             email: user.email,
-            hasVoted: user.has_voted === 1,
+            hasVoted: user.has_voted,
             walletAddress: user.wallet_address,
             fatherName: user.father_name,
             gender: user.gender,
@@ -416,7 +329,7 @@ app.('/api/v1/auth/me', authenticateToken, (req, res) => {
 // ===================== WALLET ROUTES =====================
 
 // Link wallet address to user
-app.('/api/v1/user/link-wallet', authenticateToken, (req, res) => {
+app.post('/api/v1/user/link-wallet', authenticateToken, async (req, res) => {
     try {
         const { walletAddress } = req.body;
 
@@ -424,8 +337,10 @@ app.('/api/v1/user/link-wallet', authenticateToken, (req, res) => {
             return res.status(400).json({ error: 'Wallet address is required' });
         }
 
-        db.run(`UPDATE users SET wallet_address = ? WHERE id = ?`, [walletAddress, req.user.id]);
-        saveDatabase();
+        await prisma.user.update({
+            where: { id: req.user.id },
+            data: { wallet_address: walletAddress }
+        });
 
         res.json({ message: 'Wallet linked successfully' });
     } catch (error) {
@@ -437,7 +352,7 @@ app.('/api/v1/user/link-wallet', authenticateToken, (req, res) => {
 // ===================== VOTE ROUTES =====================
 
 // Record vote (after blockchain transaction)
-app.('/api/v1/vote/record', authenticateToken, (req, res) => {
+app.post('/api/v1/vote/record', authenticateToken, async (req, res) => {
     try {
         const { candidateId, txHash } = req.body;
 
@@ -445,21 +360,30 @@ app.('/api/v1/vote/record', authenticateToken, (req, res) => {
             return res.status(400).json({ error: 'Candidate ID is required' });
         }
 
-        // Check if already voted (parameterized)
-        const userResult = safeQuery('SELECT has_voted FROM users WHERE id = ?', [req.user.id]);
-        if (userResult.length > 0 && userResult[0].has_voted === 1) {
+        // Check if already voted
+        const user = await prisma.user.findUnique({
+            where: { id: req.user.id },
+            select: { has_voted: true }
+        });
+        
+        if (user && user.has_voted) {
             return res.status(400).json({ error: 'You have already voted' });
         }
 
-        // Record vote
-        db.run(
-            `INSERT INTO votes (voter_id, candidate_id, tx_hash) VALUES (?, ?, ?)`,
-            [req.user.voterId, candidateId, txHash || null]
-        );
-
-        // Update user status
-        db.run(`UPDATE users SET has_voted = 1 WHERE id = ?`, [req.user.id]);
-        saveDatabase();
+        // Use Prisma transaction to ensure both operations succeed or fail together
+        await prisma.$transaction([
+            prisma.vote.create({
+                data: {
+                    voter_id: req.user.voterId,
+                    candidate_id: candidateId,
+                    tx_hash: txHash || null
+                }
+            }),
+            prisma.user.update({
+                where: { id: req.user.id },
+                data: { has_voted: true }
+            })
+        ]);
 
         res.json({ message: 'Vote recorded successfully' });
     } catch (error) {
@@ -469,11 +393,13 @@ app.('/api/v1/vote/record', authenticateToken, (req, res) => {
 });
 
 // Check if user has voted
-app.('/api/v1/vote/status', authenticateToken, (req, res) => {
+app.get('/api/v1/vote/status', authenticateToken, async (req, res) => {
     try {
-        const results = safeQuery('SELECT has_voted FROM users WHERE id = ?', [req.user.id]);
-        const hasVoted = results.length > 0 && results[0].has_voted === 1;
-        res.json({ hasVoted });
+        const user = await prisma.user.findUnique({
+            where: { id: req.user.id },
+            select: { has_voted: true }
+        });
+        res.json({ hasVoted: user ? user.has_voted : false });
     } catch (error) {
         console.error('Vote status error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -481,13 +407,17 @@ app.('/api/v1/vote/status', authenticateToken, (req, res) => {
 });
 
 // Get vote receipt (for dashboard display)
-app.('/api/v1/vote/receipt', authenticateToken, (req, res) => {
+app.get('/api/v1/vote/receipt', authenticateToken, async (req, res) => {
     try {
-        const results = safeQuery(
-            'SELECT candidate_id, tx_hash, voted_at FROM votes WHERE voter_id = ?',
-            [req.user.voterId]
-        );
-        res.json({ vote: results.length > 0 ? results[0] : null });
+        const vote = await prisma.vote.findFirst({
+            where: { voter_id: req.user.voterId },
+            select: {
+                candidate_id: true,
+                tx_hash: true,
+                voted_at: true
+            }
+        });
+        res.json({ vote: vote || null });
     } catch (error) {
         console.error('Vote receipt error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -497,7 +427,7 @@ app.('/api/v1/vote/receipt', authenticateToken, (req, res) => {
 // ===================== AADHAAR OTP ROUTES =====================
 
 // Send OTP via email or mobile
-app.('/api/v1/auth/send-otp', otpLimiter, async (req, res) => {
+app.post('/api/v1/auth/send-otp', otpLimiter, async (req, res) => {
     try {
         const { aadhaarNumber, email, mobileNumber, method = 'email' } = req.body;
         console.log('DEBUG: Received OTP Request:', { aadhaarNumber, email, mobileNumber, method });
@@ -511,17 +441,15 @@ app.('/api/v1/auth/send-otp', otpLimiter, async (req, res) => {
             return res.status(400).json({ error: 'Invalid Aadhaar number format' });
         }
 
-        // Check if user exists with this Aadhaar (parameterized)
-        const results = safeQuery(
-            'SELECT id, fullname, aadhaar_number, email, mobile_number FROM users WHERE aadhaar_number = ?',
-            [aadhaarNumber]
-        );
+        // Check if user exists with this Aadhaar
+        const user = await prisma.user.findFirst({
+            where: { aadhaar_number: aadhaarNumber },
+            select: { id: true, fullname: true, aadhaar_number: true, email: true, mobile_number: true }
+        });
 
-        if (results.length === 0) {
+        if (!user) {
             return res.status(404).json({ error: 'No account found with this Aadhaar number. Please register first.' });
         }
-
-        const user = results[0];
 
         // Determine which method to use and validate recipient
         let recipient;
@@ -570,7 +498,7 @@ app.('/api/v1/auth/send-otp', otpLimiter, async (req, res) => {
 });
 
 // Verify OTP and login
-app.('/api/v1/auth/verify-otp', authLimiter, async (req, res) => {
+app.post('/api/v1/auth/verify-otp', authLimiter, async (req, res) => {
     try {
         const { aadhaarNumber, otp } = req.body;
 
@@ -585,17 +513,14 @@ app.('/api/v1/auth/verify-otp', authLimiter, async (req, res) => {
             return res.status(400).json({ error: verifyResult.message });
         }
 
-        // Get user details (parameterized)
-        const results = safeQuery(
-            'SELECT * FROM users WHERE aadhaar_number = ?',
-            [aadhaarNumber]
-        );
+        // Get user details
+        const user = await prisma.user.findFirst({
+            where: { aadhaar_number: aadhaarNumber }
+        });
 
-        if (results.length === 0) {
+        if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
-
-        const user = results[0];
 
         // Generate JWT
         const token = jwt.sign(
@@ -612,7 +537,7 @@ app.('/api/v1/auth/verify-otp', authLimiter, async (req, res) => {
                 fullname: user.fullname,
                 voterId: user.voter_id,
                 email: user.email,
-                hasVoted: user.has_voted === 1,
+                hasVoted: user.has_voted,
                 walletAddress: user.wallet_address
             }
         });
@@ -634,7 +559,7 @@ if (!ADMIN_PASSWORD_HASH) {
 const EFFECTIVE_ADMIN_HASH = ADMIN_PASSWORD_HASH || bcrypt.hashSync('admin123', 10);
 
 // Admin login
-app.('/api/v1/admin/login', authLimiter, async (req, res) => {
+app.post('/api/v1/admin/login', authLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
 
@@ -667,6 +592,7 @@ app.('/api/v1/admin/login', authLimiter, async (req, res) => {
             { expiresIn: '8h' }
         );
 
+        // Fire-and-forget audit log (no await to not block login response)
         logAdminAction(trimmedEmail, 'LOGIN', 'Admin login successful', req.ip);
 
         res.json({
@@ -699,21 +625,15 @@ const authenticateAdmin = (req, res, next) => {
 };
 
 // Get all registered users (Admin only)
-app.('/api/v1/admin/users', authenticateAdmin, (req, res) => {
+app.get('/api/v1/admin/users', authenticateAdmin, async (req, res) => {
     try {
-        const result = db.exec('SELECT id, fullname, voter_id, email, aadhaar_number, mobile_number, wallet_address, state_code, constituency_code, has_voted, created_at FROM users');
-
-        if (result.length === 0) {
-            return res.json({ users: [] });
-        }
-
-        const columns = result[0].columns;
-        const users = result[0].values.map(row => {
-            const user = {};
-            columns.forEach((col, idx) => user[col] = row[idx]);
-            return user;
+        const users = await prisma.user.findMany({
+            select: {
+                id: true, fullname: true, voter_id: true, email: true,
+                aadhaar_number: true, mobile_number: true, wallet_address: true,
+                state_code: true, constituency_code: true, has_voted: true, created_at: true
+            }
         });
-
         res.json({ users });
     } catch (error) {
         console.error('Get users error:', error);
@@ -722,21 +642,9 @@ app.('/api/v1/admin/users', authenticateAdmin, (req, res) => {
 });
 
 // Get all votes (Admin only)
-app.('/api/v1/admin/votes', authenticateAdmin, (req, res) => {
+app.get('/api/v1/admin/votes', authenticateAdmin, async (req, res) => {
     try {
-        const result = db.exec('SELECT * FROM votes');
-
-        if (result.length === 0) {
-            return res.json({ votes: [] });
-        }
-
-        const columns = result[0].columns;
-        const votes = result[0].values.map(row => {
-            const vote = {};
-            columns.forEach((col, idx) => vote[col] = row[idx]);
-            return vote;
-        });
-
+        const votes = await prisma.vote.findMany();
         res.json({ votes });
     } catch (error) {
         console.error('Get votes error:', error);
@@ -745,15 +653,11 @@ app.('/api/v1/admin/votes', authenticateAdmin, (req, res) => {
 });
 
 // Get statistics (Admin only)
-app.('/api/v1/admin/stats', authenticateAdmin, (req, res) => {
+app.get('/api/v1/admin/stats', authenticateAdmin, async (req, res) => {
     try {
-        const usersResult = db.exec('SELECT COUNT(*) as total FROM users');
-        const votedResult = db.exec('SELECT COUNT(*) as voted FROM users WHERE has_voted = 1');
-        const votesResult = db.exec('SELECT COUNT(*) as total FROM votes');
-
-        const totalUsers = usersResult.length > 0 ? usersResult[0].values[0][0] : 0;
-        const votedUsers = votedResult.length > 0 ? votedResult[0].values[0][0] : 0;
-        const totalVotes = votesResult.length > 0 ? votesResult[0].values[0][0] : 0;
+        const totalUsers = await prisma.user.count();
+        const votedUsers = await prisma.user.count({ where: { has_voted: true } });
+        const totalVotes = await prisma.vote.count();
 
         res.json({
             totalUsers,
@@ -768,29 +672,27 @@ app.('/api/v1/admin/stats', authenticateAdmin, (req, res) => {
 });
 
 // Helper: Log admin action
-function logAdminAction(adminEmail, action, details, ip) {
+async function logAdminAction(adminEmail, action, details, ip) {
     try {
-        db.run(
-            'INSERT INTO admin_audit_log (admin_email, action, details, ip_address) VALUES (?, ?, ?, ?)',
-            [adminEmail, action, details || '', ip || 'unknown']
-        );
-        saveDatabase();
+        await prisma.adminAuditLog.create({
+            data: {
+                admin_email: adminEmail,
+                action: action,
+                details: details || '',
+                ip_address: ip || 'unknown'
+            }
+        });
     } catch (e) {
         console.error('Audit log error:', e);
     }
 }
 
 // Get admin audit log
-app.('/api/v1/admin/audit-log', authenticateAdmin, (req, res) => {
+app.get('/api/v1/admin/audit-log', authenticateAdmin, async (req, res) => {
     try {
-        const result = db.exec('SELECT * FROM admin_audit_log ORDER BY created_at DESC LIMIT 100');
-        if (result.length === 0) return res.json({ logs: [] });
-
-        const columns = result[0].columns;
-        const logs = result[0].values.map(row => {
-            const log = {};
-            columns.forEach((col, idx) => log[col] = row[idx]);
-            return log;
+        const logs = await prisma.adminAuditLog.findMany({
+            orderBy: { created_at: 'desc' },
+            take: 100
         });
         res.json({ logs });
     } catch (error) {
@@ -805,7 +707,7 @@ const zkpService = require('./services/zkpService');
 const ipfsService = require('./services/ipfsService');
 
 // Get ZKP status
-app.('/api/v1/zkp/status', apiLimiter, (req, res) => {
+app.get('/api/v1/zkp/status', apiLimiter, (req, res) => {
     res.json({
         zkpEnabled: true,
         electionId: 'bharat-evote-2026',
@@ -814,7 +716,7 @@ app.('/api/v1/zkp/status', apiLimiter, (req, res) => {
 });
 
 // Generate vote commitment
-app.('/api/v1/zkp/generate-commitment', zkpLimiter, authenticateToken, (req, res) => {
+app.post('/api/v1/zkp/generate-commitment', zkpLimiter, authenticateToken, (req, res) => {
     try {
         const { candidateId } = req.body;
         if (!candidateId || candidateId < 1) {
@@ -834,7 +736,7 @@ app.('/api/v1/zkp/generate-commitment', zkpLimiter, authenticateToken, (req, res
 });
 
 // Generate ZK proof
-app.('/api/v1/zkp/generate-proof', zkpLimiter, authenticateToken, (req, res) => {
+app.post('/api/v1/zkp/generate-proof', zkpLimiter, authenticateToken, (req, res) => {
     try {
         const { candidateId, randomness, candidatesCount, commitment, nullifierHash } = req.body;
 
@@ -857,7 +759,7 @@ app.('/api/v1/zkp/generate-proof', zkpLimiter, authenticateToken, (req, res) => 
 });
 
 // Generate nullifier
-app.('/api/v1/zkp/generate-nullifier', zkpLimiter, authenticateToken, (req, res) => {
+app.post('/api/v1/zkp/generate-nullifier', zkpLimiter, authenticateToken, (req, res) => {
     try {
         const { voterSecret, electionId } = req.body;
 
@@ -881,7 +783,7 @@ app.('/api/v1/zkp/generate-nullifier', zkpLimiter, authenticateToken, (req, res)
 });
 
 // Verify ZK proof (public endpoint — rate limited to prevent proof-grinding)
-app.('/api/v1/zkp/verify-proof', zkpLimiter, (req, res) => {
+app.post('/api/v1/zkp/verify-proof', zkpLimiter, (req, res) => {
     try {
         const { commitment, nullifierHash, proof, candidatesCount } = req.body;
 
@@ -910,7 +812,7 @@ app.('/api/v1/zkp/verify-proof', zkpLimiter, (req, res) => {
 });
 
 // Generate complete vote package
-app.('/api/v1/zkp/generate-vote-package', zkpLimiter, authenticateToken, (req, res) => {
+app.post('/api/v1/zkp/generate-vote-package', zkpLimiter, authenticateToken, (req, res) => {
     try {
         const { candidateId, voterSecret, candidatesCount, electionId } = req.body;
 
@@ -936,7 +838,7 @@ app.('/api/v1/zkp/generate-vote-package', zkpLimiter, authenticateToken, (req, r
 // ===================== IPFS ROUTES =====================
 
 // Pin vote metadata to IPFS
-app.('/api/v1/ipfs/pin-vote', ipfsLimiter, authenticateToken, async (req, res) => {
+app.post('/api/v1/ipfs/pin-vote', ipfsLimiter, authenticateToken, async (req, res) => {
     try {
         const { commitment, nullifierHash, timestamp } = req.body;
 
@@ -968,7 +870,7 @@ app.('/api/v1/ipfs/pin-vote', ipfsLimiter, authenticateToken, async (req, res) =
 });
 
 // Pin candidate metadata to IPFS
-app.('/api/v1/ipfs/pin-candidate', ipfsLimiter, authenticateAdmin, async (req, res) => {
+app.post('/api/v1/ipfs/pin-candidate', ipfsLimiter, authenticateAdmin, async (req, res) => {
     try {
         const { id, name, partyName, partySymbol, stateCode, constituencyCode } = req.body;
 
@@ -992,7 +894,7 @@ app.('/api/v1/ipfs/pin-candidate', ipfsLimiter, authenticateAdmin, async (req, r
 });
 
 // Retrieve from IPFS
-app.('/api/v1/ipfs/:hash', apiLimiter, async (req, res) => {
+app.get('/api/v1/ipfs/:hash', apiLimiter, async (req, res) => {
     try {
         const hash = req.params.hash;
         if (!isValidIPFSHash(hash)) {
@@ -1008,7 +910,7 @@ app.('/api/v1/ipfs/:hash', apiLimiter, async (req, res) => {
 });
 
 // List all pinned items
-app.('/api/v1/ipfs', apiLimiter, authenticateAdmin, async (req, res) => {
+app.get('/api/v1/ipfs', apiLimiter, authenticateAdmin, async (req, res) => {
     try {
         const pins = await ipfsService.listPins();
         res.json({ pins });
@@ -1021,7 +923,7 @@ app.('/api/v1/ipfs', apiLimiter, authenticateAdmin, async (req, res) => {
 // ===================== META-TX RELAY =====================
 
 // Relay a gasless meta-transaction
-app.('/api/v1/meta-tx/relay', metaTxLimiter, authenticateToken, async (req, res) => {
+app.post('/api/v1/meta-tx/relay', metaTxLimiter, authenticateToken, async (req, res) => {
     try {
         const { request, signature } = req.body;
 
@@ -1049,8 +951,6 @@ app.('/api/v1/meta-tx/relay', metaTxLimiter, authenticateToken, async (req, res)
 
 // ===================== START SERVER =====================
 
-initDatabase().then(() => {
-    app.listen(PORT, () => {
-        console.log(`🚀 Bharat E-Vote Backend running on http://localhost:${PORT}`);
-    });
+app.listen(PORT, () => {
+    console.log(`🚀 Bharat E-Vote Backend running on http://localhost:${PORT}`);
 });

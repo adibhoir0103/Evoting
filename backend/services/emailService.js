@@ -1,14 +1,17 @@
 // Email service for sending OTP via email
 const nodemailer = require('nodemailer');
 
-// Email configuration — set via environment variables (EMAIL_USER, EMAIL_PASS)\n// If not set, email service runs in demo mode (OTPs logged to console)\nconst EMAIL_USER = process.env.EMAIL_USER || '';\nconst EMAIL_PASS = process.env.EMAIL_PASS || '';
+// Email configuration — set via environment variables (EMAIL_USER, EMAIL_PASS)
+// If not set, email service runs in demo mode (OTPs logged to console)
+const EMAIL_USER = process.env.EMAIL_USER || '';
+const EMAIL_PASS = process.env.EMAIL_PASS || '';
 
 class EmailService {
     constructor() {
         this.isReady = false;
 
         // Only create transporter if credentials look real
-        const hasCredentials = EMAIL_USER.length > 0 && EMAIL_PASS.length > 0;
+        const hasCredentials = Boolean(EMAIL_USER && EMAIL_PASS);
 
         if (hasCredentials) {
             this.transporter = nodemailer.createTransport({
