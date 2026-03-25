@@ -153,31 +153,6 @@ function SignupPage() {
 
     return (
         <div className="min-h-screen bg-gov-bg flex flex-col font-sans">
-            {/* Simple Govt Navbar */}
-            <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
-                <div className="bg-gray-100 py-1 px-4 sm:px-6 lg:px-8 text-xs font-medium text-gray-600 flex justify-between items-center border-b border-gray-200">
-                    <div className="flex items-center gap-2">
-                        <span className="bg-accent-saffron text-white px-2 py-0.5 rounded font-bold text-[10px]">DEMO</span>
-                        <span>भारत सरकार | Government of India</span>
-                    </div>
-                </div>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
-                    <Link to="/" className="flex items-center gap-3">
-                        <img 
-                            src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Emblem_of_India.svg/220px-Emblem_of_India.svg.png" 
-                            alt="Emblem of India" 
-                            className="h-10 w-auto"
-                        />
-                        <div>
-                            <span className="block text-xl font-bold text-primary leading-none">Bharat E-Vote</span>
-                            <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Citizen Registration</span>
-                        </div>
-                    </Link>
-                    <Link to="/" className="btn-secondary text-sm py-1.5 px-4">
-                        <i className="fa-solid fa-arrow-left mr-2"></i> Back
-                    </Link>
-                </div>
-            </header>
 
             <main className="flex-grow p-4 py-8 md:py-12">
                 <div className="gov-card max-w-2xl w-full mx-auto p-8 shadow-xl">

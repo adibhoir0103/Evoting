@@ -44,27 +44,6 @@ function AdminLoginPage({ onAdminLogin }) {
 
     return (
         <div className="auth-page">
-            <nav className="govt-navbar">
-                <div className="navbar-top">
-                    <span style={{ background: '#dc3545', padding: '2px 8px', borderRadius: '3px', marginRight: '10px', fontSize: '0.75rem', fontWeight: '600', color: 'white' }}>ADMIN ACCESS</span>
-                    <span>Bharat E-Vote | Election Management System</span>
-                </div>
-                <div className="navbar-main">
-                    <Link to="/" className="navbar-brand">
-                        <img
-                            src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg"
-                            alt="National Emblem of India"
-                        />
-                        <div className="brand-text">
-                            <span className="title">Bharat E-Vote</span>
-                            <span className="subtitle">Admin Portal</span>
-                        </div>
-                    </Link>
-                    <Link to="/" className="btn btn-secondary">
-                        <i className="fa-solid fa-arrow-left"></i> Back to Home
-                    </Link>
-                </div>
-            </nav>
 
             <div className="auth-container">
                 <div className="auth-card" style={{ maxWidth: '450px' }}>

@@ -6,6 +6,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 
 // Components
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 import AdminDashboard from './components/AdminDashboard';
 
 // Pages
@@ -139,121 +140,113 @@ function App() {
 
     return (
         <Router>
-            <Routes>
-                {/* Landing Page - Redirect if logged in */}
-                <Route
-                    path="/"
-                    element={
-                        isAdmin ? (
-                            <Navigate to="/admin" replace />
-                        ) : user ? (
-                            <Navigate to="/dashboard" replace />
-                        ) : (
-                            <>
-                                <Navbar user={user} onLogout={handleLogout} />
-                                <LandingPage user={user} />
-                            </>
-                        )
-                    }
-                />
-
-                {/* Login Page */}
-                <Route
-                    path="/login"
-                    element={
-                        user ? (
-                            <Navigate to="/dashboard" replace />
-                        ) : (
-                            <LoginPage onLogin={handleLogin} />
-                        )
-                    }
-                />
-
-                {/* Signup Page */}
-                <Route
-                    path="/signup"
-                    element={
-                        user ? (
-                            <Navigate to="/dashboard" replace />
-                        ) : (
-                            <SignupPage />
-                        )
-                    }
-                />
-
-                {/* Voter Dashboard */}
-                <Route
-                    path="/dashboard"
-                    element={
-                        user ? (
-                            <>
-                                <Navbar user={user} onLogout={handleLogout} />
-                                <DashboardPage user={user} onUserUpdate={handleUserUpdate} />
-                            </>
-                        ) : (
-                            <Navigate to="/login" replace />
-                        )
-                    }
-                />
-
-                {/* Voting Page */}
-                <Route
-                    path="/vote"
-                    element={
-                        <VotingPage
-                            user={user}
-                            onUserUpdate={handleUserUpdate}
+            <div className="flex flex-col min-h-screen">
+                <Navbar user={user} onLogout={handleLogout} isAdmin={isAdmin} />
+                <main id="main-content" className="flex-grow focus:outline-none" tabIndex="-1">
+                    <Routes>
+                        {/* Landing Page - Redirect if logged in */}
+                        <Route
+                            path="/"
+                            element={
+                                isAdmin ? (
+                                    <Navigate to="/admin" replace />
+                                ) : user ? (
+                                    <Navigate to="/dashboard" replace />
+                                ) : (
+                                    <LandingPage user={user} />
+                                )
+                            }
                         />
-                    }
-                />
 
-                {/* Voter Guidelines */}
-                <Route path="/guidelines" element={<VoterGuidelines />} />
+                        {/* Login Page */}
+                        <Route
+                            path="/login"
+                            element={
+                                user ? (
+                                    <Navigate to="/dashboard" replace />
+                                ) : (
+                                    <LoginPage onLogin={handleLogin} />
+                                )
+                            }
+                        />
 
-                {/* Help Page */}
-                <Route path="/help" element={<HelpPage />} />
-                <Route path="/candidates" element={<CandidatesPage />} />
-                <Route path="/search-roll" element={<SearchRollPage />} />
+                        {/* Signup Page */}
+                        <Route
+                            path="/signup"
+                            element={
+                                user ? (
+                                    <Navigate to="/dashboard" replace />
+                                ) : (
+                                    <SignupPage />
+                                )
+                            }
+                        />
 
-                {/* Election Results — Public */}
-                <Route path="/results" element={
-                    <>
-                        <Navbar user={user} onLogout={handleLogout} isAdmin={isAdmin} />
-                        <ResultsPage />
-                    </>
-                } />
+                        {/* Voter Dashboard */}
+                        <Route
+                            path="/dashboard"
+                            element={
+                                user ? (
+                                    <DashboardPage user={user} onUserUpdate={handleUserUpdate} />
+                                ) : (
+                                    <Navigate to="/login" replace />
+                                )
+                            }
+                        />
 
-                {/* Admin Dashboard */}
-                <Route
-                    path="/admin"
-                    element={
-                        isAdmin ? (
-                            <>
-                                <Navbar user={user} onLogout={handleLogout} />
-                                <div style={{ padding: '2rem 5%', background: '#F5F7FA', minHeight: '100vh' }}>
-                                    <AdminDashboard
-                                        account={user?.walletAddress}
-                                        onError={(err) => console.error(err)}
-                                    />
-                                </div>
-                            </>
-                        ) : (
-                            <Navigate to="/" replace />
-                        )
-                    }
-                />
+                        {/* Voting Page */}
+                        <Route
+                            path="/vote"
+                            element={
+                                <VotingPage
+                                    user={user}
+                                    onUserUpdate={handleUserUpdate}
+                                />
+                            }
+                        />
 
-                {/* Admin Login Page */}
-                <Route path="/admin-login" element={<AdminLoginPage />} />
+                        {/* Voter Guidelines */}
+                        <Route path="/guidelines" element={<VoterGuidelines />} />
 
-                {/* Admin Data Panel — Protected */}
-                <Route path="/admin-panel" element={
-                    localStorage.getItem('adminToken') ? <AdminPanel /> : <Navigate to="/admin-login" replace />
-                } />
+                        {/* Help Page */}
+                        <Route path="/help" element={<HelpPage />} />
+                        <Route path="/candidates" element={<CandidatesPage />} />
+                        <Route path="/search-roll" element={<SearchRollPage />} />
 
-                {/* Fallback */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+                        {/* Election Results — Public */}
+                        <Route path="/results" element={<ResultsPage />} />
+
+                        {/* Admin Dashboard */}
+                        <Route
+                            path="/admin"
+                            element={
+                                isAdmin ? (
+                                    <div style={{ padding: '2rem 5%', background: '#F5F7FA', minHeight: '100vh' }}>
+                                        <AdminDashboard
+                                            account={user?.walletAddress}
+                                            onError={(err) => console.error(err)}
+                                        />
+                                    </div>
+                                ) : (
+                                    <Navigate to="/" replace />
+                                )
+                            }
+                        />
+
+                        {/* Admin Login Page */}
+                        <Route path="/admin-login" element={<AdminLoginPage />} />
+
+                        {/* Admin Data Panel — Protected */}
+                        <Route path="/admin-panel" element={
+                            localStorage.getItem('adminToken') ? <AdminPanel /> : <Navigate to="/admin-login" replace />
+                        } />
+
+                        {/* Fallback */}
+                        <Route path="*" element={<Navigate to="/" replace />} />
+                    </Routes>
+                </main>
+                <Footer />
+            </div>
         </Router>
     );
 }

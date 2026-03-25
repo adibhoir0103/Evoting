@@ -97,13 +97,15 @@ function Navbar({ user, onLogout, isAdmin }) {
                         <button
                             className="md:hidden flex items-center text-gray-600 hover:text-primary"
                             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                            aria-label="Toggle navigation"
+                            aria-label="Toggle mobile menu"
+                            aria-expanded={mobileMenuOpen}
+                            aria-controls="mobile-menu"
                         >
                             <i className={`fa-solid ${mobileMenuOpen ? 'fa-xmark' : 'fa-bars'} text-xl`}></i>
                         </button>
 
                         {/* Desktop Navigation */}
-                        <div className="hidden md:flex items-center space-x-6">
+                        <nav aria-label="Desktop Navigation" className="hidden md:flex items-center space-x-6">
                             <Link to="/" className={navLinkClass('/')}>Home</Link>
                             <Link to="/guidelines" className={navLinkClass('/guidelines')}>Guidelines</Link>
                             <Link to="/help" className={navLinkClass('/help')}>Help</Link>
@@ -175,12 +177,12 @@ function Navbar({ user, onLogout, isAdmin }) {
                                     )}
                                 </div>
                             )}
-                        </div>
+                        </nav>
                     </div>
 
                     {/* Mobile Menu */}
                     {mobileMenuOpen && (
-                        <div className="md:hidden absolute top-full left-0 w-full bg-white shadow-xl border-t border-gray-200 py-4 px-4 space-y-2 z-50">
+                        <nav id="mobile-menu" aria-label="Mobile Navigation" className="md:hidden absolute top-full left-0 w-full bg-white shadow-xl border-t border-gray-200 py-4 px-4 space-y-2 z-50">
                             <Link to="/" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Home</Link>
                             <Link to="/guidelines" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Guidelines</Link>
                             <Link to="/help" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Help</Link>
@@ -210,7 +212,7 @@ function Navbar({ user, onLogout, isAdmin }) {
                                     </>
                                 )}
                             </div>
-                        </div>
+                        </nav>
                     )}
                 </div>
             </header>
