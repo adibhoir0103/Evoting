@@ -3,88 +3,92 @@ import { Link } from 'react-router-dom';
 
 function Footer() {
     return (
-        <footer role="contentinfo" className="bg-[#1e293b] text-gray-300 border-t-4 border-accent-saffron mt-auto font-sans">
-            {/* Mega Directory Section */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                    {/* Column 1: Government Profiles */}
-                    <div>
-                        <h4 className="text-white font-bold text-lg mb-4 pb-2 border-b border-gray-700">Govt. Profiles</h4>
-                        <ul className="space-y-2 text-sm">
-                            <li><a href="https://presidentofindia.nic.in/" target="_blank" rel="noopener noreferrer" className="hover:text-accent-saffron transition-colors" aria-label="President of India External Link">President of India <i className="fa-solid fa-arrow-up-right-from-square text-[10px] ml-1"></i></a></li>
-                            <li><a href="https://vicepresidentofindia.nic.in/" target="_blank" rel="noopener noreferrer" className="hover:text-accent-saffron transition-colors">Vice President of India <i className="fa-solid fa-arrow-up-right-from-square text-[10px] ml-1"></i></a></li>
-                            <li><a href="https://pmindia.gov.in/" target="_blank" rel="noopener noreferrer" className="hover:text-accent-saffron transition-colors">Prime Minister of India <i className="fa-solid fa-arrow-up-right-from-square text-[10px] ml-1"></i></a></li>
-                            <li><a href="https://india.gov.in/my-government/indian-parliament" target="_blank" rel="noopener noreferrer" className="hover:text-accent-saffron transition-colors">Parliament of India <i className="fa-solid fa-arrow-up-right-from-square text-[10px] ml-1"></i></a></li>
-                            <li><a href="https://india.gov.in/my-government/whos-who/council-ministers" target="_blank" rel="noopener noreferrer" className="hover:text-accent-saffron transition-colors">Cabinet Ministers <i className="fa-solid fa-arrow-up-right-from-square text-[10px] ml-1"></i></a></li>
-                        </ul>
-                    </div>
-
-                    {/* Column 2: Key Initiatives */}
-                    <div>
-                        <h4 className="text-white font-bold text-lg mb-4 pb-2 border-b border-gray-700">Digital India</h4>
-                        <ul className="space-y-2 text-sm">
-                            <li><a href="https://mygov.in/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">MyGov Connect <i className="fa-solid fa-arrow-up-right-from-square text-[10px] ml-1"></i></a></li>
-                            <li><a href="https://uidai.gov.in/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">UIDAI (Aadhaar) <i className="fa-solid fa-arrow-up-right-from-square text-[10px] ml-1"></i></a></li>
-                            <li><a href="https://www.digitalindia.gov.in/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Digital India Portal <i className="fa-solid fa-arrow-up-right-from-square text-[10px] ml-1"></i></a></li>
-                            <li><a href="https://voters.eci.gov.in/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Voter Services Portal <i className="fa-solid fa-arrow-up-right-from-square text-[10px] ml-1"></i></a></li>
-                        </ul>
-                    </div>
-
-                    {/* Column 3: Internal Services */}
-                    <nav aria-label="Footer Nav Services">
-                        <h4 className="text-white font-bold text-lg mb-4 pb-2 border-b border-gray-700">Bharat E-Vote Services</h4>
-                        <ul className="space-y-2 text-sm">
-                            <li><Link to="/signup" className="hover:text-accent-saffron transition-colors">New Voter Registration</Link></li>
-                            <li><Link to="/search-roll" className="hover:text-accent-saffron transition-colors">Search Electoral Roll</Link></li>
-                            <li><Link to="/candidates" className="hover:text-accent-saffron transition-colors">Know Your Candidates</Link></li>
-                            <li><Link to="/results" className="hover:text-accent-saffron transition-colors">Election Results (Real-Time)</Link></li>
-                            <li><Link to="/guidelines" className="hover:text-accent-saffron transition-colors">Voter Guidelines</Link></li>
-                        </ul>
-                    </nav>
-
-                    {/* Column 4: Contact & Support */}
-                    <div>
-                        <h4 className="text-white font-bold text-lg mb-4 pb-2 border-b border-gray-700">Support & Feedback</h4>
-                        <div className="space-y-3 text-sm">
-                            <p className="flex items-start gap-2">
-                                <i className="fa-solid fa-location-dot mt-1 text-accent-saffron"></i>
-                                <span>Election Commission of India,<br/>Nirvachan Sadan, Ashoka Road,<br/>New Delhi 110001</span>
-                            </p>
-                            <p className="flex items-center gap-2">
-                                <i className="fa-solid fa-phone text-accent-saffron"></i>
-                                Toll Free: <span className="font-bold text-white tracking-widest">1950</span>
-                            </p>
-                            <p className="flex items-center gap-2">
-                                <i className="fa-solid fa-envelope text-accent-saffron"></i>
-                                <a href="mailto:complaints@eci.gov.in" className="hover:text-white">complaints@eci.gov.in</a>
-                            </p>
-                        </div>
-                    </div>
+        <footer role="contentinfo" className="w-full font-sans mt-auto">
+            {/* 1. Logos Strip (White Background) */}
+            <div className="bg-white py-6 border-b-4 border-accent-saffron shadow-inner">
+                <div className="max-w-7xl mx-auto px-4 flex flex-wrap justify-center md:justify-around items-center gap-8">
+                    <a href="https://eci.gov.in" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center group">
+                        <img src="https://s2.googleusercontent.com/s2/favicons?domain=eci.gov.in&sz=256" alt="Election Commission of India Logo" className="h-10 w-10 object-contain transition-transform group-hover:scale-105" />
+                        <span className="text-[10px] font-bold text-[#0b2b54] mt-2 hidden md:block">Election Commission</span>
+                    </a>
+                    <a href="https://digitalindia.gov.in" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center group">
+                        <img src="https://s2.googleusercontent.com/s2/favicons?domain=digitalindia.gov.in&sz=256" alt="Digital India Logo" className="h-10 w-10 object-contain transition-transform group-hover:scale-105" />
+                    </a>
+                    <a href="https://mygov.in" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center group">
+                        <img src="https://s2.googleusercontent.com/s2/favicons?domain=mygov.in&sz=256" alt="MyGov Logo" className="h-10 w-10 object-contain transition-transform group-hover:scale-105" />
+                    </a>
+                    <a href="https://www.nic.in" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center group">
+                        <img src="https://s2.googleusercontent.com/s2/favicons?domain=nic.in&sz=256" alt="NIC Logo" className="h-10 w-10 object-contain transition-transform group-hover:scale-105" />
+                    </a>
                 </div>
             </div>
 
-            {/* Sub-footer Branding */}
-            <div className="bg-[#0f172a] py-8 border-t border-gray-800">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
-                    <div className="flex items-center gap-4">
-                        <img 
-                            src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Emblem_of_India.svg/220px-Emblem_of_India.svg.png" 
-                            alt="Emblem of India" 
-                            className="h-12 w-auto brightness-0 invert opacity-70"
-                        />
-                        <div>
-                            <p className="text-white font-bold text-sm">Bharat E-Vote | Blockchain Electoral System</p>
-                            <p className="text-xs text-gray-500 mt-1">This is a demonstration project showcasing zero-knowledge verifiable voting.</p>
+            {/* 2. Main Footer Data (Dark Blue - WCAG AA Compliant Contrast) */}
+            <div className="bg-[#0b2b54] text-white py-10">
+                <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-10">
+                    {/* Left: Branding & Info */}
+                    <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+                        <a href="https://india.gov.in" target="_blank" rel="noopener noreferrer" className="shrink-0 bg-white p-3 rounded-lg flex items-center justify-center">
+                            <img 
+                                src="https://s2.googleusercontent.com/s2/favicons?domain=india.gov.in&sz=256" 
+                                alt="National Emblem of India" 
+                                className="h-16 w-16 object-contain"
+                            />
+                        </a>
+                        <div className="text-center sm:text-left">
+                            <h3 className="text-xl text-white font-bold uppercase tracking-wider mb-2">Bharat E-Vote Core</h3>
+                            <p className="text-sm text-gray-300 leading-relaxed max-w-sm">
+                                This site is designed, developed, hosted and maintained by the Election Commission of India (ECI), 
+                                Ministry of Law & Justice, Government of India.
+                            </p>
                         </div>
                     </div>
-                    
-                    <div className="flex flex-col items-center md:items-end text-xs text-gray-500 space-y-2">
-                        <div className="flex gap-4">
-                            <a href="#" className="hover:text-white transition-colors">Accessibility Statement</a>
-                            <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-                            <a href="#" className="hover:text-white transition-colors">Terms of Use</a>
+
+                    {/* Right: Social & Version */}
+                    <div className="flex flex-col md:items-end space-y-4">
+                        <div className="text-center md:text-right">
+                            <h4 className="text-sm font-bold uppercase tracking-widest mb-3 text-white">ECI on Social Media</h4>
+                            <div className="flex justify-center md:justify-end gap-3 items-center">
+                                <a href="https://facebook.com/ECI" target="_blank" rel="noopener noreferrer" aria-label="Follow ECI on Facebook" className="w-8 h-8 rounded-full bg-white text-[#0b2b54] flex items-center justify-center hover:bg-gray-200 focus:ring-2 focus:ring-accent-saffron transition-colors"><i className="fa-brands fa-facebook-f"></i></a>
+                                <a href="https://twitter.com/ECISVEEP" target="_blank" rel="noopener noreferrer" aria-label="Follow ECI on Twitter" className="w-8 h-8 rounded-full bg-white text-[#0b2b54] flex items-center justify-center hover:bg-gray-200 focus:ring-2 focus:ring-accent-saffron transition-colors"><i className="fa-brands fa-twitter"></i></a>
+                                <a href="https://linkedin.com/company/election-commission-of-india" target="_blank" rel="noopener noreferrer" aria-label="Follow ECI on LinkedIn" className="w-8 h-8 rounded-full bg-white text-[#0b2b54] flex items-center justify-center hover:bg-gray-200 focus:ring-2 focus:ring-accent-saffron transition-colors"><i className="fa-brands fa-linkedin-in"></i></a>
+                                <a href="https://youtube.com/eci" target="_blank" rel="noopener noreferrer" aria-label="Subscribe to ECI on YouTube" className="w-8 h-8 rounded-full bg-white text-[#0b2b54] flex items-center justify-center hover:bg-gray-200 focus:ring-2 focus:ring-accent-saffron transition-colors"><i className="fa-brands fa-youtube"></i></a>
+                            </div>
                         </div>
-                        <p>© {new Date().getFullYear()} Government of India. All rights reserved.</p>
+
+                        <div className="text-right text-xs text-gray-300 pt-2">
+                            <p>Latest Version - 3.1.4</p>
+                            <p>Released date - 26-March-2026</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="max-w-7xl mx-auto px-4 mt-8 text-center text-xs text-gray-300">
+                    <p>Bharat E-Vote website is best viewed on desktop & laptop using latest version of Chrome (ver 89+), Firefox (ver 87+), Safari (ver 14+), MS Edge (ver 89+) or an equivalent browser with a screen resolution of 1024×768 or higher.</p>
+                </div>
+            </div>
+
+            {/* 3. Sub Footer Links (Darkest Blue) */}
+            <div className="bg-[#05152c] text-white py-6">
+                <div className="max-w-7xl mx-auto px-4 text-center">
+                    <p className="text-xs font-semibold mb-4 text-gray-200">
+                        Designed & developed by Election Commission of India, Govt. of India and hosted on Meghraj cloud
+                    </p>
+                    
+                    <div className="flex flex-wrap justify-center text-[11px] text-gray-400">
+                        <Link to="/" className="hover:text-white transition px-2">About Us</Link> <span className="text-gray-600">|</span>
+                        <Link to="/help" className="hover:text-white transition px-2">Help</Link> <span className="text-gray-600">|</span>
+                        <a href="https://voters.eci.gov.in/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition px-2 font-bold text-accent-saffron">Voter Services Portal <i className="fa-solid fa-external-link-alt text-[8px] ml-0.5"></i></a> <span className="text-gray-600">|</span>
+                        <Link to="/vote" className="hover:text-white transition px-2 font-bold text-accent-saffron">Cast Vote Online</Link> <span className="text-gray-600">|</span>
+                        <Link to="/guidelines" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Disclaimer Policy">Disclaimer</Link> <span className="text-gray-600">|</span>
+                        <Link to="/guidelines" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Copyright Guidelines">Copyright Policy</Link> <span className="text-gray-600">|</span>
+                        <Link to="/guidelines" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="External Hyperlink Policies">Hyperlink Policy</Link> <span className="text-gray-600">|</span>
+                        <Link to="/help" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Submit Feedback to Webmaster">Feedback</Link> <span className="text-gray-600">|</span>
+                        <Link to="/guidelines" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Portal Terms and Conditions">Terms & Conditions</Link> <span className="text-gray-600">|</span>
+                        <Link to="/guidelines" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Content Archival Information">Content Archival Policy</Link> <span className="text-gray-600">|</span>
+                        <Link to="/guidelines" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Strict Privacy Directives">Privacy Policy</Link> <span className="text-gray-600">|</span>
+                        <Link to="/guidelines" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Operations Monitoring Architecture">Website Monitoring Plan</Link> <span className="text-gray-600">|</span>
+                        <Link to="/guidelines" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Cybersecurity Protocol Statement">Security Policy</Link>
                     </div>
                 </div>
             </div>

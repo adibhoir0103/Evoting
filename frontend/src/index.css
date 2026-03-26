@@ -143,13 +143,26 @@ html.dark table tbody tr:hover { background-color: #334155 !important; }
   animation: spin 1s linear infinite;
 }
 
+/* (Marquee animation removed — replaced with static accessible banner) */
+
 /* Accessibility Focus States (GIGW 3.0) */
 *:focus-visible {
-  outline: 3px solid #FF9933 !important; /* Saffron outline for high visibility */
+  outline: 3px solid #ff9933 !important; /* Saffron outline for high visibility */
   outline-offset: 2px !important;
 }
 
-/* Dark mode transition */
+/* Neutralize native browser double-borders (Minor UX fix) */
+input:focus, select:focus, textarea:focus, button:focus {
+  outline: none !important;
+}
+
+/* Accessibility Font Scaling (GIGW) */
+html.font-small { font-size: 14px !important; }
+html.font-normal { font-size: 16px !important; }
+html.font-large { font-size: 18px !important; }
+html.font-xlarge { font-size: 20px !important; }
+
+/* Dark mode & Scaling transition */
 * {
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, font-size 0.2s ease;
 }

@@ -4,6 +4,7 @@ import { BlockchainService } from '../services/blockchainService';
 import { authService } from '../services/authService';
 import { zkpClientService } from '../services/zkpService';
 import ZKPVerificationPanel from '../components/ZKPVerificationPanel';
+import { indianStates, getStateName } from '../utils/indianStates';
 
 function VotingPage({ user, onUserUpdate }) {
     const navigate = useNavigate();
@@ -26,28 +27,6 @@ function VotingPage({ user, onUserUpdate }) {
     const [showVerification, setShowVerification] = useState(false);
     const [voterSecret, setVoterSecret] = useState('');
 
-    const indianStates = [
-        { code: 1, name: 'Andhra Pradesh' }, { code: 2, name: 'Arunachal Pradesh' },
-        { code: 3, name: 'Assam' }, { code: 4, name: 'Bihar' },
-        { code: 5, name: 'Chhattisgarh' }, { code: 6, name: 'Goa' },
-        { code: 7, name: 'Gujarat' }, { code: 8, name: 'Haryana' },
-        { code: 9, name: 'Himachal Pradesh' }, { code: 10, name: 'Jharkhand' },
-        { code: 11, name: 'Karnataka' }, { code: 12, name: 'Kerala' },
-        { code: 13, name: 'Madhya Pradesh' }, { code: 14, name: 'Maharashtra' },
-        { code: 15, name: 'Manipur' }, { code: 16, name: 'Meghalaya' },
-        { code: 17, name: 'Mizoram' }, { code: 18, name: 'Nagaland' },
-        { code: 19, name: 'Odisha' }, { code: 20, name: 'Punjab' },
-        { code: 21, name: 'Rajasthan' }, { code: 22, name: 'Sikkim' },
-        { code: 23, name: 'Tamil Nadu' }, { code: 24, name: 'Telangana' },
-        { code: 25, name: 'Tripura' }, { code: 26, name: 'Uttar Pradesh' },
-        { code: 27, name: 'Uttarakhand' }, { code: 28, name: 'West Bengal' },
-        { code: 29, name: 'Delhi (NCT)' }, { code: 30, name: 'Jammu & Kashmir' },
-        { code: 31, name: 'Ladakh' }, { code: 32, name: 'Puducherry' },
-        { code: 33, name: 'Chandigarh' }, { code: 34, name: 'Andaman & Nicobar' },
-        { code: 35, name: 'Dadra & Nagar Haveli' }, { code: 36, name: 'Lakshadweep' }
-    ];
-    const getStateName = (code) => (indianStates.find(s => s.code === Number(code)) || {}).name || '';
-
     useEffect(() => {
         if (!user) {
             navigate('/login');
@@ -61,6 +40,16 @@ function VotingPage({ user, onUserUpdate }) {
             setLoading(false);
         }
     }, [user, navigate]);
+
+    // BUG-023: Modal scroll lock
+    useEffect(() => {
+        if (selectedCandidate) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => { document.body.style.overflow = ''; };
+    }, [selectedCandidate]);
 
     const connectWallet = async () => {
         try {
@@ -113,9 +102,6 @@ function VotingPage({ user, onUserUpdate }) {
             setIsAuthorized(authorized);
             setVoterConstituencyInfo(vInfo);
 
-            // Fetch candidates and filter based on constituency rules
-            // If vInfo.stateCode is 0, they can see all candidates marked 0 for state
-            // If candidate stateCode is 0, it applies to all states
             const allCandidates = await service.getAllCandidates();
             const filteredCandidates = allCandidates.filter(c => {
                 const stateMatch = c.stateCode === 0 || c.stateCode === vInfo.stateCode;
@@ -148,7 +134,6 @@ function VotingPage({ user, onUserUpdate }) {
 
             const service = BlockchainService.getInstance();
 
-            // Check if ZKP mode is enabled
             let isZKP = false;
             try {
                 isZKP = await service.isZKPEnabled();
@@ -157,8 +142,6 @@ function VotingPage({ user, onUserUpdate }) {
             }
 
             if (isZKP && voterSecret) {
-                // ===== ZKP VOTING FLOW =====
-                // Step 1: Generate vote package locally (privacy preserved)
                 const votePackage = await zkpClientService.generateVotePackage(
                     selectedCandidate.id,
                     voterSecret,
@@ -166,7 +149,6 @@ function VotingPage({ user, onUserUpdate }) {
                     'bharat-evote-2026'
                 );
 
-                // Step 2: Pin vote metadata to IPFS
                 let ipfsHash = '';
                 try {
                     const ipfsResult = await zkpClientService.pinVoteToIPFS(
@@ -178,7 +160,6 @@ function VotingPage({ user, onUserUpdate }) {
                     console.log('IPFS pinning skipped:', e.message);
                 }
 
-                // Step 3: Submit encrypted vote to blockchain
                 const receipt = await service.submitEncryptedVote(
                     votePackage.commitment,
                     votePackage.nullifierHash,
@@ -187,10 +168,8 @@ function VotingPage({ user, onUserUpdate }) {
                     ipfsHash
                 );
 
-                // Step 4: Record in backend database
                 await authService.recordVote(selectedCandidate.id, receipt.hash);
 
-                // Step 5: Show COMPULSORY verification panel
                 setZkpVoteData({
                     nullifierHash: votePackage.nullifierHash,
                     commitment: votePackage.commitment,
@@ -200,7 +179,6 @@ function VotingPage({ user, onUserUpdate }) {
                 setShowVerification(true);
                 setSelectedCandidate(null);
             } else {
-                // ===== LEGACY VOTING FLOW =====
                 const receipt = await service.vote(selectedCandidate.id);
                 await authService.recordVote(selectedCandidate.id, receipt.hash);
 
@@ -233,256 +211,177 @@ function VotingPage({ user, onUserUpdate }) {
     // ===== ZKP COMPULSORY VERIFICATION SCREEN =====
     if (showVerification && zkpVoteData) {
         return (
-            <div className="voting-container">
-                <nav className="govt-navbar">
-                    <div className="navbar-top">
-                        <span>भारत निर्वाचन आयोग | Election Commission of India</span>
-                    </div>
-                    <div className="navbar-main">
-                        <Link to="/" className="navbar-brand">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" alt="National Emblem" />
-                            <div className="brand-text">
-                                <span className="title">Election Commission of India</span>
-                                <span className="subtitle">ZKP Vote Verification</span>
-                            </div>
-                        </Link>
-                    </div>
-                </nav>
-
-                <div style={{ padding: '2rem 1rem' }}>
-                    <ZKPVerificationPanel
-                        nullifierHash={zkpVoteData.nullifierHash}
-                        commitment={zkpVoteData.commitment}
-                        ipfsHash={zkpVoteData.ipfsHash}
-                        blockchainService={BlockchainService.getInstance()}
-                        onVerificationComplete={handleVerificationComplete}
-                    />
-                </div>
-            </div>
+            <section className="min-h-[60vh] max-w-4xl mx-auto px-4 py-8">
+                <ZKPVerificationPanel
+                    nullifierHash={zkpVoteData.nullifierHash}
+                    commitment={zkpVoteData.commitment}
+                    ipfsHash={zkpVoteData.ipfsHash}
+                    blockchainService={BlockchainService.getInstance()}
+                    onVerificationComplete={handleVerificationComplete}
+                />
+            </section>
         );
     }
 
     // Render wallet connection screen
     if (!walletConnected && !loading) {
         return (
-            <div className="voting-container">
-                <nav className="govt-navbar">
-                    <div className="navbar-top">
-                        <span>भारत निर्वाचन आयोग | Election Commission of India</span>
+            <section className="min-h-[60vh] flex items-center justify-center px-4 py-12">
+                <div className="gov-card text-center max-w-md w-full p-8">
+                    <div className="text-6xl text-primary mb-4">
+                        <i className="fa-solid fa-wallet"></i>
                     </div>
-                    <div className="navbar-main">
-                        <Link to="/" className="navbar-brand">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" alt="National Emblem" />
-                            <div className="brand-text">
-                                <span className="title">Election Commission of India</span>
-                                <span className="subtitle">Bharat E-Vote Portal</span>
-                            </div>
-                        </Link>
-                        <Link to="/" className="btn btn-secondary">
-                            <i className="fa-solid fa-arrow-left"></i> Back to Home
-                        </Link>
-                    </div>
-                </nav>
-
-                <div className="auth-container">
-                    <div className="auth-card" style={{ textAlign: 'center', maxWidth: '500px' }}>
-                        <div style={{ fontSize: '4rem', color: '#000080', marginBottom: '1rem' }}>
-                            <i className="fa-solid fa-wallet"></i>
-                        </div>
-                        <h2 style={{ color: '#000080' }}>Connect Blockchain Wallet</h2>
-                        <p style={{ color: '#555', marginBottom: '1.5rem' }}>
-                            To ensure vote transparency and immutability, connect your MetaMask wallet.
-                        </p>
-                        {error && <div className="error-message">{error}</div>}
-                        <button onClick={connectWallet} className="btn btn-primary btn-lg btn-block">
-                            <i className="fa-solid fa-link"></i> Connect MetaMask
-                        </button>
-                        <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid #dee2e6' }}>
-                            <p style={{ color: '#777', fontSize: '0.9rem', marginBottom: '0.5rem' }}>Don't have MetaMask?</p>
-                            <a
-                                href="https://metamask.io/download/"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{ color: '#000080' }}
-                            >
-                                Download MetaMask →
-                            </a>
-                        </div>
+                    <h2 className="text-2xl font-bold text-primary mb-2">Connect Blockchain Wallet</h2>
+                    <p className="text-gray-500 mb-6">
+                        To ensure vote transparency and immutability, connect your MetaMask wallet.
+                    </p>
+                    {error && <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded text-sm mb-4 text-left"><i className="fa-solid fa-circle-exclamation mr-2"></i>{error}</div>}
+                    <button onClick={connectWallet} className="btn-primary w-full py-3 text-lg">
+                        <i className="fa-solid fa-link mr-2"></i> Connect MetaMask
+                    </button>
+                    <div className="mt-6 pt-5 border-t border-gray-200">
+                        <p className="text-gray-400 text-sm mb-1">Don't have MetaMask?</p>
+                        <a
+                            href="https://metamask.io/download/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary font-semibold hover:underline"
+                        >
+                            Download MetaMask →
+                        </a>
                     </div>
                 </div>
-            </div>
+            </section>
         );
     }
 
     // Loading state
     if (loading) {
         return (
-            <div className="voting-container">
-                <nav className="govt-navbar">
-                    <div className="navbar-top">
-                        <span>भारत निर्वाचन आयोग | Election Commission of India</span>
-                    </div>
-                    <div className="navbar-main">
-                        <Link to="/" className="navbar-brand">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" alt="National Emblem" />
-                            <div className="brand-text">
-                                <span className="title">Election Commission of India</span>
-                            </div>
-                        </Link>
-                    </div>
-                </nav>
-                <div className="loading-container">
-                    <div className="spinner"></div>
-                    <p style={{ color: '#555' }}>Loading voting terminal...</p>
-                </div>
-            </div>
+            <section className="min-h-[60vh] flex flex-col items-center justify-center px-4">
+                <i className="fa-solid fa-circle-notch fa-spin text-primary text-5xl mb-4"></i>
+                <p className="text-gray-500 font-medium">Loading voting terminal...</p>
+            </section>
         );
     }
 
     // Thank you screen
     if (hasVoted) {
         return (
-            <div className="voting-container">
-                <nav className="govt-navbar">
-                    <div className="navbar-top">
-                        <span>भारत निर्वाचन आयोग | Election Commission of India</span>
+            <section className="min-h-[60vh] flex items-center justify-center px-4 py-12">
+                <div className="gov-card text-center max-w-lg w-full p-8">
+                    <div className="w-20 h-20 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-4 border-2 border-green-200">
+                        <i className="fa-solid fa-check-circle text-4xl"></i>
                     </div>
-                    <div className="navbar-main">
-                        <Link to="/" className="navbar-brand">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" alt="National Emblem" />
-                            <div className="brand-text">
-                                <span className="title">Election Commission of India</span>
-                                <span className="subtitle">Bharat E-Vote Portal</span>
-                            </div>
-                        </Link>
-                        <Link to="/" className="btn btn-secondary">
-                            <i className="fa-solid fa-home"></i> Return to Home
-                        </Link>
-                    </div>
-                </nav>
-
-                <div className="auth-container">
-                    <div className="auth-card" style={{ textAlign: 'center', maxWidth: '600px' }}>
-                        <div className="thank-you-icon">
-                            <i className="fa-solid fa-check-circle"></i>
-                        </div>
-                        <h2 style={{ color: '#000080', marginBottom: '1rem' }}>Thank You, {user?.fullname}!</h2>
-                        <p style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Your vote has been successfully recorded.</p>
-                        <div style={{
-                            background: '#f0fff4',
-                            border: '1px solid #138808',
-                            padding: '1rem',
-                            borderRadius: '4px',
-                            marginBottom: '1.5rem'
-                        }}>
-                            <p style={{ color: '#138808', margin: 0 }}>
-                                <i className="fa-solid fa-shield-halved"></i> Your vote is encrypted and stored on the blockchain. It cannot be altered or deleted.
-                            </p>
-                        </div>
-                        <p style={{ color: '#555' }}>
-                            Results will be declared after polls close at 6:00 PM as per Election Commission guidelines.
+                    <h2 className="text-2xl font-bold text-primary mb-2">Thank You, {user?.fullname}!</h2>
+                    <p className="text-lg text-gray-700 mb-4">Your vote has been successfully recorded.</p>
+                    <div className="bg-green-50 border border-accent-green rounded-lg p-4 mb-6">
+                        <p className="text-accent-green text-sm font-medium">
+                            <i className="fa-solid fa-shield-halved mr-1"></i> Your vote is encrypted and stored on the blockchain. It cannot be altered or deleted.
                         </p>
-                        <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid #dee2e6' }}>
-                            <p style={{ color: '#777', fontSize: '0.9rem' }}>Jai Hind! 🇮🇳</p>
-                        </div>
                     </div>
+                    <p className="text-gray-500 text-sm">
+                        Results will be declared after polls close at 6:00 PM as per Election Commission guidelines.
+                    </p>
+                    <div className="mt-6 pt-5 border-t border-gray-200">
+                        <p className="text-gray-400 text-sm">Jai Hind! 🇮🇳</p>
+                    </div>
+                    <Link to="/" className="btn-primary mt-6 inline-flex px-8"><i className="fa-solid fa-home mr-2"></i> Return Home</Link>
                 </div>
-            </div>
+            </section>
         );
     }
 
     // Main voting interface
     return (
-        <div className="voting-container">
-            <nav className="govt-navbar">
-                <div className="navbar-top">
-                    <span>भारत निर्वाचन आयोग | Election Commission of India</span>
-                    <span>Wallet: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</span>
-                </div>
-                <div className="navbar-main">
-                    <Link to="/" className="navbar-brand">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" alt="National Emblem" />
-                        <div className="brand-text">
-                            <span className="title">Election Commission of India</span>
-                            <span className="subtitle">Bharat E-Vote Portal</span>
-                        </div>
-                    </Link>
-                </div>
-            </nav>
-
-            <div className="voting-header">
-                <h1>General Election 2026 - Voting Terminal</h1>
-                <p>Select your candidate and confirm your choice</p>
+        <section className="max-w-5xl mx-auto px-4 py-8">
+            {/* Header */}
+            <div className="text-center mb-8">
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-900">General Election 2026 — Voting Terminal</h1>
+                <p className="text-gray-500 mt-1">Select your candidate and confirm your choice</p>
             </div>
 
             {/* Status Bar */}
-            <div className="status-bar">
-                <div className={`status-item ${votingActive ? 'success' : 'error'}`}>
+            <div className="flex flex-wrap justify-center gap-3 mb-8">
+                <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border ${votingActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
                     <i className={`fa-solid ${votingActive ? 'fa-circle-check' : 'fa-circle-xmark'}`}></i>
                     Voting: {votingActive ? 'Active' : 'Inactive'}
-                </div>
-                <div className={`status-item ${isAuthorized ? 'success' : 'warning'}`}>
+                </span>
+                <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border ${isAuthorized ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
                     <i className={`fa-solid ${isAuthorized ? 'fa-check' : 'fa-exclamation-triangle'}`}></i>
                     Status: {isAuthorized ? 'Authorized' : 'Not Authorized'}
-                </div>
+                </span>
+                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border border-gray-200 bg-gray-50 text-gray-600">
+                    <i className="fa-solid fa-wallet"></i>
+                    {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                </span>
             </div>
 
             {/* Error/Success Messages */}
             {error && (
-                <div style={{ maxWidth: '800px', margin: '1rem auto', padding: '0 1rem' }}>
-                    <div className="error-message">{error}</div>
+                <div className="max-w-3xl mx-auto mb-4">
+                    <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded text-sm"><i className="fa-solid fa-circle-exclamation mr-2"></i>{error}</div>
                 </div>
             )}
             {success && (
-                <div style={{ maxWidth: '800px', margin: '1rem auto', padding: '0 1rem' }}>
-                    <div className="success-message">{success}</div>
+                <div className="max-w-3xl mx-auto mb-4">
+                    <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-4 rounded text-sm"><i className="fa-solid fa-check-circle mr-2"></i>{success}</div>
                 </div>
             )}
 
             {/* Warnings */}
             {!isAuthorized && (
-                <div style={{ maxWidth: '800px', margin: '1rem auto', padding: '0 1rem' }}>
-                    <div className="error-message">
-                        <i className="fa-solid fa-exclamation-triangle"></i> You are not authorized to vote. Please contact your local Election Officer.
+                <div className="max-w-3xl mx-auto mb-4">
+                    <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded text-sm font-medium">
+                        <i className="fa-solid fa-exclamation-triangle mr-2"></i> You are not authorized to vote. Please contact your local Election Officer.
                     </div>
                 </div>
             )}
 
             {!votingActive && isAuthorized && (
-                <div style={{ maxWidth: '800px', margin: '1rem auto', padding: '0 1rem' }}>
-                    <div style={{ background: '#fff8e6', border: '1px solid #ffc107', padding: '1rem', borderRadius: '4px', color: '#856404' }}>
-                        <i className="fa-solid fa-clock"></i> Voting is not currently active. Polling hours: 7:00 AM - 6:00 PM.
+                <div className="max-w-3xl mx-auto mb-4">
+                    <div className="bg-yellow-50 border border-yellow-300 text-yellow-800 p-4 rounded text-sm font-medium">
+                        <i className="fa-solid fa-clock mr-2"></i> Voting is not currently active. Polling hours: 7:00 AM - 6:00 PM.
+                    </div>
+                </div>
+            )}
+
+            {/* Constituency Info */}
+            {voterConstituencyInfo && (
+                <div className="max-w-3xl mx-auto mb-6">
+                    <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg text-sm">
+                        <i className="fa-solid fa-map-marker-alt mr-2"></i>
+                        <strong>Your Constituency:</strong> {getStateName(voterConstituencyInfo.stateCode)} — Constituency #{voterConstituencyInfo.constituencyCode}
                     </div>
                 </div>
             )}
 
             {/* Candidates Grid */}
-            <div className="candidates-grid">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {candidates.length === 0 ? (
-                    <div className="auth-card" style={{ textAlign: 'center', gridColumn: '1 / -1' }}>
-                        <p style={{ color: '#555' }}>No candidates available in your constituency</p>
+                    <div className="gov-card text-center col-span-full p-8">
+                        <p className="text-gray-500">No candidates available in your constituency</p>
                     </div>
                 ) : (
                     candidates.map(candidate => (
                         <div
                             key={candidate.id}
-                            className={`candidate-card ${selectedCandidate?.id === candidate.id ? 'selected' : ''}`}
+                            className={`gov-card text-center transition-all duration-200 ${selectedCandidate?.id === candidate.id ? 'ring-2 ring-primary border-primary' : ''} ${votingActive && isAuthorized ? 'cursor-pointer hover:shadow-gov-hover hover:scale-[1.02]' : 'opacity-60 cursor-not-allowed'}`}
                             onClick={() => votingActive && isAuthorized && confirmVote(candidate)}
-                            style={{ cursor: votingActive && isAuthorized ? 'pointer' : 'not-allowed', opacity: votingActive && isAuthorized ? 1 : 0.6 }}
                         >
-                            <div className="candidate-avatar" style={{ fontSize: '1.5rem', background: '#eef2f5', color: '#000080' }}>
+                            <div className="w-16 h-16 rounded-full bg-blue-50 text-primary flex items-center justify-center mx-auto mb-3 text-2xl font-bold border border-blue-200">
                                 {candidate.partySymbol || <i className="fa-solid fa-user-tie"></i>}
                             </div>
-                            <h3>{candidate.name}</h3>
-                            <p style={{ fontWeight: 'bold', color: '#138808', marginBottom: '0.2rem' }}>
+                            <h3 className="text-lg font-bold text-gray-900">{candidate.name}</h3>
+                            <p className="font-bold text-accent-green text-sm mb-1">
                                 {candidate.partyName || 'Independent'}
                             </p>
-                            <p style={{ fontSize: '0.8rem', color: '#777' }}>
+                            <p className="text-xs text-gray-400">
                                 Candidate #{candidate.id}
                                 {candidate.stateCode ? ` | ${getStateName(candidate.stateCode)}` : ' | National'}
                             </p>
                             {votingActive && isAuthorized && (
-                                <button className="btn btn-primary" style={{ marginTop: '1rem' }}>
+                                <button className="btn-primary mt-4 w-full py-2 text-sm">
                                     Select Candidate
                                 </button>
                             )}
@@ -493,57 +392,42 @@ function VotingPage({ user, onUserUpdate }) {
 
             {/* Confirmation Modal */}
             {selectedCandidate && (
-                <div className="modal-overlay" onClick={cancelVote}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()}>
-                        <button className="close-modal" onClick={cancelVote}>&times;</button>
-                        <h2 style={{ color: '#000080', marginBottom: '1rem' }}>Confirm Your Vote</h2>
-                        <p style={{ color: '#555', marginBottom: '1.5rem' }}>You are about to vote for:</p>
+                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={cancelVote}>
+                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8 relative" onClick={e => e.stopPropagation()}>
+                        <button className="absolute top-3 right-4 text-gray-400 hover:text-gray-600 text-2xl" onClick={cancelVote} aria-label="Close">&times;</button>
+                        <h2 className="text-xl font-bold text-primary mb-2">Confirm Your Vote</h2>
+                        <p className="text-gray-500 mb-4">You are about to vote for:</p>
 
-                        <div style={{
-                            background: '#F5F7FA',
-                            border: '2px solid #000080',
-                            padding: '1.5rem',
-                            borderRadius: '8px',
-                            textAlign: 'center',
-                            marginBottom: '1.5rem'
-                        }}>
-                            <div className="candidate-avatar" style={{ margin: '0 auto 1rem', fontSize: '2rem', background: '#eef2f5', color: '#000080' }}>
+                        <div className="bg-[#F5F7FA] border-2 border-primary rounded-lg p-6 text-center mb-4">
+                            <div className="w-16 h-16 rounded-full bg-blue-50 text-primary flex items-center justify-center mx-auto mb-3 text-3xl font-bold border border-blue-200">
                                 {selectedCandidate.partySymbol || <i className="fa-solid fa-user-tie"></i>}
                             </div>
-                            <h3 style={{ color: '#000080', marginBottom: '0.2rem' }}>{selectedCandidate.name}</h3>
-                            <p style={{ fontWeight: 'bold', color: '#138808', fontSize: '1.1rem', marginBottom: '0.5rem' }}>
+                            <h3 className="text-lg font-bold text-primary">{selectedCandidate.name}</h3>
+                            <p className="font-bold text-accent-green text-base mb-1">
                                 {selectedCandidate.partyName || 'Independent'}
                             </p>
-                            <p style={{ color: '#555', fontSize: '0.9rem' }}>
+                            <p className="text-gray-500 text-sm">
                                 Candidate #{selectedCandidate.id}
                                 {selectedCandidate.stateCode ? ` | ${getStateName(selectedCandidate.stateCode)} Constituency: ${selectedCandidate.constituencyCode}` : ' | National List'}
                             </p>
                         </div>
 
-                        <div style={{
-                            background: '#fff8e6',
-                            border: '1px solid #ffc107',
-                            borderRadius: '4px',
-                            padding: '1rem',
-                            marginBottom: '1.5rem',
-                            fontSize: '0.9rem',
-                            color: '#856404'
-                        }}>
-                            <i className="fa-solid fa-exclamation-triangle"></i> Once submitted, your vote <strong>cannot be changed</strong>. This action is final.
+                        <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 mb-6 text-sm text-yellow-800">
+                            <i className="fa-solid fa-exclamation-triangle mr-1"></i> Once submitted, your vote <strong>cannot be changed</strong>. This action is final.
                         </div>
 
-                        <div style={{ display: 'flex', gap: '1rem' }}>
-                            <button className="btn btn-secondary" style={{ flex: 1 }} onClick={cancelVote} disabled={txLoading}>
+                        <div className="flex gap-3">
+                            <button className="btn-secondary flex-1 py-3" onClick={cancelVote} disabled={txLoading}>
                                 Cancel
                             </button>
-                            <button className="btn btn-primary" style={{ flex: 1 }} onClick={submitVote} disabled={txLoading}>
-                                {txLoading ? 'Processing...' : 'Confirm Vote'}
+                            <button className="btn-primary flex-1 py-3" onClick={submitVote} disabled={txLoading}>
+                                {txLoading ? <><i className="fa-solid fa-circle-notch fa-spin mr-2"></i>Processing...</> : 'Confirm Vote'}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
-        </div>
+        </section>
     );
 }
 

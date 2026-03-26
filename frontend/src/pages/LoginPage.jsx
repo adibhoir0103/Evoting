@@ -304,7 +304,7 @@ function LoginPage({ onLogin }) {
                                     className="btn-primary w-full py-3.5 text-lg mt-2 flex items-center justify-center gap-2"
                                     disabled={loading || aadhaarNumber.length !== 12 || (otpMethod === 'email' ? !email : mobileNumber.length !== 10)}
                                 >
-                                    {loading ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <i className="fa-solid fa-shield-check"></i>}
+                                    {loading ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <i className="fa-solid fa-shield-halved"></i>}
                                     {loading ? 'Sending Request...' : 'Generate Secure OTP'}
                                 </button>
                             </form>

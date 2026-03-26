@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import toast, { Toaster } from 'react-hot-toast';
 
 // Styles
 // Using global Tailwind CSS in index.css
@@ -22,6 +23,7 @@ import DashboardPage from './pages/DashboardPage';
 import CandidatesPage from './pages/CandidatesPage';
 import SearchRollPage from './pages/SearchRollPage';
 import ResultsPage from './pages/ResultsPage';
+import NotFoundPage from './pages/NotFoundPage';
 
 // Services
 import { authService } from './services/authService';
@@ -107,7 +109,9 @@ function App() {
         const resetTimer = () => {
             clearTimeout(idleTimer);
             idleTimer = setTimeout(() => {
-                alert('Session expired due to inactivity. Please log in again.');
+                console.warn('Session expired due to inactivity');
+                // WCAG 3.2.2 Fix: Use accessible toast instead of native alert
+                toast.error('Session expired due to inactivity. Please log in again.', { duration: 6000 });
                 handleLogout();
                 window.location.href = '/login';
             }, IDLE_LIMIT);
@@ -139,7 +143,8 @@ function App() {
     }
 
     return (
-        <Router>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <Toaster position="bottom-right" toastOptions={{ duration: 4000, style: { background: '#333', color: '#fff' } }} />
             <div className="flex flex-col min-h-screen">
                 <Navbar user={user} onLogout={handleLogout} isAdmin={isAdmin} />
                 <main id="main-content" className="flex-grow focus:outline-none" tabIndex="-1">
@@ -194,14 +199,17 @@ function App() {
                             }
                         />
 
-                        {/* Voting Page */}
                         <Route
                             path="/vote"
                             element={
-                                <VotingPage
-                                    user={user}
-                                    onUserUpdate={handleUserUpdate}
-                                />
+                                user ? (
+                                    <VotingPage
+                                        user={user}
+                                        onUserUpdate={handleUserUpdate}
+                                    />
+                                ) : (
+                                    <Navigate to="/login" replace />
+                                )
                             }
                         />
 
@@ -238,11 +246,11 @@ function App() {
 
                         {/* Admin Data Panel — Protected */}
                         <Route path="/admin-panel" element={
-                            localStorage.getItem('adminToken') ? <AdminPanel /> : <Navigate to="/admin-login" replace />
+                            isAdmin ? <AdminPanel /> : <Navigate to="/" replace />
                         } />
 
-                        {/* Fallback */}
-                        <Route path="*" element={<Navigate to="/" replace />} />
+                        {/* Fallback — 404 */}
+                        <Route path="*" element={<NotFoundPage />} />
                     </Routes>
                 </main>
                 <Footer />

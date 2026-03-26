@@ -82,7 +82,7 @@ function HelpPage() {
                 {
                     q: 'Invalid credentials error',
                     a: `1. Verify your Email/Voter ID is correct
-2. Check password (minimum 6 characters)
+2. Check password (minimum 8 characters)
 3. Use "Aadhaar OTP" login as alternative
 4. Register a new account if you haven't already`
                 },
@@ -119,117 +119,88 @@ function HelpPage() {
     ];
 
     return (
-        <div className="help-page">
-            <nav className="govt-navbar">
-                <div className="navbar-top">
-                    <span>भारत निर्वाचन आयोग | Election Commission of India</span>
-                </div>
-                <div className="navbar-main">
-                    <div className="navbar-brand" onClick={() => navigate(-1)} style={{ cursor: 'pointer' }}>
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" alt="National Emblem" />
-                        <div className="brand-text">
-                            <span className="title">Bharat E-Vote</span>
-                            <span className="subtitle">Help & Support</span>
-                        </div>
-                    </div>
-                    <button onClick={() => navigate(-1)} className="btn btn-secondary">
-                        <i className="fa-solid fa-arrow-left"></i> Go Back
-                    </button>
-                </div>
-            </nav>
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="gov-card p-6 md:p-8">
+                <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                    <i className="fa-solid fa-circle-question text-primary mr-2"></i> Help & Troubleshooting
+                </h1>
+                <p className="text-gray-500 mb-6">
+                    Find solutions to common problems and get support
+                </p>
 
-            <div className="help-container" style={{ maxWidth: '1200px', margin: '2rem auto', padding: '0 1rem' }}>
-                <div className="content-card">
-                    <h1 style={{ color: '#000080', marginBottom: '0.5rem' }}>
-                        <i className="fa-solid fa-circle-question"></i> Help & Troubleshooting
-                    </h1>
-                    <p style={{ color: '#555', marginBottom: '2rem' }}>
-                        Find solutions to common problems and get support
-                    </p>
+                {/* Quick Fix Banner */}
+                <div className="bg-green-50 border border-green-300 rounded-lg p-4 mb-8">
+                    <h3 className="text-green-800 font-bold mb-2">
+                        <i className="fa-solid fa-lightbulb mr-1"></i> Quick Fix — Try These First!
+                    </h3>
+                    <ol className="text-gray-700 pl-5 space-y-1 list-decimal text-sm">
+                        <li><strong>Refresh the page</strong> (Ctrl+F5 for hard refresh)</li>
+                        <li><strong>Check MetaMask</strong> is on Hardhat network (Chain ID: 31337)</li>
+                        <li><strong>Reset MetaMask:</strong> Settings → Advanced → Reset Account</li>
+                        <li><strong>Verify servers running:</strong> Backend (port 5000), Frontend (port 3000), Hardhat (port 8545)</li>
+                    </ol>
+                </div>
 
-                    {/* Quick Fix Banner */}
-                    <div style={{ background: '#e8f5e9', border: '1px solid #4caf50', borderRadius: '8px', padding: '1rem', marginBottom: '2rem' }}>
-                        <h3 style={{ color: '#2e7d32', margin: '0 0 0.5rem 0' }}>
-                            <i className="fa-solid fa-lightbulb"></i> Quick Fix - Try These First!
-                        </h3>
-                        <ol style={{ margin: 0, paddingLeft: '1.5rem', color: '#333' }}>
-                            <li><strong>Refresh the page</strong> (Ctrl+F5 for hard refresh)</li>
-                            <li><strong>Check MetaMask</strong> is on Hardhat network (Chain ID: 31337)</li>
-                            <li><strong>Reset MetaMask:</strong> Settings → Advanced → Reset Account</li>
-                            <li><strong>Verify servers running:</strong> Backend (port 5000), Frontend (port 3000), Hardhat (port 8545)</li>
-                        </ol>
+                <div className="flex flex-col md:flex-row gap-6">
+                    {/* Sidebar */}
+                    <div className="md:w-64 shrink-0 flex flex-col gap-2">
+                        {faqData.map(section => (
+                            <button
+                                key={section.id}
+                                onClick={() => setActiveSection(section.id)}
+                                className={`text-left px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors ${activeSection === section.id ? 'bg-primary text-white shadow' : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'}`}
+                            >
+                                <i className={`fa-solid ${section.icon} w-6 inline-block`}></i> {section.title}
+                            </button>
+                        ))}
                     </div>
 
-                    <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
-                        {/* Sidebar */}
-                        <div style={{ flex: '0 0 250px', minWidth: '200px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                {faqData.map(section => (
-                                    <button
-                                        key={section.id}
-                                        onClick={() => setActiveSection(section.id)}
-                                        className={`btn ${activeSection === section.id ? 'btn-primary' : 'btn-secondary'}`}
-                                        style={{ textAlign: 'left', justifyContent: 'flex-start' }}
-                                    >
-                                        <i className={`fa-solid ${section.icon}`} style={{ width: '25px' }}></i> {section.title}
-                                    </button>
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                        {faqData.filter(s => s.id === activeSection).map(section => (
+                            <div key={section.id}>
+                                <h2 className="text-xl font-bold text-primary mb-4 border-b-2 border-accent-saffron pb-2">
+                                    <i className={`fa-solid ${section.icon} mr-2`}></i> {section.title}
+                                </h2>
+                                {section.content.map((item, idx) => (
+                                    <div key={idx} className="mb-4 bg-gray-50 p-4 rounded-lg border-l-4 border-primary">
+                                        <h4 className="text-primary font-bold text-sm mb-2">
+                                            <i className="fa-solid fa-question-circle mr-1"></i> {item.q}
+                                        </h4>
+                                        <pre className="whitespace-pre-wrap font-sans m-0 text-gray-700 text-sm leading-relaxed">
+                                            {item.a}
+                                        </pre>
+                                    </div>
                                 ))}
                             </div>
-                        </div>
-
-                        {/* Content */}
-                        <div style={{ flex: '1', minWidth: '300px' }}>
-                            {faqData.filter(s => s.id === activeSection).map(section => (
-                                <div key={section.id} className="fade-in">
-                                    <h2 style={{ color: '#000080', marginBottom: '1rem', borderBottom: '2px solid #FF9933', paddingBottom: '0.5rem', marginTop: 0 }}>
-                                        <i className={`fa-solid ${section.icon}`}></i> {section.title}
-                                    </h2>
-                                    {section.content.map((item, idx) => (
-                                        <div key={idx} style={{ marginBottom: '1.5rem', background: '#f8f9fa', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #000080' }}>
-                                            <h4 style={{ color: '#000080', marginBottom: '0.5rem' }}>
-                                                <i className="fa-solid fa-question-circle"></i> {item.q}
-                                            </h4>
-                                            <pre style={{
-                                                whiteSpace: 'pre-wrap',
-                                                fontFamily: 'inherit',
-                                                margin: 0,
-                                                color: '#333',
-                                                lineHeight: '1.6'
-                                            }}>
-                                                {item.a}
-                                            </pre>
-                                        </div>
-                                    ))}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Contact Support */}
-                    <div style={{ marginTop: '2rem', background: '#f0f7ff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #000080' }}>
-                        <h3 style={{ color: '#000080', marginBottom: '1rem' }}>
-                            <i className="fa-solid fa-headset"></i> Still Need Help?
-                        </h3>
-                        <p style={{ color: '#555', marginBottom: '1rem' }}>If the problem continues after trying the above solutions:</p>
-                        <ul style={{ color: '#333', lineHeight: '2' }}>
-                            <li><strong>Helpline:</strong> 1950 (Toll Free)</li>
-                            <li><strong>Email:</strong> support@bharatevote.gov.in (Demo)</li>
-                            <li><strong>Local ERO:</strong> Contact your nearest Electoral Registration Officer</li>
-                            <li><strong>Technical Support:</strong> Check browser console (F12) for error details</li>
-                        </ul>
-                    </div>
-
-                    <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                        <Link to="/guidelines" className="btn btn-secondary">
-                            <i className="fa-solid fa-book"></i> Voter Guidelines
-                        </Link>
-                        <Link to="/vote" className="btn btn-primary">
-                            <i className="fa-solid fa-vote-yea"></i> Go to Voting
-                        </Link>
+                        ))}
                     </div>
                 </div>
+
+                {/* Contact Support */}
+                <div className="mt-8 bg-blue-50 p-5 rounded-lg border border-primary">
+                    <h3 className="text-primary font-bold mb-3">
+                        <i className="fa-solid fa-headset mr-2"></i> Still Need Help?
+                    </h3>
+                    <p className="text-gray-500 text-sm mb-3">If the problem continues after trying the above solutions:</p>
+                    <ul className="text-gray-700 text-sm space-y-2">
+                        <li><strong>Helpline:</strong> 1950 (Toll Free)</li>
+                        <li><strong>Email:</strong> support@bharatevote.gov.in (Demo)</li>
+                        <li><strong>Local ERO:</strong> Contact your nearest Electoral Registration Officer</li>
+                        <li><strong>Technical Support:</strong> Check browser console (F12) for error details</li>
+                    </ul>
+                </div>
+
+                <div className="mt-6 flex gap-3 justify-center flex-wrap">
+                    <Link to="/guidelines" className="btn-secondary px-6 py-2.5">
+                        <i className="fa-solid fa-book mr-2"></i> Voter Guidelines
+                    </Link>
+                    <Link to="/vote" className="btn-primary px-6 py-2.5">
+                        <i className="fa-solid fa-vote-yea mr-2"></i> Go to Voting
+                    </Link>
+                </div>
             </div>
-        </div>
+        </section>
     );
 }
 

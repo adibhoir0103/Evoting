@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 
 function Navbar({ user, onLogout, isAdmin }) {
@@ -7,8 +7,17 @@ function Navbar({ user, onLogout, isAdmin }) {
     const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
     const [showLoginDropdown, setShowLoginDropdown] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [toastMessage, setToastMessage] = useState('');
     const dropdownRef = useRef(null);
     const location = useLocation();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        if (toastMessage) {
+            const timer = setTimeout(() => setToastMessage(''), 4000);
+            return () => clearTimeout(timer);
+        }
+    }, [toastMessage]);
 
     useEffect(() => {
         document.documentElement.classList.remove('font-small', 'font-normal', 'font-large', 'font-xlarge');
@@ -45,30 +54,67 @@ function Navbar({ user, onLogout, isAdmin }) {
 
     const navLinkClass = (path) => `text-sm font-semibold hover:text-primary transition-colors ${location.pathname === path ? 'text-primary border-b-2 border-primary pb-1' : 'text-gray-600'}`;
 
+    // Mobile Accessibility Focus Trap
+    useEffect(() => {
+        const mainContent = document.getElementById('main-content');
+        if (mainContent) {
+            mainContent.setAttribute('aria-hidden', mobileMenuOpen.toString());
+            document.body.style.overflow = mobileMenuOpen ? 'hidden' : '';
+        }
+    }, [mobileMenuOpen]);
+
     return (
-        <React.Fragment>
-            {/* Accessibility Top Bar */}
-            <div className="bg-gray-100 py-1 px-4 sm:px-6 lg:px-8 text-xs font-medium text-gray-600 border-b border-gray-200">
-                <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2">
+        <>
+            {/* Accessibility Top Bar (Unified GIGW 3.0) */}
+            <div className="bg-gray-100 border-b border-gray-200 text-xs font-semibold text-gray-700 py-1.5 z-50 relative">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-2">
+                    {/* Left: Skip to Main content & Government Tag */}
                     <div className="flex items-center gap-3">
-                        <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:bg-white focus:text-primary focus:p-2 focus:z-50">Skip to main content</a>
-                        <span className="bg-accent-saffron text-white px-2 py-0.5 rounded font-bold text-[10px]">DEMO</span>
-                        <span>भारत सरकार | Government of India</span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <span className="hidden sm:inline">Screen Reader Access</span>
-                        <div className="flex bg-white rounded border border-gray-300 overflow-hidden">
-                            <button className={`px-2 py-0.5 hover:bg-gray-100 ${fontSize === 'small' ? 'bg-gray-200 font-bold' : ''}`} onClick={() => setFontSize('small')} title="Decrease font size">A-</button>
-                            <button className={`px-2 py-0.5 border-l border-r border-gray-300 hover:bg-gray-100 ${fontSize === 'normal' ? 'bg-gray-200 font-bold' : ''}`} onClick={() => setFontSize('normal')} title="Normal font size">A</button>
-                            <button className={`px-2 py-0.5 hover:bg-gray-100 ${fontSize === 'large' ? 'bg-gray-200 font-bold' : ''}`} onClick={() => setFontSize('large')} title="Increase font size">A+</button>
+                        <span className="bg-[#d97014] text-white px-2 py-0.5 rounded font-bold text-[10px] tracking-wider hidden sm:inline-block">DEMO</span>
+                        <a href="#main-content" className="hover:text-primary transition-colors focus:ring-2 focus:ring-primary rounded px-1">Skip to Main Content</a>
+                        <span className="text-gray-300 hidden sm:inline-block">|</span>
+                        <div className="flex items-center gap-1.5">
+                            <i className="fa-solid fa-flag text-[10px] text-accent-saffron"></i> 
+                            <span className="font-bold">भारत सरकार</span> 
+                            <span className="font-normal mx-0.5">/</span> 
+                            <span>GOVERNMENT OF INDIA</span>
                         </div>
+                    </div>
+                    
+                    {/* Right: Accessibility Controls */}
+                    <div className="flex items-center gap-3 sm:gap-4">
+                        <span className="hidden lg:inline text-gray-500 font-medium">Screen Reader Access</span>
+                        
+                        {/* Font Resizer */}
+                        <div className="flex items-center bg-white border border-gray-300 rounded shadow-sm overflow-hidden">
+                            <button 
+                                onClick={() => setFontSize('small')} 
+                                className={`px-2 py-0.5 hover:bg-gray-100 transition-colors ${fontSize === 'small' ? 'bg-gray-200 font-bold' : ''}`}
+                                aria-label="Decrease font size"
+                                title="Smaller Text"
+                            >A-</button>
+                            <button 
+                                onClick={() => setFontSize('normal')} 
+                                className={`px-2 py-0.5 border-l border-r border-gray-300 hover:bg-gray-100 transition-colors ${fontSize === 'normal' ? 'bg-gray-200 font-bold' : ''}`}
+                                aria-label="Normal font size"
+                                title="Normal Text"
+                            >A</button>
+                            <button 
+                                onClick={() => setFontSize('large')} 
+                                className={`px-2 py-0.5 hover:bg-gray-100 transition-colors ${fontSize === 'large' ? 'bg-gray-200 font-bold' : ''}`}
+                                aria-label="Increase font size"
+                                title="Larger Text"
+                            >A+</button>
+                        </div>
+
+                        {/* Theme Toggler (Dark/High Contrast) */}
                         <button
                             onClick={() => setDarkMode(!darkMode)}
-                            className="flex items-center justify-center w-7 h-7 rounded-full bg-white border border-gray-300 hover:bg-gray-200 transition-colors"
-                            title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                            aria-label={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                            className="flex items-center justify-center w-7 h-7 rounded-full bg-white border border-gray-300 hover:bg-gray-100 hover:scale-105 transition-all shadow-sm"
+                            title={darkMode ? 'Switch to Standard Theme' : 'Switch to High Contrast Mode'}
+                            aria-label={darkMode ? 'Switch to Standard Theme' : 'Switch to High Contrast Mode'}
                         >
-                            <i className={`fa-solid ${darkMode ? 'fa-sun text-amber-500' : 'fa-moon text-gray-600'} text-xs`}></i>
+                            <i className={`fa-solid ${darkMode ? 'fa-sun text-yellow-500' : 'fa-moon text-gray-600'} text-xs`}></i>
                         </button>
                     </div>
                 </div>
@@ -82,10 +128,14 @@ function Navbar({ user, onLogout, isAdmin }) {
                         <div className="flex items-center">
                             <Link to="/" className="flex items-center gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">
                                 <img
-                                    src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Emblem_of_India.svg/220px-Emblem_of_India.svg.png"
+                                    src="/assets/emblem.svg"
+                                    onError={(e) => { e.target.src='https://s2.googleusercontent.com/s2/favicons?domain=india.gov.in&sz=256'; }}
                                     alt="Emblem of India"
-                                    className="h-12 w-auto"
+                                    className="h-12 w-auto mix-blend-multiply dark:brightness-0 dark:invert"
                                 />
+                                <div style={{display: 'none'}} className="h-12 w-12 shrink-0 items-center justify-center text-primary font-bold text-2xl rounded">
+                                    <i className="fa-solid fa-landmark"></i>
+                                </div>
                                 <div>
                                     <span className="block text-2xl font-bold text-primary leading-none">Bharat E-Vote</span>
                                     <span className="text-[11px] uppercase font-bold text-gray-500 tracking-wider">Election Commission of India</span>
@@ -130,6 +180,13 @@ function Navbar({ user, onLogout, isAdmin }) {
                                     <i className="fa-solid fa-user-shield text-red-500"></i>Admin Panel
                                 </Link>
                             )}
+
+                            <form role="search" onSubmit={(e) => { e.preventDefault(); navigate('/search-roll'); }} className="flex items-center">
+                                <button type="submit" aria-label="Submit Search" className="text-gray-500 hover:text-primary transition-colors px-2 relative group focus:outline-none focus:ring-2 focus:ring-primary rounded">
+                                    <i className="fa-solid fa-magnifying-glass text-lg"></i>
+                                    <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Search Roll</span>
+                                </button>
+                            </form>
 
                             <div className="h-6 w-px bg-gray-300 mx-2"></div>
 
@@ -216,7 +273,15 @@ function Navbar({ user, onLogout, isAdmin }) {
                     )}
                 </div>
             </header>
-        </React.Fragment>
+
+            {/* WCAG 3.2.2 Accessible Toast Notification */}
+            {toastMessage && (
+                <div role="status" aria-live="polite" className="fixed bottom-6 right-6 bg-gray-900 text-white px-6 py-4 rounded shadow-2xl z-50 flex items-center gap-3 border-l-4 border-blue-500 animate-[bounce_0.3s_ease-in-out]">
+                    <i className="fa-solid fa-circle-info text-blue-400"></i>
+                    <p className="text-sm font-medium">{toastMessage}</p>
+                </div>
+            )}
+        </>
     );
 }
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { authService } from '../services/authService';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
@@ -18,7 +19,7 @@ function DashboardPage({ user, onUserUpdate }) {
     useEffect(() => {
         loadDashboardData();
 
-        // Countdown Timer Logic (Target: May 15, 2026)
+        // Countdown Timer Logic — TODO: Fetch target date from backend API
         const targetDate = new Date('2026-05-15T08:00:00');
         const timer = setInterval(() => {
             const now = new Date();
@@ -87,9 +88,9 @@ function DashboardPage({ user, onUserUpdate }) {
         if (profile) {
             setCardFormData({
                 fatherName: profile.fatherName || profile.father_name || '',
-                gender: profile.gender || 'Male',
-                dob: profile.dob || '1990-01-01',
-                address: profile.address || 'H.No 123, Ward 12, New Delhi'
+                gender: profile.gender || '',
+                dob: profile.dob || '',
+                address: profile.address || ''
             });
         }
     }, [profile, isEditingCard]);
@@ -100,7 +101,7 @@ function DashboardPage({ user, onUserUpdate }) {
             setProfile(prev => ({ ...prev, ...cardFormData }));
             setIsEditingCard(false);
         } catch (err) {
-            alert('Failed to update card: ' + err.message);
+            toast.error('Failed to update card: ' + err.message);
         }
     };
 
@@ -195,7 +196,7 @@ function DashboardPage({ user, onUserUpdate }) {
                         <div className="gov-card p-0 overflow-hidden shadow-lg border-t-4 border-t-primary">
                             <div className="bg-blue-50/50 p-4 border-b border-blue-100 flex justify-between items-start">
                                 <div className="flex gap-4">
-                                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Emblem_of_India.svg/220px-Emblem_of_India.svg.png" alt="Emblem" className="h-16 w-auto mix-blend-multiply opacity-90" />
+                                    <img src="https://s2.googleusercontent.com/s2/favicons?domain=india.gov.in&sz=256" alt="Emblem" className="h-16 w-auto mix-blend-multiply opacity-90" />
                                     <div>
                                         <h3 className="text-lg font-bold text-gray-900 leading-tight">भारत निर्वाचन आयोग</h3>
                                         <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Election Commission of India</h3>
@@ -223,7 +224,9 @@ function DashboardPage({ user, onUserUpdate }) {
                             <div className="p-6 flex flex-col md:flex-row gap-6 relative">
                                 {/* Watermark */}
                                 <div className="absolute inset-0 flex flex-col justify-center items-center opacity-[0.03] pointer-events-none">
-                                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Emblem_of_India.svg/220px-Emblem_of_India.svg.png" alt="" className="h-64 object-contain" />
+                                    <img src="/assets/emblem.svg"
+                                        onError={(e) => { e.target.src='https://s2.googleusercontent.com/s2/favicons?domain=india.gov.in&sz=256'; }}
+                                        alt="" className="h-64 object-contain" />
                                 </div>
 
                                 <div className="flex-shrink-0 flex flex-col items-center">
@@ -232,7 +235,7 @@ function DashboardPage({ user, onUserUpdate }) {
                                     </div>
                                     <div className="mt-4 text-center">
                                         <div className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">EPIC Number</div>
-                                        <div className="text-lg font-mono font-bold text-gray-900 uppercase">{profile?.voter_id || profile?.voterId || 'ABC1234567'}</div>
+                                        <div className="text-lg font-mono font-bold text-gray-900 uppercase">{profile?.voter_id || profile?.voterId || '—'}</div>
                                     </div>
                                 </div>
 
@@ -259,7 +262,7 @@ function DashboardPage({ user, onUserUpdate }) {
                                                     <option>Male</option><option>Female</option><option>Other</option>
                                                 </select>
                                             ) : (
-                                                <span className="block text-sm font-medium text-gray-800">{profile?.gender || 'Male'}</span>
+                                                <span className="block text-sm font-medium text-gray-800">{profile?.gender || '—'}</span>
                                             )}
                                         </div>
                                         <div>
@@ -267,7 +270,7 @@ function DashboardPage({ user, onUserUpdate }) {
                                             {isEditingCard ? (
                                                 <input type="date" className="input-field py-1 px-2 text-sm mt-1 border-primary bg-blue-50" value={cardFormData.dob} onChange={(e) => setCardFormData({ ...cardFormData, dob: e.target.value })} />
                                             ) : (
-                                                <span className="block text-sm font-medium text-gray-800">{profile?.dob ? formatDate(profile.dob) : '01 Jan 1990'}</span>
+                                                <span className="block text-sm font-medium text-gray-800">{profile?.dob ? formatDate(profile.dob) : '—'}</span>
                                             )}
                                         </div>
                                     </div>
@@ -277,7 +280,7 @@ function DashboardPage({ user, onUserUpdate }) {
                                         {isEditingCard ? (
                                             <textarea className="input-field text-sm mt-1 border-primary bg-blue-50 resize-none h-16 w-full" value={cardFormData.address} onChange={(e) => setCardFormData({ ...cardFormData, address: e.target.value })} />
                                         ) : (
-                                            <span className="block text-sm font-medium text-gray-800 leading-relaxed max-w-sm">{profile?.address || 'H.No 123, Ward 12, New Delhi, 110001'}</span>
+                                            <span className="block text-sm font-medium text-gray-800 leading-relaxed max-w-sm">{profile?.address || '—'}</span>
                                         )}
                                     </div>
                                 </div>
@@ -487,7 +490,7 @@ function DashboardPage({ user, onUserUpdate }) {
 
                                                     doc.save('BharatEVote_Receipt.pdf');
                                                 } catch (err) {
-                                                    alert('Failed to generate PDF: ' + err.message);
+                                                    toast.error('Failed to generate PDF: ' + err.message);
                                                 }
                                             }}
                                             className="inline-flex items-center text-xs font-bold text-green-700 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded border border-green-200 transition-colors"
@@ -517,6 +520,40 @@ function DashboardPage({ user, onUserUpdate }) {
                                 <h4 className="font-bold text-gray-900 text-sm">Search Roll</h4>
                                 <p className="text-xs text-gray-500 mt-1">Find your details</p>
                             </Link>
+                        </div>
+
+                        {/* Election Schedule Timeline */}
+                        <div className="gov-card mt-6 border-t-4 border-[#138808]">
+                            <h3 className="text-lg font-bold text-[#0b2b54] mb-4 flex items-center border-b pb-2">
+                                <i className="fa-solid fa-calendar-days text-[#d97014] mr-2"></i> Election Schedule (Phase 4)
+                            </h3>
+                            <div className="relative border-l-2 border-gray-200 ml-3 space-y-6 pb-2 mt-4">
+                                <div className="relative pl-6">
+                                    <div className="absolute w-3 h-3 bg-green-500 rounded-full -left-[7px] top-1.5 ring-4 ring-green-100"></div>
+                                    <div className="text-xs font-bold text-gray-500 uppercase">10 April 2026</div>
+                                    <div className="text-sm font-bold text-gray-900">Gazette Notification Issued</div>
+                                </div>
+                                <div className="relative pl-6">
+                                    <div className="absolute w-3 h-3 bg-green-500 rounded-full -left-[7px] top-1.5 ring-4 ring-green-100"></div>
+                                    <div className="text-xs font-bold text-gray-500 uppercase">18 April 2026</div>
+                                    <div className="text-sm font-bold text-gray-900">Last Date for Formal Nominations</div>
+                                </div>
+                                <div className="relative pl-6">
+                                    <div className="absolute w-3 h-3 bg-blue-500 rounded-full -left-[7px] top-1.5 ring-4 ring-blue-100 animate-pulse"></div>
+                                    <div className="text-xs font-bold text-blue-600 uppercase">Current Status</div>
+                                    <div className="text-sm font-bold text-[#0b2b54]">Scrutiny of Affidavits Active</div>
+                                </div>
+                                <div className="relative pl-6">
+                                    <div className="absolute w-3 h-3 bg-gray-300 rounded-full -left-[7px] top-1.5"></div>
+                                    <div className="text-xs font-bold text-gray-400 uppercase">15 May 2026</div>
+                                    <div className="text-sm font-bold text-gray-400">Date of Poll (Live E-Voting active)</div>
+                                </div>
+                                <div className="relative pl-6">
+                                    <div className="absolute w-3 h-3 bg-gray-300 rounded-full -left-[7px] top-1.5"></div>
+                                    <div className="text-xs font-bold text-gray-400 uppercase">04 June 2026</div>
+                                    <div className="text-sm font-bold text-gray-400">Date of Counting & National Results</div>
+                                </div>
+                            </div>
                         </div>
 
                     </div>
