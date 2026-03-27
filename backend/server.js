@@ -543,9 +543,25 @@ app.get('/api/v1/vote/receipt', authenticateToken, async (req, res) => {
 // Send OTP via email or mobile
 app.post('/api/v1/auth/send-otp', otpLimiter, otpLimiterUpstash, verifyTurnstile, async (req, res) => {
     try {
-        const { aadhaarNumber, email, mobileNumber, method = 'email' } = req.body;
-        console.log('DEBUG: Received OTP Request:', { aadhaarNumber, email, mobileNumber, method });
+        const { aadhaarNumber, email, mobileNumber, method = 'email', purpose = 'login' } = req.body;
+        console.log('DEBUG: Received OTP Request:', { aadhaarNumber, email, mobileNumber, method, purpose });
 
+        if (purpose === 'password-reset') {
+            if (!email) return res.status(400).json({ error: 'Email is required for password reset' });
+            
+            const user = await prisma.user.findUnique({ where: { email } });
+            if (!user) return res.status(404).json({ error: 'No account found with this email' });
+            
+            // Send OTP via Resend (custom email service)
+            const result = await otpService.sendOTP(email, email, 'email', user.fullname);
+            return res.json({
+                message: result.message,
+                method: 'email',
+                ...(result.demoOTP ? { otp: result.demoOTP } : {})
+            });
+        }
+
+        // --- Aadhaar Login Flow Below ---
         if (!aadhaarNumber) {
             return res.status(400).json({ error: 'Aadhaar number is required' });
         }
@@ -596,7 +612,7 @@ app.post('/api/v1/auth/send-otp', otpLimiter, otpLimiterUpstash, verifyTurnstile
             }
         }
 
-        // Send OTP via Supabase
+        // Send OTP via Supabase (for Aadhaar Login)
         const { data, error } = await supabase.auth.signInWithOtp({
             email: recipient
         });
@@ -618,8 +634,16 @@ app.post('/api/v1/auth/send-otp', otpLimiter, otpLimiterUpstash, verifyTurnstile
 // Verify OTP and login
 app.post('/api/v1/auth/verify-otp', authLimiter, authLimiterUpstash, async (req, res) => {
     try {
-        const { aadhaarNumber, otp } = req.body;
+        const { aadhaarNumber, email, otp, purpose = 'login' } = req.body;
 
+        if (purpose === 'password-reset') {
+            if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
+            const result = await otpService.verifyOTP(email, otp);
+            if (!result.success) return res.status(400).json({ error: result.message });
+            return res.json({ message: 'OTP verified successfully' });
+        }
+
+        // --- Aadhaar Login Flow Below ---
         if (!aadhaarNumber || !otp) {
             return res.status(400).json({ error: 'Aadhaar number and OTP are required' });
         }
@@ -659,6 +683,45 @@ app.post('/api/v1/auth/verify-otp', authLimiter, authLimiterUpstash, async (req,
     } catch (error) {
         console.error('Verify OTP error:', error);
         res.status(500).json({ error: 'Server error during OTP verification' });
+    }
+});
+
+// Reset Password
+app.post('/api/v1/auth/reset-password', authLimiter, async (req, res) => {
+    try {
+        const { email, otp, newPassword } = req.body;
+        if (!email || !otp || !newPassword) return res.status(400).json({ error: 'All fields are required' });
+
+        if (newPassword.length < 8) {
+            return res.status(400).json({ error: 'Password must be at least 8 characters' });
+        }
+
+        // Verify OTP again just to be safe before resetting
+        const result = await otpService.verifyOTP(email, otp);
+        if (!result.success) return res.status(400).json({ error: 'Invalid or expired OTP' });
+
+        // Update password in Supabase using the admin API
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        // Find the Supabase user ID by email
+        const { data: usersData, error: listError } = await supabase.auth.admin.listUsers();
+        if (listError) return res.status(500).json({ error: 'Failed to access user directory' });
+
+        const supabaseUser = usersData.users.find(u => u.email === email.toLowerCase());
+        if (!supabaseUser) return res.status(404).json({ error: 'Auth record not found' });
+
+        // Update the password
+        const { error: updateError } = await supabase.auth.admin.updateUserById(supabaseUser.id, { 
+            password: newPassword 
+        });
+        
+        if (updateError) return res.status(400).json({ error: updateError.message });
+
+        res.json({ message: 'Password updated successfully' });
+    } catch (error) {
+        console.error('Reset password error:', error);
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
