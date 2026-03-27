@@ -53,3 +53,47 @@ model AdminAuditLog {
   ip_address   String?
   created_at   DateTime @default(now())
 }
+
+model LoginHistory {
+  id          Int      @id @default(autoincrement())
+  voter_id    String
+  ip_address  String?
+  device_info String?
+  login_time  DateTime @default(now())
+  status      String   @default("SUCCESS") // SUCCESS, FAILED
+}
+
+model OtpDeliveryLog {
+  id          Int      @id @default(autoincrement())
+  recipient   String   // email or phone number
+  purpose     String   // e.g., login, password-reset
+  success     Boolean  @default(false)
+  error_msg   String?
+  sent_at     DateTime @default(now())
+}
+
+model State {
+  id          Int      @id @default(autoincrement())
+  code        Int      @unique
+  name        String
+  total_seats Int      @default(0)
+}
+
+model Constituency {
+  id          Int      @id @default(autoincrement())
+  code        Int      @unique
+  state_code  Int
+  name        String
+  voters_count Int     @default(0)
+}
+
+model SupportTicket {
+  id          Int      @id @default(autoincrement())
+  user_id     String   // Maps to user's voter_id or email
+  issue_type  String
+  description String
+  status      String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED
+  admin_reply String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+}
