@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { authService } from '../services/authService';
 import { indianStates } from '../utils/indianStates';
+import Turnstile from '../components/Turnstile';
 
 function SignupPage() {
     const navigate = useNavigate();
@@ -389,6 +390,10 @@ function SignupPage() {
                             </Link>
                         </p>
                     </div>
+
+                    {/* Invisible Turnstile CAPTCHA */}
+                    <Turnstile onVerify={(token) => {}} action="signup" />
+
                 </div>
             </main>
         </div>

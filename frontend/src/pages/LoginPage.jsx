@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
+import Turnstile from '../components/Turnstile';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 
@@ -30,6 +31,7 @@ function LoginPage({ onLogin }) {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState('');
+    const [turnstileToken, setTurnstileToken] = useState('');
 
     // OTP input refs
     const otpRefs = useRef([]);
@@ -72,7 +74,7 @@ function LoginPage({ onLogin }) {
         setLoading(true);
 
         try {
-            const payload = { aadhaarNumber, method: otpMethod };
+            const payload = { aadhaarNumber, method: otpMethod, turnstileToken };
             if (otpMethod === 'email') payload.email = email;
             else payload.mobileNumber = mobileNumber;
 
@@ -412,6 +414,9 @@ function LoginPage({ onLogin }) {
                             </button>
                         </form>
                     )}
+
+                    {/* Invisible Turnstile CAPTCHA */}
+                    <Turnstile onVerify={setTurnstileToken} action={loginMode === 'aadhaar' ? 'aadhaar_login' : 'credential_login'} />
 
                     <div className="mt-8 pt-6 border-t border-gray-100 text-center">
                         <p className="text-gray-600">

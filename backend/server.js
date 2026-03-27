@@ -1,4 +1,18 @@
+// Initialize Sentry FIRST — before all other imports
+const Sentry = require('@sentry/node');
+
 require('dotenv').config();
+
+// Sentry must be initialized BEFORE require('express') for auto-instrumentation
+if (process.env.SENTRY_DSN) {
+    Sentry.init({
+        dsn: process.env.SENTRY_DSN,
+        environment: process.env.NODE_ENV || 'development',
+        tracesSampleRate: 1.0,
+    });
+    console.log('✅ Sentry error monitoring initialized');
+}
+
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
@@ -7,6 +21,7 @@ const { PrismaClient } = require('@prisma/client');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const otpService = require('./services/otpService');
+const { otpLimiterUpstash, authLimiterUpstash } = require('./services/rateLimiter');
 
 const { createClient } = require('@supabase/supabase-js');
 
@@ -77,8 +92,18 @@ app.use(helmet({
     },
     crossOriginEmbedderPolicy: false
 }));
+const allowedOrigins = process.env.CORS_ORIGIN 
+    ? process.env.CORS_ORIGIN.split(',') 
+    : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5173', 'http://127.0.0.1:5173'];
+
 app.use(cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: function(origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed methods
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -137,6 +162,46 @@ const otpLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false
 });
+
+// Cloudflare Turnstile verification middleware
+const verifyTurnstile = async (req, res, next) => {
+    const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
+    const token = req.body.turnstileToken;
+
+    // Skip verification if Turnstile is not configured or token is a dev passthrough
+    if (!turnstileSecret || token === 'turnstile-not-configured') {
+        return next();
+    }
+
+    if (!token) {
+        return res.status(400).json({ error: 'Bot verification failed. Please refresh and try again.' });
+    }
+
+    try {
+        const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                secret: turnstileSecret,
+                response: token,
+                remoteip: req.ip
+            })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+            console.warn('⚠️ Turnstile verification failed:', data);
+            return res.status(403).json({ error: 'Bot verification failed. Please refresh and try again.' });
+        }
+
+        next();
+    } catch (error) {
+        console.error('Turnstile verification error:', error);
+        // Fail-open in case of Cloudflare outage
+        next();
+    }
+};
 
 // Auth middleware using Supabase
 const authenticateToken = async (req, res, next) => {
@@ -476,7 +541,7 @@ app.get('/api/v1/vote/receipt', authenticateToken, async (req, res) => {
 // ===================== AADHAAR OTP ROUTES =====================
 
 // Send OTP via email or mobile
-app.post('/api/v1/auth/send-otp', otpLimiter, async (req, res) => {
+app.post('/api/v1/auth/send-otp', otpLimiter, otpLimiterUpstash, verifyTurnstile, async (req, res) => {
     try {
         const { aadhaarNumber, email, mobileNumber, method = 'email' } = req.body;
         console.log('DEBUG: Received OTP Request:', { aadhaarNumber, email, mobileNumber, method });
@@ -551,7 +616,7 @@ app.post('/api/v1/auth/send-otp', otpLimiter, async (req, res) => {
 });
 
 // Verify OTP and login
-app.post('/api/v1/auth/verify-otp', authLimiter, async (req, res) => {
+app.post('/api/v1/auth/verify-otp', authLimiter, authLimiterUpstash, async (req, res) => {
     try {
         const { aadhaarNumber, otp } = req.body;
 
@@ -998,6 +1063,9 @@ app.post('/api/v1/meta-tx/relay', metaTxLimiter, authenticateToken, async (req, 
         res.status(500).json({ error: 'Failed to relay meta-transaction' });
     }
 });
+
+// Sentry error handler — must be after all routes but before app.listen()
+Sentry.setupExpressErrorHandler(app);
 
 // ===================== START SERVER =====================
 

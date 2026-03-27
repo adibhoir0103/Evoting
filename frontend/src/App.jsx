@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import * as Sentry from '@sentry/react';
+import posthog from 'posthog-js';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -93,12 +95,20 @@ function App() {
 
     const handleLogin = (userData) => {
         setUser(userData);
+        // Track user in Sentry for error attribution
+        Sentry.setUser({ id: userData.id, email: userData.email, username: userData.voterId });
+        // Identify user in PostHog for analytics
+        posthog.identify(userData.voterId, { email: userData.email, name: userData.fullname });
+        posthog.capture('user_logged_in', { method: 'credential' });
     };
 
     const handleLogout = () => {
         authService.logout();
         setUser(null);
         setIsAdmin(false);
+        Sentry.setUser(null); // Clear user from Sentry on logout
+        posthog.capture('user_logged_out');
+        posthog.reset(); // Clear PostHog identity on logout
     };
 
     // Session timeout: auto-logout after 30 minutes of inactivity
