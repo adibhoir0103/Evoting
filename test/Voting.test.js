@@ -133,6 +133,16 @@ describe("Voting Contract", function () {
             expect(await voting.isVoterAuthorized(voter1.address)).to.equal(true);
             expect(await voting.isVoterAuthorized(voter2.address)).to.equal(true);
         });
+
+        it("Should reject batch authorization exceeding 100 addresses", async function () {
+            // Create array of 101 addresses
+            const addresses = Array.from({ length: 101 }, (_, i) =>
+                ethers.Wallet.createRandom().address
+            );
+            await expect(
+                voting.authorizeVotersBatch(addresses)
+            ).to.be.revertedWith("Batch size exceeds maximum of 100");
+        });
     });
 
     describe("Voting Process", function () {
@@ -181,15 +191,37 @@ describe("Voting Contract", function () {
             ).to.be.revertedWith("Voting is not active");
         });
 
-        it("Should emit VoteCast event", async function () {
-            await expect(voting.connect(voter1).vote(1))
-                .to.emit(voting, "VoteCast")
-                .withArgs(voter1.address, 1);
+        it("Should emit VoteCast event without voter address (secret ballot)", async function () {
+            const tx = await voting.connect(voter1).vote(1);
+            const receipt = await tx.wait();
+            const event = receipt.logs.find(log => {
+                try {
+                    return voting.interface.parseLog(log)?.name === 'VoteCast';
+                } catch { return false; }
+            });
+            expect(event).to.not.be.undefined;
+            const parsed = voting.interface.parseLog(event);
+            expect(parsed.args[0]).to.equal(1); // candidateId
+            // Verify voter address is NOT in the event (secret ballot)
+            expect(parsed.args.length).to.equal(2); // only candidateId + timestamp
         });
 
-        it("Should track voter's choice", async function () {
+        it("Should NOT expose voter's choice (secret ballot)", async function () {
             await voting.connect(voter1).vote(1);
-            expect(await voting.getVoterChoice(voter1.address)).to.equal(1);
+            // getVoterChoice was removed — voter's choice is private
+            // Only hasVoted is exposed, not which candidate they chose
+            expect(await voting.hasVoterVoted(voter1.address)).to.equal(true);
+            const info = await voting.getVoterInfo(voter1.address);
+            // getVoterInfo returns 4 values: isAuthorized, hasVoted, stateCode, constituencyCode
+            // No votedCandidateId field
+            expect(info.length).to.equal(4);
+        });
+
+        it("Should prevent admin from voting", async function () {
+            await voting.authorizeVoterSimple(admin.address);
+            await expect(
+                voting.vote(1)
+            ).to.be.revertedWith("Admin cannot vote");
         });
 
         it("Should increment vote count correctly", async function () {

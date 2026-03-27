@@ -14,6 +14,8 @@ function VotingPage({ user, onUserUpdate }) {
     const [isAuthorized, setIsAuthorized] = useState(false);
     const [loading, setLoading] = useState(true);
     const [txLoading, setTxLoading] = useState(false);
+    const [txHash, setTxHash] = useState('');
+    const [txStatus, setTxStatus] = useState(''); // 'pending' | 'confirming' | 'confirmed' | ''
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [walletConnected, setWalletConnected] = useState(false);
@@ -130,6 +132,8 @@ function VotingPage({ user, onUserUpdate }) {
 
         try {
             setTxLoading(true);
+            setTxHash('');
+            setTxStatus('pending');
             setError('');
 
             const service = BlockchainService.getInstance();
@@ -142,6 +146,7 @@ function VotingPage({ user, onUserUpdate }) {
             }
 
             if (isZKP && voterSecret) {
+                setTxStatus('pending');
                 const votePackage = await zkpClientService.generateVotePackage(
                     selectedCandidate.id,
                     voterSecret,
@@ -160,6 +165,7 @@ function VotingPage({ user, onUserUpdate }) {
                     console.log('IPFS pinning skipped:', e.message);
                 }
 
+                setTxStatus('confirming');
                 const receipt = await service.submitEncryptedVote(
                     votePackage.commitment,
                     votePackage.nullifierHash,
@@ -167,6 +173,8 @@ function VotingPage({ user, onUserUpdate }) {
                     votePackage.proof,
                     ipfsHash
                 );
+                setTxHash(receipt.hash);
+                setTxStatus('confirmed');
 
                 await authService.recordVote(selectedCandidate.id, receipt.hash);
 
@@ -179,10 +187,14 @@ function VotingPage({ user, onUserUpdate }) {
                 setShowVerification(true);
                 setSelectedCandidate(null);
             } else {
+                setTxStatus('confirming');
                 const receipt = await service.vote(selectedCandidate.id);
+                setTxHash(receipt.hash);
+                setTxStatus('confirmed');
+
                 await authService.recordVote(selectedCandidate.id, receipt.hash);
 
-                setSuccess('Vote cast successfully! Thank you for participating.');
+                setSuccess(`Vote cast successfully! Tx: ${receipt.hash.slice(0, 10)}...`);
                 setHasVoted(true);
                 setSelectedCandidate(null);
 
@@ -193,7 +205,13 @@ function VotingPage({ user, onUserUpdate }) {
                 await loadBlockchainData(BlockchainService.getInstance(), walletAddress);
             }
         } catch (err) {
-            setError(err.message || 'Failed to cast vote');
+            const msg = err.message || 'Failed to cast vote';
+            if (msg.includes('rejected') || msg.includes('ACTION_REJECTED')) {
+                setError('Transaction cancelled. You can try again.');
+            } else {
+                setError(msg);
+            }
+            setTxStatus('');
         } finally {
             setTxLoading(false);
         }
@@ -390,40 +408,85 @@ function VotingPage({ user, onUserUpdate }) {
                 )}
             </div>
 
-            {/* Confirmation Modal */}
+            {/* Confirmation & Transaction Modal */}
             {selectedCandidate && (
-                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={cancelVote}>
+                <div className={`fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4`} onClick={txLoading ? undefined : cancelVote}>
                     <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8 relative" onClick={e => e.stopPropagation()}>
-                        <button className="absolute top-3 right-4 text-gray-400 hover:text-gray-600 text-2xl" onClick={cancelVote} aria-label="Close">&times;</button>
-                        <h2 className="text-xl font-bold text-primary mb-2">Confirm Your Vote</h2>
-                        <p className="text-gray-500 mb-4">You are about to vote for:</p>
+                        {!txLoading && (
+                            <button className="absolute top-3 right-4 text-gray-400 hover:text-gray-600 text-2xl" onClick={cancelVote} aria-label="Close">&times;</button>
+                        )}
 
-                        <div className="bg-[#F5F7FA] border-2 border-primary rounded-lg p-6 text-center mb-4">
-                            <div className="w-16 h-16 rounded-full bg-blue-50 text-primary flex items-center justify-center mx-auto mb-3 text-3xl font-bold border border-blue-200">
-                                {selectedCandidate.partySymbol || <i className="fa-solid fa-user-tie"></i>}
+                        {/* Transaction Processing Overlay */}
+                        {txLoading ? (
+                            <div className="text-center py-4">
+                                <div className="w-20 h-20 rounded-full bg-blue-50 text-primary flex items-center justify-center mx-auto mb-4 border-2 border-blue-200">
+                                    <i className={`fa-solid ${txStatus === 'confirmed' ? 'fa-check-circle text-green-600' : 'fa-circle-notch fa-spin'} text-3xl`}></i>
+                                </div>
+                                <h2 className="text-xl font-bold text-primary mb-2">
+                                    {txStatus === 'pending' && 'Waiting for MetaMask...'}
+                                    {txStatus === 'confirming' && 'Confirming on Blockchain...'}
+                                    {txStatus === 'confirmed' && 'Vote Confirmed!'}
+                                </h2>
+                                <p className="text-gray-500 text-sm mb-4">
+                                    {txStatus === 'pending' && 'Please approve the transaction in your MetaMask wallet.'}
+                                    {txStatus === 'confirming' && 'Your transaction is being mined. Do not close this window.'}
+                                    {txStatus === 'confirmed' && 'Your vote has been successfully recorded on the blockchain.'}
+                                </p>
+
+                                {/* Progress Steps */}
+                                <div className="flex justify-center gap-2 mb-4">
+                                    <div className={`w-3 h-3 rounded-full ${txStatus === 'pending' ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`}></div>
+                                    <div className={`w-3 h-3 rounded-full ${txStatus === 'confirming' ? 'bg-blue-500 animate-pulse' : txStatus === 'confirmed' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                                    <div className={`w-3 h-3 rounded-full ${txStatus === 'confirmed' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                                </div>
+
+                                {/* Transaction Hash */}
+                                {txHash && (
+                                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-4 text-left">
+                                        <p className="text-xs text-gray-500 font-medium mb-1">Transaction Hash</p>
+                                        <p className="text-xs text-gray-700 font-mono break-all">{txHash}</p>
+                                    </div>
+                                )}
+
+                                <p className="text-xs text-gray-400 mt-4">
+                                    <i className="fa-solid fa-lock mr-1"></i>
+                                    This window cannot be closed while the transaction is processing.
+                                </p>
                             </div>
-                            <h3 className="text-lg font-bold text-primary">{selectedCandidate.name}</h3>
-                            <p className="font-bold text-accent-green text-base mb-1">
-                                {selectedCandidate.partyName || 'Independent'}
-                            </p>
-                            <p className="text-gray-500 text-sm">
-                                Candidate #{selectedCandidate.id}
-                                {selectedCandidate.stateCode ? ` | ${getStateName(selectedCandidate.stateCode)} Constituency: ${selectedCandidate.constituencyCode}` : ' | National List'}
-                            </p>
-                        </div>
+                        ) : (
+                            /* Normal Confirmation View */
+                            <>
+                                <h2 className="text-xl font-bold text-primary mb-2">Confirm Your Vote</h2>
+                                <p className="text-gray-500 mb-4">You are about to vote for:</p>
 
-                        <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 mb-6 text-sm text-yellow-800">
-                            <i className="fa-solid fa-exclamation-triangle mr-1"></i> Once submitted, your vote <strong>cannot be changed</strong>. This action is final.
-                        </div>
+                                <div className="bg-[#F5F7FA] border-2 border-primary rounded-lg p-6 text-center mb-4">
+                                    <div className="w-16 h-16 rounded-full bg-blue-50 text-primary flex items-center justify-center mx-auto mb-3 text-3xl font-bold border border-blue-200">
+                                        {selectedCandidate.partySymbol || <i className="fa-solid fa-user-tie"></i>}
+                                    </div>
+                                    <h3 className="text-lg font-bold text-primary">{selectedCandidate.name}</h3>
+                                    <p className="font-bold text-accent-green text-base mb-1">
+                                        {selectedCandidate.partyName || 'Independent'}
+                                    </p>
+                                    <p className="text-gray-500 text-sm">
+                                        Candidate #{selectedCandidate.id}
+                                        {selectedCandidate.stateCode ? ` | ${getStateName(selectedCandidate.stateCode)} Constituency: ${selectedCandidate.constituencyCode}` : ' | National List'}
+                                    </p>
+                                </div>
 
-                        <div className="flex gap-3">
-                            <button className="btn-secondary flex-1 py-3" onClick={cancelVote} disabled={txLoading}>
-                                Cancel
-                            </button>
-                            <button className="btn-primary flex-1 py-3" onClick={submitVote} disabled={txLoading}>
-                                {txLoading ? <><i className="fa-solid fa-circle-notch fa-spin mr-2"></i>Processing...</> : 'Confirm Vote'}
-                            </button>
-                        </div>
+                                <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 mb-6 text-sm text-yellow-800">
+                                    <i className="fa-solid fa-exclamation-triangle mr-1"></i> Once submitted, your vote <strong>cannot be changed</strong>. This action is final.
+                                </div>
+
+                                <div className="flex gap-3">
+                                    <button className="btn-secondary flex-1 py-3" onClick={cancelVote} disabled={txLoading}>
+                                        Cancel
+                                    </button>
+                                    <button className="btn-primary flex-1 py-3" onClick={submitVote} disabled={txLoading}>
+                                        Confirm Vote
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             )}

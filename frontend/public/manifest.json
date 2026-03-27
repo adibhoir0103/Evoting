@@ -1,0 +1,32 @@
+{
+    "name": "Bharat E-Vote — Blockchain Voting Platform",
+    "short_name": "Bharat E-Vote",
+    "description": "Secure, transparent, and privacy-preserving blockchain-based electronic voting system for India",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0C2340",
+    "theme_color": "#0C2340",
+    "orientation": "portrait-primary",
+    "scope": "/",
+    "lang": "en-IN",
+    "categories": ["government", "utilities"],
+    "icons": [
+        {
+            "src": "/favicon.ico",
+            "sizes": "64x64",
+            "type": "image/x-icon"
+        },
+        {
+            "src": "/ashoka-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/ashoka-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}
