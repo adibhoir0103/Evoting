@@ -404,6 +404,12 @@ function LoginPage({ onLogin }) {
                                 />
                             </div>
 
+                            <div className="text-right mt-1">
+                                <Link to="/forgot-password" className="text-sm text-primary hover:underline font-medium">
+                                    <i className="fa-solid fa-key mr-1 text-xs"></i>Forgot Password?
+                                </Link>
+                            </div>
+
                             <button
                                 type="submit"
                                 className="btn-primary w-full py-3.5 text-lg mt-4 flex items-center justify-center gap-2"

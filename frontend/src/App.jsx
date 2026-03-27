@@ -25,6 +25,7 @@ import DashboardPage from './pages/DashboardPage';
 import CandidatesPage from './pages/CandidatesPage';
 import SearchRollPage from './pages/SearchRollPage';
 import ResultsPage from './pages/ResultsPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 // Services
@@ -202,6 +203,9 @@ function App() {
                                 )
                             }
                         />
+
+                        {/* Forgot Password */}
+                        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
                         {/* Voter Dashboard */}
                         <Route

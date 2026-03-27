@@ -9,6 +9,7 @@ function AdminLoginPage({ onAdminLogin }) {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -43,70 +44,101 @@ function AdminLoginPage({ onAdminLogin }) {
     };
 
     return (
-        <div className="auth-page">
-
-            <div className="auth-container">
-                <div className="auth-card" style={{ maxWidth: '450px' }}>
-                    <div className="auth-header">
-                        <div style={{ fontSize: '3rem', color: '#dc3545', marginBottom: '1rem' }}>
-                            <i className="fa-solid fa-user-shield"></i>
+        <section className="min-h-[70vh] flex items-center justify-center px-4 py-12 bg-gray-50">
+            <div className="w-full max-w-md">
+                {/* Card */}
+                <div className="gov-card p-8">
+                    {/* Header */}
+                    <div className="text-center mb-6">
+                        <div className="w-16 h-16 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-4 border-2 border-red-200">
+                            <i className="fa-solid fa-user-shield text-2xl"></i>
                         </div>
-                        <h2>Admin Login</h2>
-                        <p>Election Commission Officer Access Only</p>
+                        <h1 className="text-2xl font-bold text-gray-900">Admin Login</h1>
+                        <p className="text-gray-500 text-sm mt-1">Election Commission Officer Access Only</p>
                     </div>
 
-                    {error && <div className="error-message">{error}</div>}
+                    {/* Error Banner */}
+                    {error && (
+                        <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded text-sm mb-4">
+                            <i className="fa-solid fa-circle-exclamation mr-2"></i>{error}
+                        </div>
+                    )}
 
-                    <form onSubmit={handleSubmit}>
-                        <div className="form-group">
-                            <label htmlFor="email">
-                                <i className="fa-solid fa-envelope"></i> Admin Email
+                    {/* Form */}
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label htmlFor="admin-email" className="block text-sm font-semibold text-gray-700 mb-1">
+                                <i className="fa-solid fa-envelope mr-2 text-gray-400"></i>Admin Email
                             </label>
                             <input
                                 type="email"
-                                id="email"
+                                id="admin-email"
+                                className="input-field"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                placeholder="admin@evote.com"
+                                placeholder="admin@evote.gov.in"
                                 required
+                                autoComplete="email"
                             />
                         </div>
 
-                        <div className="form-group">
-                            <label htmlFor="password">
-                                <i className="fa-solid fa-lock"></i> Password
+                        <div>
+                            <label htmlFor="admin-password" className="block text-sm font-semibold text-gray-700 mb-1">
+                                <i className="fa-solid fa-lock mr-2 text-gray-400"></i>Password
                             </label>
-                            <input
-                                type="password"
-                                id="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="Enter admin password"
-                                required
-                            />
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    id="admin-password"
+                                    className="input-field pr-10"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="Enter admin password"
+                                    required
+                                    autoComplete="current-password"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                >
+                                    <i className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                                </button>
+                            </div>
                         </div>
 
                         <button
                             type="submit"
-                            className="btn btn-block btn-lg"
+                            className="w-full py-3 rounded-lg font-bold text-white transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                            style={{ background: loading ? '#b91c1c' : '#dc2626' }}
                             disabled={loading}
-                            style={{ background: '#dc3545', color: 'white', border: 'none' }}
                         >
-                            {loading ? 'Authenticating...' : 'Login as Admin'}
+                            {loading ? (
+                                <><i className="fa-solid fa-circle-notch fa-spin mr-2"></i>Authenticating...</>
+                            ) : (
+                                <><i className="fa-solid fa-right-to-bracket mr-2"></i>Login as Admin</>
+                            )}
                         </button>
                     </form>
 
-                    <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#fff3cd', borderRadius: '4px', fontSize: '0.85rem' }}>
-                        <strong><i className="fa-solid fa-info-circle"></i> Authorized Personnel Only</strong>
-                        <br />Contact System Administrator for credentials.
+                    {/* Security Notice */}
+                    <div className="mt-5 bg-yellow-50 border border-yellow-300 rounded-lg p-3 text-sm text-yellow-800">
+                        <i className="fa-solid fa-shield-halved mr-2"></i>
+                        <strong>Authorized Personnel Only</strong>
+                        <br />
+                        <span className="text-xs">Contact System Administrator for credentials. All login attempts are logged and monitored.</span>
                     </div>
 
-                    <div className="auth-footer" style={{ marginTop: '1.5rem' }}>
-                        <p>Are you a voter? <Link to="/login">Voter Login</Link></p>
+                    {/* Voter Login Link */}
+                    <div className="mt-5 text-center pt-4 border-t border-gray-200">
+                        <p className="text-sm text-gray-500">
+                            Are you a voter? <Link to="/login" className="text-primary font-semibold hover:underline">Voter Login →</Link>
+                        </p>
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
     );
 }
 

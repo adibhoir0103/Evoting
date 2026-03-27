@@ -8,17 +8,28 @@ function Footer() {
             <div className="bg-white py-6 border-b-4 border-accent-saffron shadow-inner">
                 <div className="max-w-7xl mx-auto px-4 flex flex-wrap justify-center md:justify-around items-center gap-8">
                     <a href="https://eci.gov.in" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center group">
-                        <img src="https://s2.googleusercontent.com/s2/favicons?domain=eci.gov.in&sz=256" alt="Election Commission of India Logo" className="h-10 w-10 object-contain transition-transform group-hover:scale-105" />
-                        <span className="text-[10px] font-bold text-[#0b2b54] mt-2 hidden md:block">Election Commission</span>
+                        <div className="h-12 w-12 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                            <i className="fa-solid fa-landmark text-primary text-xl"></i>
+                        </div>
+                        <span className="text-[10px] font-bold text-[#0b2b54] mt-2">Election Commission</span>
                     </a>
                     <a href="https://digitalindia.gov.in" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center group">
-                        <img src="https://s2.googleusercontent.com/s2/favicons?domain=digitalindia.gov.in&sz=256" alt="Digital India Logo" className="h-10 w-10 object-contain transition-transform group-hover:scale-105" />
+                        <div className="h-12 w-12 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                            <i className="fa-solid fa-microchip text-primary text-xl"></i>
+                        </div>
+                        <span className="text-[10px] font-bold text-[#0b2b54] mt-2">Digital India</span>
                     </a>
                     <a href="https://mygov.in" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center group">
-                        <img src="https://s2.googleusercontent.com/s2/favicons?domain=mygov.in&sz=256" alt="MyGov Logo" className="h-10 w-10 object-contain transition-transform group-hover:scale-105" />
+                        <div className="h-12 w-12 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                            <i className="fa-solid fa-users text-primary text-xl"></i>
+                        </div>
+                        <span className="text-[10px] font-bold text-[#0b2b54] mt-2">MyGov</span>
                     </a>
                     <a href="https://www.nic.in" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center group">
-                        <img src="https://s2.googleusercontent.com/s2/favicons?domain=nic.in&sz=256" alt="NIC Logo" className="h-10 w-10 object-contain transition-transform group-hover:scale-105" />
+                        <div className="h-12 w-12 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                            <i className="fa-solid fa-globe text-primary text-xl"></i>
+                        </div>
+                        <span className="text-[10px] font-bold text-[#0b2b54] mt-2">NIC</span>
                     </a>
                 </div>
             </div>
@@ -29,11 +40,9 @@ function Footer() {
                     {/* Left: Branding & Info */}
                     <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
                         <a href="https://india.gov.in" target="_blank" rel="noopener noreferrer" className="shrink-0 bg-white p-3 rounded-lg flex items-center justify-center">
-                            <img 
-                                src="https://s2.googleusercontent.com/s2/favicons?domain=india.gov.in&sz=256" 
-                                alt="National Emblem of India" 
-                                className="h-16 w-16 object-contain"
-                            />
+                            <div className="h-14 w-14 flex items-center justify-center">
+                                <i className="fa-solid fa-building-columns text-[#0b2b54] text-3xl"></i>
+                            </div>
                         </a>
                         <div className="text-center sm:text-left">
                             <h3 className="text-xl text-white font-bold uppercase tracking-wider mb-2">Bharat E-Vote Core</h3>
@@ -58,7 +67,7 @@ function Footer() {
 
                         <div className="text-right text-xs text-gray-300 pt-2">
                             <p>Latest Version - 3.1.4</p>
-                            <p>Released date - 26-March-2026</p>
+                            <p>Released date - 27-March-2026</p>
                         </div>
                     </div>
                 </div>
