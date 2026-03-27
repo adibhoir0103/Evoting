@@ -55,7 +55,13 @@ function App() {
 
         if (window.ethereum) {
             window.ethereum.on('accountsChanged', handleAccountsChanged);
-            window.ethereum.on('chainChanged', () => window.location.reload());
+            window.ethereum.on('chainChanged', (chainId) => {
+                const expectedChainId = '0x539'; // Hardhat = 1337
+                if (chainId !== expectedChainId) {
+                    toast.error('Wrong network! Please switch to Hardhat Localhost (Chain ID: 1337)');
+                }
+                window.location.reload();
+            });
         }
 
         return () => {

@@ -42,7 +42,6 @@ contract Voting {
     struct Voter {
         bool isAuthorized;
         bool hasVoted;
-        uint256 votedCandidateId;
         uint8 stateCode;
         uint8 constituencyCode;
     }
@@ -57,7 +56,7 @@ contract Voting {
     
     event CandidateAdded(uint256 indexed candidateId, string name, string partyName, uint8 stateCode, uint8 constituencyCode);
     event VoterAuthorized(address indexed voter, uint8 stateCode, uint8 constituencyCode);
-    event VoteCast(address indexed voter, uint256 indexed candidateId);
+    event VoteCast(uint256 indexed candidateId, uint256 timestamp);
     event VotingStatusChanged(bool isActive);
     event VotingTimelineSet(uint256 startTime, uint256 endTime);
     
@@ -117,7 +116,7 @@ contract Voting {
     /**
      * @dev Set trusted forwarder for gasless meta-transactions
      */
-    function setTrustedForwarder(address _forwarder) external onlyAdmin {
+    function setTrustedForwarder(address _forwarder) external onlyAdmin votingIsNotActive {
         trustedForwarder = _forwarder;
     }
 
@@ -125,7 +124,7 @@ contract Voting {
      * @dev Enable/disable ZKP mode
      * When ZKP is enabled, plain vote() is disabled — voters must use ZKP contract
      */
-    function setZKPMode(bool _enabled) external onlyAdmin {
+    function setZKPMode(bool _enabled) external onlyAdmin votingIsNotActive {
         zkpEnabled = _enabled;
     }
 
@@ -230,6 +229,7 @@ contract Voting {
      * @dev Authorize multiple voters at once (simple, no constituency)
      */
     function authorizeVotersBatch(address[] memory _voters) public onlyAdmin {
+        require(_voters.length <= 100, "Batch size exceeds maximum of 100");
         for (uint256 i = 0; i < _voters.length; i++) {
             if (!voters[_voters[i]].isAuthorized && _voters[i] != address(0)) {
                 voters[_voters[i]].isAuthorized = true;
@@ -289,6 +289,7 @@ contract Voting {
      */
     function vote(uint256 _candidateId) public votingIsActive {
         require(!zkpEnabled, "ZKP mode is active: use the ZKP voting contract instead");
+        require(_msgSender() != admin, "Admin cannot vote");
         Voter storage voter = voters[_msgSender()];
         
         // Security Check 1: Ensure voter is authorized
@@ -311,12 +312,11 @@ contract Voting {
         
         // Mark voter as having voted (prevents re-entrancy and double voting)
         voter.hasVoted = true;
-        voter.votedCandidateId = _candidateId;
         
-        // Increment candidate vote count
+        // Increment candidate vote count (vote choice NOT stored — secret ballot)
         candidate.voteCount++;
         
-        emit VoteCast(_msgSender(), _candidateId);
+        emit VoteCast(_candidateId, block.timestamp);
     }
     
     // ============ View Functions ============
@@ -384,25 +384,16 @@ contract Voting {
     }
     
     /**
-     * @dev Get the candidate a voter voted for
-     */
-    function getVoterChoice(address _voter) public view returns (uint256) {
-        require(voters[_voter].hasVoted, "Voter has not voted yet");
-        return voters[_voter].votedCandidateId;
-    }
-
-    /**
-     * @dev Get voter's constituency info
+     * @dev Get voter's constituency info (vote choice is NOT exposed — secret ballot)
      */
     function getVoterInfo(address _voter) public view returns (
         bool isAuthorized,
         bool hasVoted,
         uint8 stateCode,
-        uint8 constituencyCode,
-        uint256 votedCandidateId
+        uint8 constituencyCode
     ) {
         Voter memory v = voters[_voter];
-        return (v.isAuthorized, v.hasVoted, v.stateCode, v.constituencyCode, v.votedCandidateId);
+        return (v.isAuthorized, v.hasVoted, v.stateCode, v.constituencyCode);
     }
     
     /**
@@ -443,7 +434,7 @@ contract Voting {
      */
     function getVoteReceipt(address _voter) public view returns (bytes32 receiptHash) {
         require(voters[_voter].hasVoted, "Voter has not voted yet");
-        return keccak256(abi.encodePacked(_voter, voters[_voter].votedCandidateId, block.chainid));
+        return keccak256(abi.encodePacked(_voter, block.chainid, "voted"));
     }
 
     /**

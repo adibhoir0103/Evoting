@@ -344,7 +344,7 @@ contract ZKPVoting {
      * @dev Mark a vote as verified (compulsory verification step)
      * @param _nullifierHash The voter's nullifier
      */
-    function markVoteVerified(bytes32 _nullifierHash) external {
+    function markVoteVerified(bytes32 _nullifierHash) external onlyAdmin {
         require(nullifierUsed[_nullifierHash], "ZKP: No vote found");
         require(!zkpVotes[_nullifierHash].verified, "ZKP: Already verified");
         zkpVotes[_nullifierHash].verified = true;

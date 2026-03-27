@@ -363,8 +363,7 @@ export class BlockchainService {
                 isAuthorized: info[0],
                 hasVoted: info[1],
                 stateCode: Number(info[2]),
-                constituencyCode: Number(info[3]),
-                votedCandidateId: Number(info[4])
+                constituencyCode: Number(info[3])
             };
         } catch (error) {
             console.error('Error getting voter info:', error);
@@ -439,10 +438,10 @@ export class BlockchainService {
     onVoteCast(callback) {
         if (!this.contract) return () => { };
 
-        this.contract.on('VoteCast', (voter, candidateId, event) => {
+        this.contract.on('VoteCast', (candidateId, timestamp, event) => {
             callback({
-                voter,
                 candidateId: Number(candidateId),
+                timestamp: Number(timestamp),
                 blockNumber: event.log.blockNumber
             });
         });
