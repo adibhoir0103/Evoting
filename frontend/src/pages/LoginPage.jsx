@@ -1,441 +1,314 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
+import { useSignIn } from '@clerk/clerk-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { authService } from '../services/authService';
-import Turnstile from '../components/Turnstile';
+import toast from 'react-hot-toast';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
-
-function LoginPage({ onLogin }) {
+export default function LoginPage() {
+    const { isLoaded, signIn, setActive } = useSignIn();
     const navigate = useNavigate();
 
-    // Login mode: 'aadhaar' or 'credential'
-    const [loginMode, setLoginMode] = useState('aadhaar');
+    const [loginMethod, setLoginMethod] = useState('otp'); // 'otp' or 'password'
+    
+    const [otpEmail, setOtpEmail] = useState('');
+    const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+    const [otpCode, setOtpCode] = useState('');
 
-    // OTP delivery method: 'email' or 'mobile'
-    const [otpMethod, setOtpMethod] = useState('email');
-
-    // Aadhaar OTP Login
-    const [aadhaarNumber, setAadhaarNumber] = useState('');
-    const [email, setEmail] = useState('');
-    const [mobileNumber, setMobileNumber] = useState('');
-    const [otp, setOtp] = useState(['', '', '', '', '', '']);
-    const [otpSent, setOtpSent] = useState(false);
-    const [otpTimer, setOtpTimer] = useState(0);
-    const [demoOTP, setDemoOTP] = useState('');
-
-    // Traditional Login
-    const [identifier, setIdentifier] = useState('');
+    const [pwEmail, setPwEmail] = useState('');
     const [password, setPassword] = useState('');
 
-    // Common states
-    const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const [success, setSuccess] = useState('');
-    const [turnstileToken, setTurnstileToken] = useState('');
-
-    // OTP input refs
-    const otpRefs = useRef([]);
-
-    useEffect(() => {
-        if (otpTimer > 0) {
-            const timer = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
-            return () => clearTimeout(timer);
-        }
-    }, [otpTimer]);
-
-    const formatTimer = (seconds) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
-    };
-
-    const handleOtpChange = (index, value) => {
-        if (!/^\d*$/.test(value)) return;
-
-        const newOtp = [...otp];
-        newOtp[index] = value.slice(-1);
-        setOtp(newOtp);
-
-        if (value && index < 5) {
-            otpRefs.current[index + 1]?.focus();
-        }
-    };
-
-    const handleOtpKeyDown = (index, e) => {
-        if (e.key === 'Backspace' && !otp[index] && index > 0) {
-            otpRefs.current[index - 1]?.focus();
-        }
-    };
 
     const handleSendOTP = async (e) => {
         e.preventDefault();
-        setError('');
-        setSuccess('');
+        if (!isLoaded) return;
+        if (!otpEmail) return toast.error('Please enter E-mail/Mobile');
+
         setLoading(true);
-
         try {
-            const payload = { aadhaarNumber, method: otpMethod, turnstileToken };
-            if (otpMethod === 'email') payload.email = email;
-            else payload.mobileNumber = mobileNumber;
+            await signIn.create({
+                identifier: otpEmail,
+                strategy: 'email_code',
+            });
+            setIsVerifyingOtp(true);
+            toast.success('Secure OTP sent successfully!');
+        } catch (err) {
+            toast.error(err.errors?.[0]?.message || 'Error executing OTP algorithm');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-            const response = await fetch(`${API_URL}/auth/send-otp`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+    const handleVerifyOTP = async (e) => {
+        e.preventDefault();
+        if (!isLoaded) return;
+
+        setLoading(true);
+        try {
+            const attempt = await signIn.attemptFirstFactor({
+                strategy: 'email_code',
+                code: otpCode,
             });
 
-            const data = await response.json();
-
-            if (!response.ok) throw new Error(data.error || 'Failed to send OTP');
-
-            setOtpSent(true);
-            setOtpTimer(300);
-            setDemoOTP(data.demoOTP);
-            setSuccess(data.message);
+            if (attempt.status === 'complete') {
+                await setActive({ session: attempt.createdSessionId });
+                navigate('/dashboard');
+            } else {
+                toast.error('Cryptographic verification failed.');
+            }
         } catch (err) {
-            setError(err.message);
+            toast.error(err.errors?.[0]?.message || 'Invalid or Expired OTP Token');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleResendOTP = () => {
-        setOtp(['', '', '', '', '', '']);
-        setOtpSent(false);
-        setDemoOTP('');
-    };
-
-    const handleOTPLogin = async (e) => {
+    const handlePasswordLogin = async (e) => {
         e.preventDefault();
-        setError('');
+        if (!isLoaded) return;
+
         setLoading(true);
-
-        const otpCode = otp.join('');
-        if (otpCode.length !== 6) {
-            setError('Please enter complete 6-digit OTP');
-            setLoading(false);
-            return;
-        }
-
         try {
-            const response = await fetch(`${API_URL}/auth/verify-otp`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ aadhaarNumber, otp: otpCode })
+            const attempt = await signIn.create({
+                identifier: pwEmail,
+                strategy: 'password',
+                password,
             });
 
-            const data = await response.json();
-
-            if (!response.ok) throw new Error(data.error || 'OTP verification failed');
-
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-
-            onLogin(data.user);
-            navigate('/');
+            if (attempt.status === 'complete') {
+                await setActive({ session: attempt.createdSessionId });
+                navigate('/dashboard');
+            } else {
+                toast.error('Elevated MFA intercept required.');
+            }
         } catch (err) {
-            setError(err.message);
-            setOtp(['', '', '', '', '', '']);
-            otpRefs.current[0]?.focus();
+            if (err.errors?.[0]?.code === "form_password_incorrect") {
+                toast.error("Cryptographic hash mismatch (Invalid password).");
+            } else {
+                toast.error(err.errors?.[0]?.message || 'Invalid Credentials');
+            }
         } finally {
             setLoading(false);
         }
     };
 
-    const handleTraditionalLogin = async (e) => {
-        e.preventDefault();
-        setError('');
-        setLoading(true);
-
+    const handlePasskeyLogin = async () => {
+        if (!isLoaded) return;
         try {
-            const response = await authService.login(identifier, password);
-            onLogin(response.user);
-            navigate('/');
+            const attempt = await signIn.authenticateWithWebAuthn();
+            if (attempt.status === 'complete') {
+                await setActive({ session: attempt.createdSessionId });
+                toast.success('Biometric Handshake Successful!');
+                navigate('/dashboard');
+            }
         } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
+            console.error(err);
+            toast.error("Local hardware passkey interface cancelled.");
         }
     };
+
+    const handleSocialAuth = async (strategy) => {
+        if (!isLoaded) return;
+        try {
+            await signIn.authenticateWithRedirect({
+                strategy,
+                redirectUrl: '/sso-callback',
+                redirectUrlComplete: '/onboarding',
+            });
+        } catch (err) {
+            toast.error('Identity provider handshake initializing...');
+        }
+    };
+
+    if (isVerifyingOtp) {
+        return (
+            <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans relative overflow-hidden bg-gray-50 dark:bg-[#070e20] transition-colors duration-500">
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-400/20 dark:bg-blue-600/30 rounded-full blur-[120px] pointer-events-none"></div>
+                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-orange-400/20 dark:bg-orange-500/20 rounded-full blur-[120px] pointer-events-none"></div>
+                
+                <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 transition-all duration-500">
+                    <div className="bg-white/80 dark:bg-white/[0.04] backdrop-blur-2xl border border-gray-200 dark:border-white/10 p-10 shadow-2xl rounded-3xl">
+                        <div className="mx-auto w-16 h-16 bg-blue-100 dark:bg-white/10 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-white/20">
+                            <i className="fa-solid fa-shield-halved text-3xl text-blue-600 dark:text-blue-400"></i>
+                        </div>
+                        <h2 className="text-2xl font-black text-gray-900 dark:text-white text-center mb-2 tracking-tight">Security Verification</h2>
+                        <p className="text-sm text-gray-500 dark:text-blue-200/60 text-center mb-8">Enter the 6-digit cryptographic token sent to your device.</p>
+                        
+                        <form onSubmit={handleVerifyOTP} className="space-y-6">
+                            <input 
+                                type="text" 
+                                className="w-full px-4 py-4 bg-gray-50 dark:bg-black/20 border border-gray-300 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-center text-2xl tracking-[0.75em] font-mono text-gray-900 dark:text-white transition-all shadow-inner" 
+                                value={otpCode} 
+                                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                required 
+                                placeholder="●●●●●●"
+                            />
+                            <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-4 rounded-xl font-bold shadow-[0_0_20px_rgba(59,130,246,0.4)] hover:shadow-[0_0_30px_rgba(59,130,246,0.6)] transition-all">
+                                {loading ? <i className="fa-solid fa-spinner fa-spin"></i> : 'Authenticate Token'}
+                            </button>
+                        </form>
+                        
+                        <div className="mt-8 text-center text-sm">
+                            <button onClick={() => setIsVerifyingOtp(false)} className="text-blue-600 dark:text-blue-400 font-semibold hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
+                                <i className="fa-solid fa-arrow-left mr-2"></i>Return to Matrix
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="min-h-screen bg-gov-bg flex flex-col font-sans">
+        <div className="min-h-screen flex flex-col items-center justify-center py-12 px-4 relative overflow-hidden bg-gray-50 dark:bg-[#070e20] transition-colors duration-500 font-sans">
+            {/* Ambient Background Glows */}
+            <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-500/20 dark:bg-blue-600/20 rounded-full blur-[150px] pointer-events-none animate-pulse"></div>
+            <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-orange-500/20 dark:bg-orange-600/10 rounded-full blur-[150px] pointer-events-none"></div>
 
-            <main className="flex-grow p-4 py-8 md:py-12">
-                <div className="gov-card max-w-lg w-full mx-auto p-8 shadow-xl">
-                    <div className="text-center mb-8">
-                        <div className="inline-flex justify-center items-center w-16 h-16 rounded-full bg-blue-50 text-primary mb-4 border border-blue-100 shadow-inner">
-                            <i className="fa-solid fa-user-shield text-2xl"></i>
-                        </div>
-                        <h2 className="text-2xl font-bold text-gray-900">Sign in to your account</h2>
-                        <p className="text-gray-500 mt-2">Choose your preferred secure login method</p>
-                    </div>
-
-                    {/* Mode Selector */}
-                    <div className="flex flex-col sm:flex-row gap-3 mb-8">
-                        <button
-                            onClick={() => { setLoginMode('aadhaar'); setError(''); setSuccess(''); }}
-                            className={`flex-1 py-3 px-4 rounded-lg font-semibold border-2 transition-colors flex items-center justify-center gap-2 ${
-                                loginMode === 'aadhaar' 
-                                ? 'bg-accent-saffron border-accent-saffron text-white shadow-md' 
-                                : 'bg-white border-gray-200 text-gray-600 hover:border-accent-saffron/50 hover:bg-orange-50'
-                            }`}
-                        >
-                            <i className="fa-solid fa-fingerprint"></i> Aadhaar Login
-                        </button>
-                        <button
-                            onClick={() => { setLoginMode('credential'); setError(''); setSuccess(''); }}
-                            className={`flex-1 py-3 px-4 rounded-lg font-semibold border-2 transition-colors flex items-center justify-center gap-2 ${
-                                loginMode === 'credential' 
-                                ? 'bg-primary border-primary text-white shadow-md' 
-                                : 'bg-white border-gray-200 text-gray-600 hover:border-primary/50 hover:bg-blue-50'
-                            }`}
-                        >
-                            <i className="fa-solid fa-key"></i> Passcode Login
-                        </button>
-                    </div>
-
-                    {error && (
-                        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r">
-                            <div className="flex">
-                                <div className="flex-shrink-0"><i className="fa-solid fa-circle-exclamation text-red-500"></i></div>
-                                <div className="ml-3"><p className="text-sm text-red-700">{error}</p></div>
-                            </div>
-                        </div>
-                    )}
+            <div className="w-full max-w-md relative z-10 transition-all duration-500">
+                
+                {/* Main Glassmorphic Card */}
+                <div className="bg-white/70 dark:bg-white/[0.03] backdrop-blur-2xl border border-gray-200 dark:border-white/10 p-8 shadow-2xl dark:shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-3xl relative overflow-hidden">
                     
-                    {success && (
-                        <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-6 rounded-r">
-                            <div className="flex">
-                                <div className="flex-shrink-0"><i className="fa-solid fa-circle-check text-green-500"></i></div>
-                                <div className="ml-3"><p className="text-sm text-green-700">{success}</p></div>
-                            </div>
+                    {/* Header */}
+                    <div className="text-center mb-8 relative z-20">
+                        <div className="inline-flex justify-center items-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 dark:from-white/5 dark:to-white/10 text-blue-600 dark:text-blue-400 mb-5 border border-blue-500/30 dark:border-white/10 shadow-[0_0_20px_rgba(59,130,246,0.15)] backdrop-blur-md">
+                            <i className="fa-solid fa-fingerprint text-3xl"></i>
                         </div>
-                    )}
+                        <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">Bharat E-Vote</h2>
+                        <p className="text-sm text-gray-500 dark:text-blue-200/60 mt-2 font-medium tracking-wide">Decentralized Identity Gateway</p>
+                    </div>
 
-                    {/* AADHAAR LOGIN */}
-                    {loginMode === 'aadhaar' && (
-                        !otpSent ? (
-                            <form onSubmit={handleSendOTP} className="space-y-5">
-                                <div>
-                                    <label htmlFor="aadhaar" className="block text-sm font-semibold text-gray-700 mb-1">
-                                        <i className="fa-solid fa-id-card text-gray-400 mr-2"></i>Aadhaar Number
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="aadhaar"
-                                        className="input-field text-center tracking-widest text-lg font-mono placeholder-gray-300"
-                                        value={aadhaarNumber}
-                                        onChange={(e) => setAadhaarNumber(e.target.value.replace(/\D/g, '').slice(0, 12))}
-                                        placeholder="XXXX XXXX XXXX"
-                                        maxLength="12"
-                                        required
-                                    />
-                                </div>
+                    {/* Toggle Switch */}
+                    <div className="flex bg-gray-200/50 dark:bg-black/30 p-1.5 rounded-2xl mb-8 relative z-20 shadow-inner border border-gray-300/50 dark:border-white/5">
+                        <button 
+                            onClick={() => setLoginMethod('otp')} 
+                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold tracking-wide transition-all duration-300 ${loginMethod === 'otp' ? 'bg-white dark:bg-white/10 text-blue-600 dark:text-white shadow-md border border-gray-200 dark:border-white/10' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}
+                        >
+                            <i className="fa-solid fa-bolt mr-2"></i>Quick OTP
+                        </button>
+                        <button 
+                            onClick={() => setLoginMethod('password')} 
+                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold tracking-wide transition-all duration-300 ${loginMethod === 'password' ? 'bg-white dark:bg-white/10 text-blue-600 dark:text-white shadow-md border border-gray-200 dark:border-white/10' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}
+                        >
+                            <i className="fa-solid fa-key mr-2"></i>Password
+                        </button>
+                    </div>
 
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        <i className="fa-solid fa-paper-plane text-gray-400 mr-2"></i>Send OTP via
-                                    </label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <label className={`flex items-center p-3 border-2 rounded-lg cursor-pointer transition-colors ${otpMethod === 'email' ? 'border-primary bg-blue-50 text-primary' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                                            <input
-                                                type="radio"
-                                                name="otpMethod"
-                                                value="email"
-                                                className="sr-only"
-                                                checked={otpMethod === 'email'}
-                                                onChange={(e) => setOtpMethod(e.target.value)}
-                                            />
-                                            <i className="fa-solid fa-envelope w-6 text-center shadow-none"></i>
-                                            <span className="font-medium text-sm">Email</span>
-                                        </label>
-                                        <label className={`flex items-center p-3 border-2 rounded-lg cursor-pointer transition-colors ${otpMethod === 'mobile' ? 'border-primary bg-blue-50 text-primary' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                                            <input
-                                                type="radio"
-                                                name="otpMethod"
-                                                value="mobile"
-                                                className="sr-only"
-                                                checked={otpMethod === 'mobile'}
-                                                onChange={(e) => setOtpMethod(e.target.value)}
-                                            />
-                                            <i className="fa-solid fa-mobile-screen w-6 text-center shadow-none"></i>
-                                            <span className="font-medium text-sm">Mobile SMS</span>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                {otpMethod === 'email' ? (
-                                    <div>
-                                        <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-1">
-                                            <i className="fa-solid fa-at text-gray-400 mr-2"></i>Registered Email
-                                        </label>
-                                        <input
-                                            type="email"
-                                            id="email"
-                                            className="input-field"
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            placeholder="Enter your registered email"
-                                            required
+                    {/* Dynamic Forms */}
+                    <div className="relative z-20">
+                        {loginMethod === 'otp' ? (
+                            <form onSubmit={handleSendOTP} className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider ml-1">Digital Identifier</label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
+                                            <i className="fa-regular fa-envelope"></i>
+                                        </div>
+                                        <input 
+                                            type="text" 
+                                            className="w-full pl-11 pr-4 py-3.5 bg-gray-50 dark:bg-black/20 border border-gray-300 dark:border-white/10 rounded-xl text-gray-900 dark:text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium placeholder-gray-400" 
+                                            placeholder="Email or Mobile"
+                                            value={otpEmail}
+                                            onChange={(e) => setOtpEmail(e.target.value)}
                                         />
                                     </div>
-                                ) : (
-                                    <div>
-                                        <label htmlFor="mobile" className="block text-sm font-semibold text-gray-700 mb-1">
-                                            <i className="fa-solid fa-phone text-gray-400 mr-2"></i>Registered Mobile
-                                        </label>
-                                        <div className="flex relative">
-                                            <span className="inline-flex flex-shrink-0 items-center px-4 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-500 font-medium">+91</span>
-                                            <input
-                                                type="text"
-                                                id="mobile"
-                                                className="input-field rounded-l-none"
-                                                value={mobileNumber}
-                                                onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                                                placeholder="Enter 10-digit number"
-                                                maxLength="10"
-                                                required
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-
-                                <button
-                                    type="submit"
-                                    className="btn-primary w-full py-3.5 text-lg mt-2 flex items-center justify-center gap-2"
-                                    disabled={loading || aadhaarNumber.length !== 12 || (otpMethod === 'email' ? !email : mobileNumber.length !== 10)}
-                                >
-                                    {loading ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <i className="fa-solid fa-shield-halved"></i>}
-                                    {loading ? 'Sending Request...' : 'Generate Secure OTP'}
+                                </div>
+                                <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3.5 rounded-xl font-bold tracking-wide shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] transition-all">
+                                    Request OTP Link
                                 </button>
                             </form>
                         ) : (
-                            <form onSubmit={handleOTPLogin} className="space-y-6">
-                                <div>
-                                    <div className="flex justify-between items-end mb-4">
-                                        <label className="block text-sm font-semibold text-gray-700">
-                                            Enter 6-digit OTP
-                                            <span className="block text-xs text-gray-500 font-normal mt-0.5">Sent via {otpMethod === 'email' ? 'Email' : 'SMS'}</span>
-                                        </label>
-                                        {otpTimer > 0 && (
-                                            <span className="text-accent-saffron font-mono font-bold text-lg bg-orange-50 px-2 rounded border border-orange-100">
-                                                {formatTimer(otpTimer)}
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    <div className="flex justify-between gap-2 max-w-sm mx-auto">
-                                        {otp.map((digit, index) => (
-                                            <input
-                                                key={index}
-                                                ref={(el) => otpRefs.current[index] = el}
-                                                type="text"
-                                                inputMode="numeric"
-                                                maxLength="1"
-                                                className="w-12 h-14 text-center text-2xl font-bold text-primary border-2 border-gray-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary focus:outline-none transition-colors shadow-sm"
-                                                value={digit}
-                                                onChange={(e) => handleOtpChange(index, e.target.value)}
-                                                onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                                                required
-                                            />
-                                        ))}
+                            <form onSubmit={handlePasswordLogin} className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider ml-1">Digital Identifier</label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
+                                            <i className="fa-regular fa-user"></i>
+                                        </div>
+                                        <input 
+                                            type="text" 
+                                            className="w-full pl-11 pr-4 py-3.5 bg-gray-50 dark:bg-black/20 border border-gray-300 dark:border-white/10 rounded-xl text-gray-900 dark:text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium placeholder-gray-400" 
+                                            placeholder="Email or Username"
+                                            value={pwEmail}
+                                            onChange={(e) => setPwEmail(e.target.value)}
+                                        />
                                     </div>
                                 </div>
-
-                                <button
-                                    type="submit"
-                                    className="btn-primary w-full py-3.5 text-lg flex items-center justify-center gap-2"
-                                    disabled={loading || otp.some(d => !d)}
-                                >
-                                    {loading ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <i className="fa-solid fa-unlock-keyhole"></i>}
-                                    {loading ? 'Verifying Identity...' : 'Secure Login'}
+                                <div className="space-y-1">
+                                    <div className="flex justify-between items-center ml-1">
+                                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Access Token</label>
+                                        <Link to="/forgot-password" className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-500 transition-colors">Recover</Link>
+                                    </div>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
+                                            <i className="fa-solid fa-asterisk text-xs"></i>
+                                        </div>
+                                        <input 
+                                            type="password" 
+                                            className="w-full pl-11 pr-4 py-3.5 bg-gray-50 dark:bg-black/20 border border-gray-300 dark:border-white/10 rounded-xl text-gray-900 dark:text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium placeholder-gray-400 tracking-widest" 
+                                            placeholder="••••••••"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3.5 rounded-xl font-bold tracking-wide shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] transition-all">
+                                    Initialize Handshake
                                 </button>
-
-                                <div className="text-center pt-2">
-                                    {otpTimer > 0 ? (
-                                        <p className="text-sm text-gray-500">
-                                            Didn't receive OTP? Resend in <span className="font-semibold text-gray-700">{formatTimer(otpTimer)}</span>
-                                        </p>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            onClick={handleResendOTP}
-                                            className="text-primary hover:text-primary-800 font-semibold text-sm underline focus:outline-none"
-                                        >
-                                            <i className="fa-solid fa-rotate-right mr-1"></i> Resend OTP Request
-                                        </button>
-                                    )}
-                                </div>
                             </form>
-                        )
-                    )}
-
-                    {/* TRADITIONAL LOGIN */}
-                    {loginMode === 'credential' && (
-                        <form onSubmit={handleTraditionalLogin} className="space-y-5">
-                            <div>
-                                <label htmlFor="identifier" className="block text-sm font-semibold text-gray-700 mb-1">
-                                    <i className="fa-solid fa-user text-gray-400 mr-2"></i>Email Address / EPIC Number
-                                </label>
-                                <input
-                                    type="text"
-                                    id="identifier"
-                                    className="input-field"
-                                    value={identifier}
-                                    onChange={(e) => setIdentifier(e.target.value)}
-                                    placeholder="Enter your registered email or Voter ID"
-                                    required
-                                />
-                            </div>
-
-                            <div>
-                                <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-1">
-                                    <i className="fa-solid fa-lock text-gray-400 mr-2"></i>Account Password
-                                </label>
-                                <input
-                                    type="password"
-                                    id="password"
-                                    className="input-field"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="••••••••"
-                                    required
-                                />
-                            </div>
-
-                            <div className="text-right mt-1">
-                                <Link to="/forgot-password" className="text-sm text-primary hover:underline font-medium">
-                                    <i className="fa-solid fa-key mr-1 text-xs"></i>Forgot Password?
-                                </Link>
-                            </div>
-
-                            <button
-                                type="submit"
-                                className="btn-primary w-full py-3.5 text-lg mt-4 flex items-center justify-center gap-2"
-                                disabled={loading || !identifier || !password}
-                            >
-                                {loading ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <i className="fa-solid fa-right-to-bracket"></i>}
-                                {loading ? 'Authenticating...' : 'Sign In'}
+                        )}
+                        
+                        {/* Native WebAuthn Passkeys Component */}
+                        <div className="mt-5">
+                            <button onClick={handlePasskeyLogin} disabled={loading} className="w-full relative overflow-hidden group bg-gray-900 dark:bg-white text-white dark:text-black py-3.5 rounded-xl font-bold tracking-wide shadow-lg transition-all hover:scale-[1.02]">
+                                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 dark:from-emerald-500/40 dark:to-teal-500/40 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                <span className="relative z-10 flex items-center justify-center gap-3">
+                                    <i className="fa-solid fa-fingerprint text-emerald-400 dark:text-emerald-600 text-lg"></i>
+                                    Authenticate via Hardware Passkey
+                                </span>
                             </button>
-                        </form>
-                    )}
-
-                    {/* Invisible Turnstile CAPTCHA */}
-                    <Turnstile onVerify={setTurnstileToken} action={loginMode === 'aadhaar' ? 'aadhaar_login' : 'credential_login'} />
-
-                    <div className="mt-8 pt-6 border-t border-gray-100 text-center">
-                        <p className="text-gray-600">
-                            Don't have a voting account?{' '}
-                            <Link to="/signup" className="text-accent-saffron font-bold hover:underline focus:outline-none">
-                                Register as a New Voter
-                            </Link>
-                        </p>
+                        </div>
                     </div>
+
+                    {/* Divider */}
+                    <div className="relative flex items-center py-6 z-20">
+                        <div className="flex-grow border-t border-gray-300 dark:border-white/10"></div>
+                        <span className="flex-shrink-0 mx-4 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Federated Access</span>
+                        <div className="flex-grow border-t border-gray-300 dark:border-white/10"></div>
+                    </div>
+
+                    {/* Social Buttons Stack */}
+                    <div className="grid grid-cols-2 gap-3 relative z-20">
+                        <button onClick={() => handleSocialAuth('oauth_google')} className="flex items-center justify-center gap-3 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-semibold transition-all shadow-sm">
+                            <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5 pointer-events-none" alt="Google" />
+                            <span>Google</span>
+                        </button>
+                        <button onClick={() => handleSocialAuth('oauth_github')} className="flex items-center justify-center gap-3 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-semibold transition-all shadow-sm">
+                            <i className="fa-brands fa-github text-xl text-gray-900 dark:text-white"></i>
+                            <span>GitHub</span>
+                        </button>
+                    </div>
+
+                    {/* Secondary Socials */}
+                    <div className="mt-4 flex justify-center gap-4 relative z-20">
+                        <button onClick={() => handleSocialAuth('oauth_twitter')} className="w-12 h-12 rounded-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 flex items-center justify-center transition-all hover:scale-110 shadow-sm">
+                            <i className="fa-brands fa-x-twitter text-lg"></i>
+                        </button>
+                        <button onClick={() => handleSocialAuth('oauth_linkedin')} className="w-12 h-12 rounded-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 text-[#0A66C2] dark:text-blue-400 flex items-center justify-center transition-all hover:scale-110 shadow-sm">
+                            <i className="fa-brands fa-linkedin-in text-lg"></i>
+                        </button>
+                    </div>
+
                 </div>
-            </main>
+
+                {/* Footer Switcher */}
+                <div className="mt-8 text-center relative z-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <p className="text-gray-600 dark:text-gray-400 font-medium">
+                        Unregistered Node? <Link to="/signup" className="text-blue-600 dark:text-blue-400 font-extrabold hover:text-blue-800 dark:hover:text-blue-300 transition-colors">Establish Identity</Link>
+                    </p>
+                </div>
+
+            </div>
         </div>
     );
 }
-
-export default LoginPage;

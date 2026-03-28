@@ -268,6 +268,24 @@ export class BlockchainService {
         }
     }
 
+    /**
+     * Simulate transaction to estimate gas limitations
+     */
+    async estimateVoteGas(candidateId) {
+        try {
+            if (!this.contract) throw new Error("Contract not initialized");
+            const gasEstimate = await this.contract.estimateGas.vote(candidateId);
+            return gasEstimate;
+        } catch (error) {
+            console.error('Gas estimation failed:', error);
+            const msg = error.message || '';
+            if (msg.includes('insufficient funds') || msg.includes('gas')) {
+                throw new Error("Insufficient gas: Please add funds to your wallet to cover Ethereum network fees.");
+            }
+            throw new Error("Transaction simulation reverted: " + this.handleError(error).message);
+        }
+    }
+
     // ============ View Functions ============
 
     /**

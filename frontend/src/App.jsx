@@ -11,6 +11,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import AdminDashboard from './components/AdminDashboard';
+import ActivityMonitor from './components/ActivityMonitor';
 
 // Pages
 import LandingPage from './pages/LandingPage';
@@ -27,33 +28,58 @@ import SearchRollPage from './pages/SearchRollPage';
 import ResultsPage from './pages/ResultsPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import NotFoundPage from './pages/NotFoundPage';
+import OnboardingPage from './pages/OnboardingPage';
+import { AuthenticateWithRedirectCallback } from '@clerk/clerk-react';
 
 // Services
 import { authService } from './services/authService';
 import { BlockchainService } from './services/blockchainService';
 
+import { useUser, useAuth } from '@clerk/clerk-react';
+
 function App() {
+    const { isLoaded, isSignedIn, user: clerkUser } = useUser();
+    const { getToken } = useAuth();
+
     const [user, setUser] = useState(null);
     const [isAdmin, setIsAdmin] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const checkAuth = async () => {
-            if (authService.isLoggedIn()) {
-                const storedUser = authService.getStoredUser();
-                if (storedUser) {
-                    setUser(storedUser);
+        const syncUserWithDB = async () => {
+            if (!isLoaded) return;
 
-                    if (storedUser.walletAddress) {
-                        await checkAdminStatus(storedUser.walletAddress);
+            if (isSignedIn) {
+                try {
+                    // Pull the active high-security Clerk Session JWT
+                    const sessionToken = await getToken();
+                    // Inject into local storage for the legacy authService headers to use safely
+                    localStorage.setItem('token', sessionToken);
+                    
+                    const dbUser = await authService.getCurrentUser();
+                    if (dbUser) {
+                        setUser(dbUser);
+                        if (dbUser.walletAddress) {
+                            await checkAdminStatus(dbUser.walletAddress);
+                        }
                     }
+                } catch (err) {
+                    console.error('Failed to sync DB user with Clerk Session:', err);
                 }
+            } else {
+                // If Clerk signs out, purge the local state immediately
+                setUser(null);
+                setIsAdmin(false);
+                authService.logout();
             }
             setLoading(false);
         };
 
-        checkAuth();
+        syncUserWithDB();
+        // eslint-disable-next-line
+    }, [isLoaded, isSignedIn]);
 
+    useEffect(() => {
         if (window.ethereum) {
             window.ethereum.on('accountsChanged', handleAccountsChanged);
             window.ethereum.on('chainChanged', (chainId) => {
@@ -118,31 +144,6 @@ function App() {
         posthog.reset(); // Clear PostHog identity on logout
     };
 
-    // Session timeout: auto-logout after 30 minutes of inactivity
-    useEffect(() => {
-        if (!user) return;
-        let idleTimer;
-        const IDLE_LIMIT = 30 * 60 * 1000; // 30 minutes
-        const resetTimer = () => {
-            clearTimeout(idleTimer);
-            idleTimer = setTimeout(() => {
-                console.warn('Session expired due to inactivity');
-                // WCAG 3.2.2 Fix: Use accessible toast instead of native alert
-                toast.error('Session expired due to inactivity. Please log in again.', { duration: 6000 });
-                handleLogout();
-                window.location.href = '/login';
-            }, IDLE_LIMIT);
-        };
-        const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
-        events.forEach(e => window.addEventListener(e, resetTimer));
-        resetTimer();
-        return () => {
-            clearTimeout(idleTimer);
-            events.forEach(e => window.removeEventListener(e, resetTimer));
-        };
-        // eslint-disable-next-line
-    }, [user]);
-
     const handleUserUpdate = (updatedUser) => {
         setUser(updatedUser);
         if (updatedUser?.walletAddress) {
@@ -161,22 +162,20 @@ function App() {
 
     return (
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <Toaster position="bottom-right" toastOptions={{ duration: 4000, style: { background: '#333', color: '#fff' } }} />
-            <div className="flex flex-col min-h-screen">
-                <Navbar user={user} onLogout={handleLogout} isAdmin={isAdmin} />
-                <main id="main-content" className="flex-grow focus:outline-none" tabIndex="-1">
+            <ActivityMonitor>
+                <Toaster position="bottom-right" toastOptions={{ duration: 4000, style: { background: '#333', color: '#fff' } }} />
+                <div className="flex flex-col min-h-screen bg-watermark">
+                    <Navbar user={user} onLogout={() => { signOut(); authService.logout(); }} isAdmin={isAdmin} />
+                    <main id="main-content" className="flex-grow focus:outline-none" tabIndex="-1">
                     <Routes>
                         {/* Landing Page - Redirect if logged in */}
                         <Route
                             path="/"
                             element={
-                                isAdmin ? (
-                                    <Navigate to="/admin" replace />
-                                ) : user ? (
-                                    <Navigate to="/dashboard" replace />
-                                ) : (
-                                    <LandingPage user={user} />
-                                )
+                                isAdmin ? <Navigate to="/admin" replace /> :
+                                (isSignedIn && user) ? <Navigate to="/dashboard" replace /> :
+                                (isSignedIn && !user) ? <Navigate to="/onboarding" replace /> :
+                                <LandingPage user={user} />
                             }
                         />
 
@@ -184,11 +183,9 @@ function App() {
                         <Route
                             path="/login"
                             element={
-                                user ? (
-                                    <Navigate to="/dashboard" replace />
-                                ) : (
-                                    <LoginPage onLogin={handleLogin} />
-                                )
+                                (isSignedIn && user) ? <Navigate to="/dashboard" replace /> :
+                                (isSignedIn && !user) ? <Navigate to="/onboarding" replace /> :
+                                <LoginPage />
                             }
                         />
 
@@ -196,12 +193,23 @@ function App() {
                         <Route
                             path="/signup"
                             element={
-                                user ? (
-                                    <Navigate to="/dashboard" replace />
-                                ) : (
-                                    <SignupPage />
-                                )
+                                (isSignedIn && user) ? <Navigate to="/dashboard" replace /> :
+                                (isSignedIn && !user) ? <Navigate to="/onboarding" replace /> :
+                                <SignupPage />
                             }
+                        />
+
+                        {/* SSO Callback */}
+                        <Route path="/sso-callback" element={<AuthenticateWithRedirectCallback />} />
+                        
+                        {/* Onboarding Bridge */}
+                        <Route 
+                            path="/onboarding" 
+                            element={
+                                !isSignedIn ? <Navigate to="/login" replace /> :
+                                user ? <Navigate to="/dashboard" replace /> :
+                                <OnboardingPage clerkUser={clerkUser} onComplete={(dbUser) => setUser(dbUser)} />
+                            } 
                         />
 
                         {/* Forgot Password */}
@@ -211,7 +219,7 @@ function App() {
                         <Route
                             path="/dashboard"
                             element={
-                                user ? (
+                                (isSignedIn && user) ? (
                                     <DashboardPage user={user} onUserUpdate={handleUserUpdate} />
                                 ) : (
                                     <Navigate to="/login" replace />
@@ -222,7 +230,7 @@ function App() {
                         <Route
                             path="/vote"
                             element={
-                                user ? (
+                                (isSignedIn && user) ? (
                                     <VotingPage
                                         user={user}
                                         onUserUpdate={handleUserUpdate}
@@ -250,10 +258,7 @@ function App() {
                             element={
                                 isAdmin ? (
                                     <div style={{ padding: '2rem 5%', background: '#F5F7FA', minHeight: '100vh' }}>
-                                        <AdminDashboard
-                                            account={user?.walletAddress}
-                                            onError={(err) => console.error(err)}
-                                        />
+                                        <AdminDashboard />
                                     </div>
                                 ) : (
                                     <Navigate to="/" replace />
@@ -262,7 +267,7 @@ function App() {
                         />
 
                         {/* Admin Login Page */}
-                        <Route path="/admin-login" element={<AdminLoginPage />} />
+                        <Route path="/admin-login" element={<AdminLoginPage onAdminLogin={(adminAddress) => { setIsAdmin(true); checkAdminStatus(adminAddress); }} />} />
 
                         {/* Admin Data Panel — Protected */}
                         <Route path="/admin-panel" element={
@@ -275,6 +280,7 @@ function App() {
                 </main>
                 <Footer />
             </div>
+            </ActivityMonitor>
         </Router>
     );
 }

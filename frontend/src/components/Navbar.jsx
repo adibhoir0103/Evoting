@@ -66,14 +66,14 @@ function Navbar({ user, onLogout, isAdmin }) {
     return (
         <>
             {/* Accessibility Top Bar (Unified GIGW 3.0) */}
-            <div className="bg-gray-100 border-b border-gray-200 text-xs font-semibold text-gray-700 py-1.5 z-50 relative">
+            <div className="bg-slate-900 border-b border-slate-800 text-[10px] md:text-xs font-semibold text-gray-200 py-2 z-50 relative">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-2">
                     {/* Left: Skip to Main content & Government Tag */}
                     <div className="flex items-center gap-3">
-                        <span className="bg-[#d97014] text-white px-2 py-0.5 rounded font-bold text-[10px] tracking-wider hidden sm:inline-block">DEMO</span>
-                        <a href="#main-content" className="hover:text-primary transition-colors focus:ring-2 focus:ring-primary rounded px-1">Skip to Main Content</a>
-                        <span className="text-gray-300 hidden sm:inline-block">|</span>
-                        <div className="flex items-center gap-1.5">
+                        <span className="bg-accent-saffron text-white px-2 py-0.5 rounded font-bold text-[10px] tracking-wider hidden sm:inline-block">DEMO</span>
+                        <a href="#main-content" className="hover:text-white transition-colors focus:ring-2 focus:ring-accent-saffron rounded px-1">Skip to Main Content</a>
+                        <span className="text-gray-600 hidden sm:inline-block">|</span>
+                        <div className="flex items-center gap-1.5 opacity-90">
                             <i className="fa-solid fa-flag text-[10px] text-accent-saffron"></i> 
                             <span className="font-bold">भारत सरकार</span> 
                             <span className="font-normal mx-0.5">/</span> 
@@ -83,25 +83,25 @@ function Navbar({ user, onLogout, isAdmin }) {
                     
                     {/* Right: Accessibility Controls */}
                     <div className="flex items-center gap-3 sm:gap-4">
-                        <span className="hidden lg:inline text-gray-500 font-medium">Screen Reader Access</span>
+                        <span className="hidden lg:inline text-gray-400 font-medium">Screen Reader Access</span>
                         
                         {/* Font Resizer */}
-                        <div className="flex items-center bg-white border border-gray-300 rounded shadow-sm overflow-hidden">
+                        <div className="flex items-center bg-slate-800 border border-slate-700 rounded overflow-hidden">
                             <button 
                                 onClick={() => setFontSize('small')} 
-                                className={`px-2 py-0.5 hover:bg-gray-100 transition-colors ${fontSize === 'small' ? 'bg-gray-200 font-bold' : ''}`}
+                                className={`px-2 py-0.5 hover:bg-slate-700 hover:text-white transition-colors ${fontSize === 'small' ? 'bg-slate-700 text-white font-bold' : 'text-gray-400'}`}
                                 aria-label="Decrease font size"
                                 title="Smaller Text"
                             >A-</button>
                             <button 
                                 onClick={() => setFontSize('normal')} 
-                                className={`px-2 py-0.5 border-l border-r border-gray-300 hover:bg-gray-100 transition-colors ${fontSize === 'normal' ? 'bg-gray-200 font-bold' : ''}`}
+                                className={`px-2 py-0.5 border-l border-r border-slate-700 hover:bg-slate-700 hover:text-white transition-colors ${fontSize === 'normal' ? 'bg-slate-700 text-white font-bold' : 'text-gray-400'}`}
                                 aria-label="Normal font size"
                                 title="Normal Text"
                             >A</button>
                             <button 
                                 onClick={() => setFontSize('large')} 
-                                className={`px-2 py-0.5 hover:bg-gray-100 transition-colors ${fontSize === 'large' ? 'bg-gray-200 font-bold' : ''}`}
+                                className={`px-2 py-0.5 hover:bg-slate-700 hover:text-white transition-colors ${fontSize === 'large' ? 'bg-slate-700 text-white font-bold' : 'text-gray-400'}`}
                                 aria-label="Increase font size"
                                 title="Larger Text"
                             >A+</button>
@@ -110,18 +110,18 @@ function Navbar({ user, onLogout, isAdmin }) {
                         {/* Theme Toggler (Dark/High Contrast) */}
                         <button
                             onClick={() => setDarkMode(!darkMode)}
-                            className="flex items-center justify-center w-7 h-7 rounded-full bg-white border border-gray-300 hover:bg-gray-100 hover:scale-105 transition-all shadow-sm"
+                            className="flex items-center justify-center w-7 h-7 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700 hover:text-white transition-colors focus:ring-2 focus:ring-accent-saffron outline-none"
                             title={darkMode ? 'Switch to Standard Theme' : 'Switch to High Contrast Mode'}
                             aria-label={darkMode ? 'Switch to Standard Theme' : 'Switch to High Contrast Mode'}
                         >
-                            <i className={`fa-solid ${darkMode ? 'fa-sun text-yellow-500' : 'fa-moon text-gray-600'} text-xs`}></i>
+                            <i className={`fa-solid ${darkMode ? 'fa-sun text-accent-saffron' : 'fa-circle-half-stroke text-gray-300'} text-xs`}></i>
                         </button>
                     </div>
                 </div>
             </div>
 
             {/* Main Navbar */}
-            <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40">
+            <header className="bg-white border-b-4 border-primary shadow-sm sticky top-0 z-40">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between h-20">
                         {/* Logo & Brand */}
@@ -131,13 +131,10 @@ function Navbar({ user, onLogout, isAdmin }) {
                                     src="/assets/emblem.svg"
                                     onError={(e) => { e.target.src='https://s2.googleusercontent.com/s2/favicons?domain=india.gov.in&sz=256'; }}
                                     alt="Emblem of India"
-                                    className="h-12 w-auto mix-blend-multiply dark:brightness-0 dark:invert"
+                                    className="h-12 w-auto mix-blend-multiply dark:mix-blend-normal dark:brightness-0 dark:invert"
                                 />
-                                <div style={{display: 'none'}} className="h-12 w-12 shrink-0 items-center justify-center text-primary font-bold text-2xl rounded">
-                                    <i className="fa-solid fa-landmark"></i>
-                                </div>
                                 <div>
-                                    <span className="block text-2xl font-bold text-primary leading-none">Bharat E-Vote</span>
+                                    <span className="block text-2xl font-bold text-primary leading-none tracking-tight">Bharat E-Vote</span>
                                     <span className="text-[11px] uppercase font-bold text-gray-500 tracking-wider">Election Commission of India</span>
                                 </div>
                             </Link>

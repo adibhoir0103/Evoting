@@ -1,403 +1,207 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useSignUp } from '@clerk/clerk-react';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { authService } from '../services/authService';
-import { indianStates } from '../utils/indianStates';
-import Turnstile from '../components/Turnstile';
 
-function SignupPage() {
+export default function SignupPage() {
+    const { isLoaded, signUp, setActive } = useSignUp();
     const navigate = useNavigate();
-    const [formData, setFormData] = useState({
-        fullname: '',
-        voterId: '',
-        email: '',
-        aadhaarNumber: '',
-        mobileNumber: '',
-        stateCode: '',
-        constituencyCode: '',
-        password: '',
-        confirmPassword: ''
-    });
 
-    const [error, setError] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [checkingOtp, setCheckingOtp] = useState(false);
+    const [otpCode, setOtpCode] = useState('');
     const [loading, setLoading] = useState(false);
-    const [passwordStrength, setPasswordStrength] = useState({ score: 0, label: '', color: '#ccc' });
 
-    const handleChange = (e) => {
-        const { id, value } = e.target;
-
-        // Strict Name Input
-        if (id === 'fullname' && !/^[A-Za-z\s]*$/.test(value)) return;
-
-        // Strict EPIC Input
-        if (id === 'voterId') {
-            const upperVal = value.toUpperCase();
-            if (upperVal.length > 10) return;
-            if (upperVal.length <= 3 && !/^[A-Z]*$/.test(upperVal)) return;
-            if (upperVal.length > 3) {
-                if (!/^[A-Z]{3}/.test(upperVal)) return;
-                if (!/^\d*$/.test(upperVal.slice(3))) return;
-            }
-            setFormData({ ...formData, [id]: upperVal });
-            return;
-        }
-
-        setFormData({ ...formData, [id]: value });
-
-        if (id === 'password') checkStrength(value);
-    };
-
-    const checkStrength = (pass) => {
-        let score = 0;
-        if (pass.length >= 8) score++;
-        if (/[A-Z]/.test(pass)) score++;
-        if (/[a-z]/.test(pass)) score++;
-        if (/[0-9]/.test(pass)) score++;
-        if (/[^A-Za-z0-9]/.test(pass)) score++;
-
-        let label = 'Too Short';
-        let color = '#ccc';
-
-        if (pass.length >= 8) {
-            if (score <= 2) { label = 'Weak'; color = '#ef4444'; }
-            else if (score <= 4) { label = 'Medium'; color = '#f97316'; }
-            else { label = 'Strong'; color = '#10b981'; }
-        }
-
-        setPasswordStrength({ score, label, color });
-    };
-
-    const handleSubmit = async (e) => {
+    const handleSignupWithPassword = async (e) => {
         e.preventDefault();
-        setError('');
-
-        if (formData.password !== formData.confirmPassword) {
-            setError('Passwords do not match');
-            return;
-        }
-
-        if (!/^[A-Za-z\s]+$/.test(formData.fullname)) {
-            setError('Full Name must contain only alphabets');
-            return;
-        }
-
-        if (!/^[A-Z]{3}[0-9]{7}$/.test(formData.voterId)) {
-            setError('EPIC ID must start with 3 alphabets followed by 7 numbers (e.g., ABC1234567)');
-            return;
-        }
-
-        if (!/^\d{10}$/.test(formData.mobileNumber)) {
-            setError('Mobile Number must be exactly 10 digits.');
-            return;
-        }
-
-        if (formData.password.length < 8) {
-            setError('Password must be at least 8 characters long');
-            return;
-        }
-        if (!/[A-Z]/.test(formData.password)) {
-            setError('Password must contain at least one uppercase letter');
-            return;
-        }
-        if (!/[a-z]/.test(formData.password)) {
-            setError('Password must contain at least one lowercase letter');
-            return;
-        }
-        if (!/[0-9]/.test(formData.password)) {
-            setError('Password must contain at least one number');
-            return;
-        }
-        if (!/[^A-Za-z0-9]/.test(formData.password)) {
-            setError('Password must contain at least one symbol');
-            return;
-        }
-
+        if (!isLoaded) return;
         setLoading(true);
 
         try {
-            await authService.register(
-                formData.fullname,
-                formData.voterId,
-                formData.email,
-                formData.password,
-                formData.aadhaarNumber,
-                formData.mobileNumber,
-                parseInt(formData.stateCode) || 0,
-                parseInt(formData.constituencyCode) || 0
-            );
-            toast.success('Registration Successful! Redirecting to Login...', { duration: 3000 });
-            navigate('/login');
+            await signUp.create({
+                emailAddress: email,
+                password,
+            });
+
+            await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+            setCheckingOtp(true);
+            toast.success("Verification token deployed to your address.");
+            
         } catch (err) {
-            setError(err.message);
+            toast.error(err.errors?.[0]?.message || 'Node registration failed');
         } finally {
             setLoading(false);
         }
     };
 
-    return (
-        <div className="min-h-screen bg-gov-bg flex flex-col font-sans">
+    const handleVerifyOtp = async (e) => {
+        e.preventDefault();
+        if (!isLoaded) return;
+        setLoading(true);
 
-            <main className="flex-grow p-4 py-8 md:py-12">
-                <div className="gov-card max-w-2xl w-full mx-auto p-8 shadow-xl">
-                    <div className="text-center mb-8 border-b border-gray-100 pb-6">
-                        <div className="inline-flex justify-center items-center w-16 h-16 rounded-full bg-blue-50 text-primary mb-4 border border-blue-100 shadow-inner">
-                            <i className="fa-solid fa-user-plus text-2xl"></i>
+        try {
+            const attempt = await signUp.attemptEmailAddressVerification({ code: otpCode });
+            if (attempt.status === 'complete') {
+                await setActive({ session: attempt.createdSessionId });
+                toast.success("Cryptographic Identity formed successfully!");
+                navigate('/onboarding');
+            } else {
+                toast.error("Handshake failed. Token invalid.");
+            }
+        } catch (err) {
+            toast.error(err.errors?.[0]?.message || 'Invalid topological code');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSocialAuth = async (strategy) => {
+        if (!isLoaded) return;
+        try {
+            await signUp.authenticateWithRedirect({
+                strategy,
+                redirectUrl: '/sso-callback',
+                redirectUrlComplete: '/onboarding',
+            });
+        } catch (err) {
+            toast.error('OAuth configuration protocol missing.');
+        }
+    };
+
+    if (checkingOtp) {
+        return (
+            <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans relative overflow-hidden bg-gray-50 dark:bg-[#070e20] transition-colors duration-500">
+                <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-green-400/20 dark:bg-teal-600/30 rounded-full blur-[120px] pointer-events-none"></div>
+                <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-400/20 dark:bg-indigo-500/20 rounded-full blur-[120px] pointer-events-none"></div>
+                
+                <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 transition-all duration-500">
+                    <div className="bg-white/80 dark:bg-white/[0.04] backdrop-blur-2xl border border-gray-200 dark:border-white/10 p-10 shadow-2xl rounded-3xl">
+                        <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-white/10 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-white/20">
+                            <i className="fa-solid fa-envelope-open-text text-3xl text-teal-600 dark:text-teal-400"></i>
                         </div>
-                        <h2 className="text-2xl font-bold text-gray-900">Voter Enrollment</h2>
-                        <p className="text-gray-500 mt-2">Register your secure Aadhaar-linked voting account</p>
+                        <h2 className="text-2xl font-black text-gray-900 dark:text-white text-center mb-2 tracking-tight">Verify Deployment</h2>
+                        <p className="text-sm text-gray-500 dark:text-teal-200/60 text-center mb-8">Enter the 6-digit cryptographic token sent to {email}</p>
+                        
+                        <form onSubmit={handleVerifyOtp} className="space-y-6">
+                            <input 
+                                type="text" 
+                                className="w-full px-4 py-4 bg-gray-50 dark:bg-black/20 border border-gray-300 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none text-center text-2xl tracking-[0.75em] font-mono text-gray-900 dark:text-white transition-all shadow-inner" 
+                                value={otpCode} 
+                                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                required 
+                                placeholder="●●●●●●"
+                            />
+                            <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white py-4 rounded-xl font-bold shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] transition-all">
+                                {loading ? <i className="fa-solid fa-spinner fa-spin"></i> : 'Finalize Registration'}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen flex flex-col items-center justify-center py-12 px-4 relative overflow-hidden bg-gray-50 dark:bg-[#070e20] transition-colors duration-500 font-sans">
+            {/* Ambient Background Glows */}
+            <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] bg-teal-500/20 dark:bg-teal-600/20 rounded-full blur-[150px] pointer-events-none animate-pulse"></div>
+            <div className="absolute bottom-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-500/20 dark:bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none"></div>
+
+            <div className="w-full max-w-md relative z-10 transition-all duration-500 mt-4">
+                
+                {/* Main Glassmorphic Card */}
+                <div className="bg-white/70 dark:bg-white/[0.03] backdrop-blur-2xl border border-gray-200 dark:border-white/10 p-8 shadow-2xl dark:shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-3xl relative overflow-hidden">
+                    
+                    {/* Header */}
+                    <div className="text-center mb-8 relative z-20">
+                        <div className="inline-flex justify-center items-center w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500/20 to-emerald-500/20 dark:from-white/5 dark:to-white/10 text-teal-600 dark:text-teal-400 mb-5 border border-teal-500/30 dark:border-white/10 shadow-[0_0_20px_rgba(16,185,129,0.15)] backdrop-blur-md">
+                            <i className="fa-solid fa-user-plus text-3xl"></i>
+                        </div>
+                        <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">Node Identity</h2>
+                        <p className="text-sm text-gray-500 dark:text-teal-200/60 mt-2 font-medium tracking-wide">Register your gateway presence</p>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        {error && (
-                            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r">
-                                <div className="flex">
-                                    <div className="flex-shrink-0"><i className="fa-solid fa-circle-exclamation text-red-500"></i></div>
-                                    <div className="ml-3"><p className="text-sm text-red-700">{error}</p></div>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Personal Details Section */}
-                            <div className="space-y-4 md:col-span-2">
-                                <h3 className="text-sm font-bold text-primary uppercase tracking-wider border-b pb-2 mb-4">Personal Identity Details</h3>
-                            </div>
-
+                    {/* Dynamic Forms */}
+                    <div className="relative z-20">
+                        <form onSubmit={handleSignupWithPassword} className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
                             <div className="space-y-1">
-                                <label htmlFor="fullname" className="block text-sm font-semibold text-gray-700">
-                                    <i className="fa-solid fa-user text-gray-400 mr-2"></i>Full Name (as per EPIC)
-                                </label>
-                                <input
-                                    type="text"
-                                    id="fullname"
-                                    className="input-field"
-                                    value={formData.fullname}
-                                    onChange={handleChange}
-                                    placeholder="Enter your full name"
-                                    required
-                                />
-                                <p className="text-xs text-gray-500 ml-1">Alphabets only</p>
-                            </div>
-
-                            <div className="space-y-1">
-                                <label htmlFor="voterId" className="block text-sm font-semibold text-gray-700">
-                                    <i className="fa-solid fa-id-card text-gray-400 mr-2"></i>EPIC Number (Voter ID)
-                                </label>
-                                <input
-                                    type="text"
-                                    id="voterId"
-                                    className="input-field uppercase tracking-wider font-mono text-sm"
-                                    value={formData.voterId}
-                                    onChange={handleChange}
-                                    placeholder="AAA1234567"
-                                    required
-                                />
-                                <p className="text-xs text-gray-500 ml-1">Format: 3 Letters + 7 Numbers</p>
-                            </div>
-
-                            <div className="space-y-1">
-                                <label htmlFor="aadhaarNumber" className="block text-sm font-semibold text-gray-700">
-                                    <i className="fa-solid fa-fingerprint text-gray-400 mr-2"></i>Aadhaar Number
-                                </label>
-                                <input
-                                    type="text"
-                                    id="aadhaarNumber"
-                                    className="input-field tracking-widest font-mono text-sm placeholder-gray-300"
-                                    value={formData.aadhaarNumber}
-                                    onChange={(e) => setFormData({ ...formData, aadhaarNumber: e.target.value.replace(/\D/g, '').slice(0, 12) })}
-                                    placeholder="XXXX XXXX XXXX"
-                                    maxLength="12"
-                                    required
-                                />
-                                <p className="text-xs text-gray-500 ml-1">Required for 2FA secure login</p>
-                            </div>
-
-                            {/* Contact Details Section */}
-                            <div className="space-y-4 md:col-span-2 mt-2">
-                                <h3 className="text-sm font-bold text-primary uppercase tracking-wider border-b pb-2 mb-4">Contact Information</h3>
-                            </div>
-
-                            <div className="space-y-1">
-                                <label htmlFor="email" className="block text-sm font-semibold text-gray-700">
-                                    <i className="fa-solid fa-envelope text-gray-400 mr-2"></i>Email Address
-                                </label>
-                                <input
-                                    type="email"
-                                    id="email"
-                                    className="input-field"
-                                    value={formData.email}
-                                    onChange={handleChange}
-                                    placeholder="voter@example.com"
-                                    required
-                                />
-                            </div>
-
-                            <div className="space-y-1">
-                                <label htmlFor="mobileNumber" className="block text-sm font-semibold text-gray-700">
-                                    <i className="fa-solid fa-mobile-screen text-gray-400 mr-2"></i>Mobile Number
-                                </label>
-                                <div className="flex relative">
-                                    <span className="inline-flex flex-shrink-0 items-center px-4 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-500 font-medium">+91</span>
-                                    <input
-                                        type="text"
-                                        id="mobileNumber"
-                                        className="input-field rounded-l-none"
-                                        value={formData.mobileNumber}
-                                        onChange={(e) => setFormData({ ...formData, mobileNumber: e.target.value.replace(/\D/g, '').slice(0, 10) })}
-                                        placeholder="Enter 10-digit number"
-                                        maxLength="10"
+                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider ml-1">Transmission Address</label>
+                                <div className="relative group">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-teal-500 transition-colors">
+                                        <i className="fa-regular fa-envelope"></i>
+                                    </div>
+                                    <input 
+                                        type="email" 
+                                        className="w-full pl-11 pr-4 py-3.5 bg-gray-50 dark:bg-black/20 border border-gray-300 dark:border-white/10 rounded-xl text-gray-900 dark:text-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all font-medium placeholder-gray-400" 
+                                        placeholder="Email Address"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
                                         required
                                     />
                                 </div>
                             </div>
-
-                            {/* Location Section */}
-                            <div className="space-y-4 md:col-span-2 mt-2">
-                                <h3 className="text-sm font-bold text-primary uppercase tracking-wider border-b pb-2 mb-4">Electoral Details</h3>
-                            </div>
-
                             <div className="space-y-1">
-                                <label htmlFor="stateCode" className="block text-sm font-semibold text-gray-700">
-                                    <i className="fa-solid fa-map-location-dot text-gray-400 mr-2"></i>State / Union Territory
-                                </label>
-                                <div className="relative">
-                                    <select
-                                        id="stateCode"
-                                        className="input-field appearance-none bg-white pr-10"
-                                        value={formData.stateCode}
-                                        onChange={handleChange}
-                                        required
-                                    >
-                                        <option value="" disabled>Select your State/UT</option>
-                                        {indianStates.map(s => (
-                                            <option key={s.code} value={s.code}>{s.name}</option>
-                                        ))}
-                                    </select>
-                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                                        <i className="fa-solid fa-chevron-down text-sm"></i>
+                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider ml-1">Cryptographic Key</label>
+                                <div className="relative group">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-teal-500 transition-colors">
+                                        <i className="fa-solid fa-lock text-sm"></i>
                                     </div>
+                                    <input 
+                                        type="password" 
+                                        className="w-full pl-11 pr-4 py-3.5 bg-gray-50 dark:bg-black/20 border border-gray-300 dark:border-white/10 rounded-xl text-gray-900 dark:text-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all font-medium placeholder-gray-400 tracking-widest" 
+                                        placeholder="••••••••"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        required
+                                    />
                                 </div>
                             </div>
-
-                            <div className="space-y-1">
-                                <label htmlFor="constituencyCode" className="block text-sm font-semibold text-gray-700">
-                                    <i className="fa-solid fa-landmark-dome text-gray-400 mr-2"></i>Constituency Number
-                                </label>
-                                <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    pattern="[0-9]*"
-                                    id="constituencyCode"
-                                    className="input-field"
-                                    value={formData.constituencyCode}
-                                    onChange={(e) => {
-                                        const val = e.target.value.replace(/\D/g, '').slice(0, 3);
-                                        const num = parseInt(val);
-                                        if (val === '' || (num >= 1 && num <= 255)) {
-                                            setFormData({ ...formData, constituencyCode: val });
-                                        }
-                                    }}
-                                    placeholder="e.g., 1"
-                                    required
-                                />
-                                <p className="text-xs text-gray-500 ml-1">Parliamentary constituency no. (1-255)</p>
-                            </div>
-
-                            {/* Security Section */}
-                            <div className="space-y-4 md:col-span-2 mt-2">
-                                <h3 className="text-sm font-bold text-primary uppercase tracking-wider border-b pb-2 mb-4">Account Security</h3>
-                            </div>
-
-                            <div className="space-y-1">
-                                <label htmlFor="password" className="block text-sm font-semibold text-gray-700">
-                                    <i className="fa-solid fa-lock text-gray-400 mr-2"></i>Create Password
-                                </label>
-                                <input
-                                    type="password"
-                                    id="password"
-                                    className="input-field"
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    placeholder="Min 8 chars, 1 Upper, 1 Sym"
-                                    required
-                                />
-                                {formData.password && (
-                                    <div className="mt-2">
-                                        <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
-                                            <div 
-                                                className="h-full transition-all duration-300"
-                                                style={{ 
-                                                    width: `${(passwordStrength.score / 5) * 100}%`,
-                                                    backgroundColor: passwordStrength.color 
-                                                }}
-                                            ></div>
-                                        </div>
-                                        <div className="flex justify-between text-[10px] mt-1 font-medium">
-                                            <span className="text-gray-500">Strength:</span>
-                                            <span style={{ color: passwordStrength.color }}>{passwordStrength.label}</span>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="space-y-1">
-                                <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700">
-                                    <i className="fa-solid fa-lock text-gray-400 mr-2"></i>Confirm Password
-                                </label>
-                                <input
-                                    type="password"
-                                    id="confirmPassword"
-                                    className="input-field"
-                                    value={formData.confirmPassword}
-                                    onChange={handleChange}
-                                    placeholder="Re-enter password"
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        {/* Declaration */}
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-8 flex gap-3">
-                            <div className="mt-0.5">
-                                <input 
-                                    type="checkbox" 
-                                    id="declaration" 
-                                    className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2 cursor-pointer" 
-                                    required 
-                                />
-                            </div>
-                            <label htmlFor="declaration" className="text-sm text-gray-700 cursor-pointer">
-                                <span className="font-semibold text-gray-900 block mb-1">Declaration of Authenticity</span>
-                                I hereby declare that I am an Indian citizen above 18 years of age. All information provided is true to the best of my knowledge. I understand that providing false information for electoral registration is punishable under Section 31 of the Representation of the People Act, 1950.
-                            </label>
-                        </div>
-
-                        <button
-                            type="submit"
-                            className="btn-primary w-full py-4 text-lg mt-6 shadow-md"
-                            disabled={loading}
-                        >
-                            {loading ? <i className="fa-solid fa-circle-notch fa-spin mr-2"></i> : <i className="fa-solid fa-user-check mr-2"></i>}
-                            {loading ? 'Processing Registration...' : 'Complete Registration'}
-                        </button>
-                    </form>
-
-                    <div className="mt-8 pt-6 border-t border-gray-100 text-center">
-                        <p className="text-gray-600">
-                            Already registered?{' '}
-                            <Link to="/login" className="text-primary font-bold hover:underline focus:outline-none">
-                                Sign In instead
-                            </Link>
-                        </p>
+                            <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white py-3.5 rounded-xl font-bold tracking-wide shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] transition-all">
+                                Construct Identity Node
+                            </button>
+                        </form>
                     </div>
 
-                    {/* Invisible Turnstile CAPTCHA */}
-                    <Turnstile onVerify={(token) => {}} action="signup" />
+                    {/* Divider */}
+                    <div className="relative flex items-center py-6 z-20 mt-4">
+                        <div className="flex-grow border-t border-gray-300 dark:border-white/10"></div>
+                        <span className="flex-shrink-0 mx-4 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Federated Access</span>
+                        <div className="flex-grow border-t border-gray-300 dark:border-white/10"></div>
+                    </div>
+
+                    {/* Social Buttons Stack */}
+                    <div className="grid grid-cols-2 gap-3 relative z-20">
+                        <button onClick={() => handleSocialAuth('oauth_google')} className="flex items-center justify-center gap-3 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-semibold transition-all shadow-sm">
+                            <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5 pointer-events-none" alt="Google" />
+                            <span>Google</span>
+                        </button>
+                        <button onClick={() => handleSocialAuth('oauth_github')} className="flex items-center justify-center gap-3 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-semibold transition-all shadow-sm">
+                            <i className="fa-brands fa-github text-xl text-gray-900 dark:text-white"></i>
+                            <span>GitHub</span>
+                        </button>
+                    </div>
+
+                    {/* Secondary Socials */}
+                    <div className="mt-4 flex justify-center gap-4 relative z-20">
+                        <button onClick={() => handleSocialAuth('oauth_twitter')} className="w-12 h-12 rounded-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 flex items-center justify-center transition-all hover:scale-110 shadow-sm">
+                            <i className="fa-brands fa-x-twitter text-lg"></i>
+                        </button>
+                        <button onClick={() => handleSocialAuth('oauth_linkedin')} className="w-12 h-12 rounded-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 text-[#0A66C2] dark:text-teal-400 flex items-center justify-center transition-all hover:scale-110 shadow-sm">
+                            <i className="fa-brands fa-linkedin-in text-lg"></i>
+                        </button>
+                    </div>
 
                 </div>
-            </main>
+
+                {/* Footer Switcher */}
+                <div className="mt-8 text-center relative z-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <p className="text-gray-600 dark:text-gray-400 font-medium">
+                        Node Already Verified? <Link to="/login" className="text-teal-600 dark:text-teal-400 font-extrabold hover:text-teal-800 dark:hover:text-teal-300 transition-colors">Log In Securely</Link>
+                    </p>
+                </div>
+
+            </div>
         </div>
     );
 }
-
-export default SignupPage;

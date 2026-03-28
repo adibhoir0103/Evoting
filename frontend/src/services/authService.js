@@ -4,44 +4,6 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
  * Authentication service to interact with backend API
  */
 export const authService = {
-    /**
-     * Register a new user
-     */
-    async register(fullname, voterId, email, password, aadhaarNumber, mobileNumber, stateCode, constituencyCode) {
-        const response = await fetch(`${API_URL}/auth/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fullname, voterId, email, password, aadhaarNumber, mobileNumber, stateCode: stateCode || 0, constituencyCode: constituencyCode || 0 })
-        });
-
-        const data = await response.json();
-        if (!response.ok) {
-            throw new Error(data.error || 'Registration failed');
-        }
-        return data;
-    },
-
-    /**
-     * Login user
-     */
-    async login(identifier, password) {
-
-        const response = await fetch(`${API_URL}/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ identifier, password })
-        });
-
-        const data = await response.json();
-        if (!response.ok) {
-            throw new Error(data.error || 'Login failed');
-        }
-
-        // Store token and user info
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        return data;
-    },
 
     /**
      * Get current user from token
@@ -124,19 +86,39 @@ export const authService = {
     },
 
     /**
+     * Fetch a 5-minute single-use TTL token before voting on-chain
+     */
+    async getPreflightToken(clerkToken) {
+        if (!clerkToken) throw new Error('Not authenticated');
+
+        const response = await fetch(`${API_URL}/vote/pre-flight`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${clerkToken}`
+            }
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to acquire pre-flight token');
+        }
+
+        return data.upstashToken;
+    },
+
+    /**
      * Record vote in database after blockchain transaction
      */
-    async recordVote(candidateId, txHash) {
-        const token = localStorage.getItem('token');
-        if (!token) throw new Error('Not authenticated');
+    async recordVote(txHash, upstashToken, turnstileToken, clerkToken) {
+        if (!clerkToken) throw new Error('Not authenticated');
 
         const response = await fetch(`${API_URL}/vote/record`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${clerkToken}`
             },
-            body: JSON.stringify({ candidateId, txHash })
+            body: JSON.stringify({ txHash, upstashToken, turnstileToken })
         });
 
         const data = await response.json();

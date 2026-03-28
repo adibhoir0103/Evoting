@@ -11,7 +11,7 @@ function VoterGuidelines() {
                 { label: 'Valid ID Required', text: 'Carry your EPIC (Voter ID Card) or any of the 12 alternative photo IDs approved by ECI.' },
                 { label: 'Aadhaar Linking', text: 'For e-voting, your Aadhaar must be linked to your voter registration.' },
                 { label: 'Polling Hours', text: 'Voting is open from 7:00 AM to 6:00 PM on the designated polling day.' },
-                { label: 'Wallet Setup', text: 'Install MetaMask browser extension and connect to the Hardhat Local network.' }
+                { label: 'Vault Setup', text: 'Ensure your Secure Vault extension is active and connected to the National Voting Network.' }
             ]
         },
         {
@@ -19,9 +19,9 @@ function VoterGuidelines() {
             title: 'During Voting',
             items: [
                 { label: 'One Person, One Vote', text: 'Each voter can cast only ONE vote. Multiple voting is a punishable offense under IPC Section 171.' },
-                { label: 'Secret Ballot', text: 'Your vote is encrypted on the blockchain. No one can see whom you voted for.' },
+                { label: 'Secret Ballot', text: 'Your vote is encrypted on the secure cryptographic ledger. No one can see whom you voted for.' },
                 { label: 'Confirm Before Submit', text: 'Review your choice carefully before confirming. Once submitted, votes CANNOT be changed.' },
-                { label: 'Transaction Confirmation', text: 'Wait for MetaMask to confirm the transaction. Do not close the browser until you see the success message.' },
+                { label: 'Transaction Confirmation', text: 'Wait for the Secure Vault to confirm the transaction. Do not close the browser until you see the success message.' },
                 { label: 'No Photography', text: 'Taking photos or videos inside the voting area is prohibited.' }
             ]
         },
@@ -29,9 +29,9 @@ function VoterGuidelines() {
             icon: 'fa-flag-checkered',
             title: 'After Voting',
             items: [
-                { label: 'Vote Receipt', text: 'Your vote is recorded on the blockchain with a unique transaction hash.' },
+                { label: 'Vote Receipt', text: 'Your vote is recorded securely with a unique cryptographic transaction hash.' },
                 { label: 'Results Declaration', text: 'Results will be announced after polls close, as per ECI schedule.' },
-                { label: 'Verification', text: 'You can verify your vote was recorded on the blockchain explorer.' }
+                { label: 'Verification', text: 'You can verify your vote was recorded on the public cryptographic ledger explorer.' }
             ]
         }
     ];

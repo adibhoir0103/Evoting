@@ -196,7 +196,7 @@ function DashboardPage({ user, onUserUpdate }) {
                         <div className="gov-card p-0 overflow-hidden shadow-lg border-t-4 border-t-primary">
                             <div className="bg-blue-50/50 p-4 border-b border-blue-100 flex justify-between items-start">
                                 <div className="flex gap-4">
-                                    <img src="https://s2.googleusercontent.com/s2/favicons?domain=india.gov.in&sz=256" alt="Emblem" className="h-16 w-auto mix-blend-multiply opacity-90" />
+                                    <img src="https://s2.googleusercontent.com/s2/favicons?domain=india.gov.in&sz=256" alt="Emblem" className="h-16 w-auto mix-blend-multiply dark:mix-blend-normal dark:brightness-0 dark:invert opacity-90" />
                                     <div>
                                         <h3 className="text-lg font-bold text-gray-900 leading-tight">भारत निर्वाचन आयोग</h3>
                                         <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Election Commission of India</h3>
@@ -524,8 +524,8 @@ function DashboardPage({ user, onUserUpdate }) {
 
                         {/* Election Schedule Timeline */}
                         <div className="gov-card mt-6 border-t-4 border-[#138808]">
-                            <h3 className="text-lg font-bold text-[#0b2b54] mb-4 flex items-center border-b pb-2">
-                                <i className="fa-solid fa-calendar-days text-[#d97014] mr-2"></i> Election Schedule (Phase 4)
+                            <h3 className="text-lg font-bold text-primary mb-4 flex items-center border-b pb-2">
+                                <i className="fa-solid fa-calendar-days text-accent-saffron mr-2"></i> Election Schedule (Phase 4)
                             </h3>
                             <div className="relative border-l-2 border-gray-200 ml-3 space-y-6 pb-2 mt-4">
                                 <div className="relative pl-6">
@@ -541,7 +541,7 @@ function DashboardPage({ user, onUserUpdate }) {
                                 <div className="relative pl-6">
                                     <div className="absolute w-3 h-3 bg-blue-500 rounded-full -left-[7px] top-1.5 ring-4 ring-blue-100 animate-pulse"></div>
                                     <div className="text-xs font-bold text-blue-600 uppercase">Current Status</div>
-                                    <div className="text-sm font-bold text-[#0b2b54]">Scrutiny of Affidavits Active</div>
+                                    <div className="text-sm font-bold text-primary">Scrutiny of Affidavits Active</div>
                                 </div>
                                 <div className="relative pl-6">
                                     <div className="absolute w-3 h-3 bg-gray-300 rounded-full -left-[7px] top-1.5"></div>

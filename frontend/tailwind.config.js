@@ -8,20 +8,21 @@ module.exports = {
         extend: {
             colors: {
                 primary: {
-                    DEFAULT: '#000080', // Official Navy Blue
-                    100: '#E6E6F2',
-                    800: '#000066',
-                    900: '#000033',
+                    DEFAULT: '#162a5c', // Official Gov Navy Blue
+                    100: '#e0f2fe',
+                    800: '#1e3a8a',
+                    900: '#172554',
                 },
                 accent: {
                     saffron: '#FF9933', // India Saffron
                     green: '#138808',   // India Green
+                    red: '#D0242B',     // National Red
                 },
                 gov: {
-                    bg: '#F5F7FA',
+                    bg: '#f8fafc',
                     card: '#FFFFFF',
-                    text: '#333333',
-                    border: '#E2E8F0',
+                    text: '#111827',
+                    border: '#e2e8f0',
                 }
             },
             fontFamily: {

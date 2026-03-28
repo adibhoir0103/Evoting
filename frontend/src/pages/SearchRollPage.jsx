@@ -41,9 +41,9 @@ function SearchRollPage() {
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
                 
                 {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 border-b-4 border-[#0b2b54] rounded-t-lg shadow-sm mb-6">
+                <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 border-b-4 border-primary rounded-t-lg shadow-sm mb-6">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-blue-50 text-[#0b2b54] rounded-full flex items-center justify-center text-2xl shadow-inner border border-blue-100">
+                        <div className="w-12 h-12 bg-blue-50 text-primary rounded-full flex items-center justify-center text-2xl shadow-inner border border-blue-100">
                             <i className="fa-solid fa-users-viewfinder"></i>
                         </div>
                         <div>
@@ -51,7 +51,7 @@ function SearchRollPage() {
                             <p className="text-sm text-gray-500">Search your name in the National Electoral Roll</p>
                         </div>
                     </div>
-                    <Link to="/" className="mt-4 md:mt-0 text-sm font-semibold text-[#0b2b54] hover:text-[#d97014] transition-colors flex items-center gap-2 px-4 py-2 border border-gray-200 rounded">
+                    <Link to="/" className="mt-4 md:mt-0 text-sm font-semibold text-primary hover:text-accent-saffron transition-colors flex items-center gap-2 px-4 py-2 border border-gray-200 rounded">
                         <i className="fa-solid fa-arrow-left"></i> Home
                     </Link>
                 </div>
@@ -61,13 +61,13 @@ function SearchRollPage() {
                     {/* Tabs */}
                     <div className="flex border-b border-gray-200 bg-gray-50">
                         <button 
-                            className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider focus:outline-none transition-colors border-b-4 ${activeTab === 'epic' ? 'border-[#d97014] text-[#0b2b54] bg-white' : 'border-transparent text-gray-500 hover:bg-gray-100'}`}
+                            className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider focus:outline-none transition-colors border-b-4 ${activeTab === 'epic' ? 'border-accent-saffron text-primary bg-white' : 'border-transparent text-gray-500 hover:bg-gray-100'}`}
                             onClick={() => { setActiveTab('epic'); setResult(null); }}
                         >
                             <i className="fa-solid fa-id-card mr-2"></i> Search by EPIC
                         </button>
                         <button 
-                            className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider focus:outline-none transition-colors border-b-4 ${activeTab === 'details' ? 'border-[#d97014] text-[#0b2b54] bg-white' : 'border-transparent text-gray-500 hover:bg-gray-100'}`}
+                            className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider focus:outline-none transition-colors border-b-4 ${activeTab === 'details' ? 'border-accent-saffron text-primary bg-white' : 'border-transparent text-gray-500 hover:bg-gray-100'}`}
                             onClick={() => { setActiveTab('details'); setResult(null); }}
                         >
                             <i className="fa-solid fa-user-pen mr-2"></i> Search by Details
@@ -84,7 +84,7 @@ function SearchRollPage() {
                                         <input
                                             type="text"
                                             required
-                                            className="w-full px-4 py-3 border border-gray-300 rounded focus:ring-2 focus:ring-[#0b2b54] focus:border-[#0b2b54] uppercase transition-all"
+                                            className="w-full px-4 py-3 border border-gray-300 rounded focus:ring-2 focus:ring-primary focus:border-primary uppercase transition-all"
                                             placeholder="Ex: ABC1234567"
                                             value={searchParams.epicNo}
                                             onChange={(e) => setSearchParams({ ...searchParams, epicNo: e.target.value })}
@@ -95,7 +95,7 @@ function SearchRollPage() {
                                         <label className="block text-sm font-bold text-gray-700 mb-2">State <span className="text-red-500">*</span></label>
                                         <select
                                             required
-                                            className="w-full px-4 py-3 border border-gray-300 rounded focus:ring-2 focus:ring-[#0b2b54] focus:border-[#0b2b54] transition-all bg-white"
+                                            className="w-full px-4 py-3 border border-gray-300 rounded focus:ring-2 focus:ring-primary focus:border-primary transition-all bg-white"
                                             value={searchParams.state}
                                             onChange={(e) => setSearchParams({ ...searchParams, state: e.target.value })}
                                         >
@@ -113,7 +113,7 @@ function SearchRollPage() {
                                         <label className="block text-sm font-bold text-gray-700 mb-2">State <span className="text-red-500">*</span></label>
                                         <select
                                             required
-                                            className="w-full px-4 py-3 border border-gray-300 rounded focus:ring-2 focus:ring-[#0b2b54] focus:border-[#0b2b54]"
+                                            className="w-full px-4 py-3 border border-gray-300 rounded focus:ring-2 focus:ring-primary focus:border-primary"
                                             value={searchParams.state}
                                             onChange={(e) => setSearchParams({ ...searchParams, state: e.target.value })}
                                         >
@@ -124,21 +124,21 @@ function SearchRollPage() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
-                                        <input type="text" required className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#0b2b54]" placeholder="First Name" value={searchParams.name} onChange={(e) => setSearchParams({ ...searchParams, name: e.target.value })} />
+                                        <input type="text" required className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-primary" placeholder="First Name" value={searchParams.name} onChange={(e) => setSearchParams({ ...searchParams, name: e.target.value })} />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-2">Relative's Name</label>
-                                        <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#0b2b54]" placeholder="Father/Husband Name" value={searchParams.relativeName} onChange={(e) => setSearchParams({ ...searchParams, relativeName: e.target.value })} />
+                                        <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-primary" placeholder="Father/Husband Name" value={searchParams.relativeName} onChange={(e) => setSearchParams({ ...searchParams, relativeName: e.target.value })} />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-2">Date of Birth</label>
-                                        <input type="date" className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#0b2b54]" value={searchParams.dob} onChange={(e) => setSearchParams({ ...searchParams, dob: e.target.value })} />
+                                        <input type="date" className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-primary" value={searchParams.dob} onChange={(e) => setSearchParams({ ...searchParams, dob: e.target.value })} />
                                     </div>
                                 </div>
                             )}
 
                             <div className="mt-8 flex justify-center border-t border-gray-100 pt-8">
-                                <button type="submit" disabled={loading} className="bg-[#0b2b54] hover:bg-blue-900 text-white font-bold py-3 px-12 rounded shadow-md transition-all flex items-center gap-3 w-full sm:w-auto text-lg disabled:opacity-70 disabled:cursor-not-allowed">
+                                <button type="submit" disabled={loading} className="bg-primary hover:bg-blue-900 text-white font-bold py-3 px-12 rounded shadow-md transition-all flex items-center gap-3 w-full sm:w-auto text-lg disabled:opacity-70 disabled:cursor-not-allowed">
                                     {loading ? (
                                         <><i className="fa-solid fa-circle-notch fa-spin"></i> Processing...</>
                                     ) : (
@@ -162,11 +162,11 @@ function SearchRollPage() {
                         
                         <div className="p-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-8 gap-x-6">
-                                <div className="border-l-4 border-[#0b2b54] pl-4">
+                                <div className="border-l-4 border-primary pl-4">
                                     <div className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-1">Elector's Name</div>
                                     <div className="text-lg font-bold text-gray-900">{result.name}</div>
                                 </div>
-                                <div className="border-l-4 border-[#d97014] pl-4">
+                                <div className="border-l-4 border-accent-saffron pl-4">
                                     <div className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-1">EPIC Number</div>
                                     <div className="text-lg font-bold text-gray-900 font-mono tracking-widest">{result.epicNo}</div>
                                 </div>
@@ -191,7 +191,7 @@ function SearchRollPage() {
                             </div>
                             
                             <div className="mt-8 flex justify-end border-t border-gray-100 pt-6">
-                                <button className="border border-[#0b2b54] text-[#0b2b54] hover:bg-[#0b2b54] hover:text-white font-bold py-2 px-6 rounded transition-colors flex items-center gap-2 text-sm focus:ring-2 focus:ring-[#0b2b54] focus:ring-offset-2">
+                                <button className="border border-primary text-primary hover:bg-primary hover:text-white font-bold py-2 px-6 rounded transition-colors flex items-center gap-2 text-sm focus:ring-2 focus:ring-primary focus:ring-offset-2">
                                     <i className="fa-solid fa-print"></i> Print Voter Information
                                 </button>
                             </div>

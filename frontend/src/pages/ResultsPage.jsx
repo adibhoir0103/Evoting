@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { BlockchainService } from '../services/blockchainService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { indianStates, getStateName } from '../utils/indianStates';
+import { jsPDF } from 'jspdf';
 
 const CHART_COLORS = ['#1e40af', '#f97316', '#10b981', '#8b5cf6', '#ef4444', '#06b6d4', '#d946ef', '#f59e0b'];
 
@@ -35,7 +36,7 @@ function ResultsPage() {
 
             setFilteredCandidates(candidates);
         } catch (err) {
-            setError('Connect MetaMask to view live blockchain results: ' + err.message);
+            setError('Authenticate Secure Identity to view live authorized results: ' + err.message);
         } finally {
             setLoading(false);
         }
@@ -92,6 +93,59 @@ function ResultsPage() {
         });
     };
 
+    const generateResultsPDF = () => {
+        const doc = new jsPDF();
+        
+        doc.setFontSize(22);
+        doc.setTextColor(30, 64, 175);
+        doc.text('Bharat E-Vote Election Results', 105, 20, { align: 'center' });
+        
+        doc.setFontSize(12);
+        doc.setTextColor(100, 100, 100);
+        
+        const constituencyString = selectedState === 0 
+            ? 'National Level / All States' 
+            : `${getStateName(selectedState)} ${selectedConstituency > 0 ? `- Constituency #${selectedConstituency}` : '(State Level)'}`;
+            
+        doc.text(`Scope: ${constituencyString}`, 20, 35);
+        doc.text(`Total Votes: ${totalVotes}`, 20, 45);
+        doc.text(`Status: ${votingActive ? 'Active (Live)' : 'Closed (Final)'}`, 20, 55);
+
+        if (votingActive) {
+            doc.setFontSize(14);
+            doc.setTextColor(200, 0, 0);
+            doc.text('Tally Data is Sealed during Active Polls.', 105, 100, { align: 'center' });
+        } else {
+            let startY = 80;
+            doc.setFontSize(10);
+            doc.setTextColor(0, 0, 0);
+            doc.text('Candidate', 20, startY - 10);
+            doc.text('Party', 80, startY - 10);
+            doc.text('Votes', 150, startY - 10);
+            doc.line(20, startY - 5, 190, startY - 5);
+            
+            const sorted = [...filteredCandidates].sort((a,b) => Number(b.voteCount) - Number(a.voteCount));
+            sorted.forEach((c) => {
+                if (startY > 270) {
+                    doc.addPage();
+                    startY = 20;
+                }
+                const nameText = c.name.length > 25 ? c.name.slice(0, 25) + '...' : c.name;
+                const partyText = c.partyName || 'Independent';
+                
+                doc.text(nameText, 20, startY);
+                doc.text(partyText, 80, startY);
+                doc.text(String(Number(c.voteCount)), 150, startY);
+                startY += 10;
+            });
+        }
+
+        const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+        doc.setFontSize(8);
+        doc.text(`Generated exactly at: ${timestamp}`, 20, 290);
+        doc.save(`Election_Results_${Date.now()}.pdf`);
+    };
+
     const winner = getWinner(filteredCandidates);
     const chartData = filteredCandidates.map(c => ({
         name: c.name.length > 15 ? c.name.slice(0, 15) + '…' : c.name,
@@ -104,7 +158,7 @@ function ResultsPage() {
         return (
             <main id="main-content" className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
                 <i className="fa-solid fa-circle-notch fa-spin text-primary text-4xl mb-4"></i>
-                <p className="text-gray-600 font-medium">Loading election results from blockchain...</p>
+                <p className="text-gray-600 font-medium">Loading election results from cryptographic ledger...</p>
             </main>
         );
     }
@@ -119,7 +173,7 @@ function ResultsPage() {
                             <h1 className="text-3xl font-bold tracking-tight">
                                 <i className="fa-solid fa-chart-column mr-3"></i>Election Results 2026
                             </h1>
-                            <p className="text-blue-100 mt-1">Live blockchain-verified constituency results</p>
+                            <p className="text-blue-100 mt-1">Live mathematically-verified constituency results</p>
                         </div>
                         <div className="flex items-center gap-4">
                             <div className={`px-4 py-2 rounded-lg text-sm font-bold ${votingActive ? 'bg-green-500/20 text-green-100 border border-green-400/30' : 'bg-red-500/20 text-red-100 border border-red-400/30'}`}>
@@ -184,8 +238,8 @@ function ResultsPage() {
                     </div>
                 </div>
 
-                {/* Winner Banner */}
-                {winner && Number(winner.voteCount) > 0 && (
+                {/* Winner Banner (Only visibile when CLOSED) */}
+                {!votingActive && winner && Number(winner.voteCount) > 0 && (
                     <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-6 mb-8 shadow-sm" role="status" aria-live="polite">
                         <div className="flex flex-col md:flex-row items-center gap-6">
                             <div className="w-20 h-20 rounded-full bg-green-100 border-4 border-green-300 flex items-center justify-center text-green-600 shadow-inner">
@@ -213,7 +267,13 @@ function ResultsPage() {
                             <i className="fa-solid fa-chart-bar text-primary mr-2"></i>
                             Vote Distribution {selectedState > 0 ? `— ${getStateName(selectedState)}` : ''}
                         </h3>
-                        {chartData.length > 0 ? (
+                        {votingActive ? (
+                            <div className="flex flex-col items-center justify-center h-[300px] text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                                <i className="fa-solid fa-lock text-5xl mb-4 text-gray-400"></i>
+                                <p className="font-bold text-lg">Cryptographic Vault Sealed</p>
+                                <p className="text-sm mt-1 text-center px-4">Individual candidate tallies are strictly suppressed until the Election is officially CLOSED.</p>
+                            </div>
+                        ) : chartData.length > 0 ? (
                             <ResponsiveContainer width="100%" height={300}>
                                 <BarChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -243,8 +303,15 @@ function ResultsPage() {
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                         <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
                             <i className="fa-solid fa-ranking-star text-accent-saffron mr-2"></i>
-                            Candidate Leaderboard ({filteredCandidates.length})
+                            Candidate Leaderboard {votingActive ? '' : `(${filteredCandidates.length})`}
                         </h3>
+                        {votingActive ? (
+                            <div className="flex flex-col items-center justify-center h-[300px] text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                                <i className="fa-solid fa-user-secret text-5xl mb-4 text-gray-400"></i>
+                                <p className="font-bold text-lg">Secrecy Maintained</p>
+                                <p className="text-sm mt-1 text-center px-4">Leaderboard rankings are hidden during the ACTIVE voting window to prevent voter bias.</p>
+                            </div>
+                        ) : (
                         <div className="space-y-3 max-h-[340px] overflow-y-auto" role="list" aria-label="Candidate rankings">
                             {[...filteredCandidates].sort((a, b) => Number(b.voteCount) - Number(a.voteCount)).map((c, idx) => {
                                 const totalFiltered = filteredCandidates.reduce((s, x) => s + Number(x.voteCount), 0);
@@ -274,11 +341,12 @@ function ResultsPage() {
                                 </div>
                             )}
                         </div>
+                        )}
                     </div>
                 </div>
 
                 {/* State-wise Breakdown Table */}
-                {selectedState === 0 && stateBreakdown().length > 0 && (
+                {!votingActive && selectedState === 0 && stateBreakdown().length > 0 && (
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-8">
                         <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
                             <i className="fa-solid fa-map-location-dot text-primary mr-2"></i>
@@ -320,10 +388,13 @@ function ResultsPage() {
                     </div>
                 )}
 
-                {/* Refresh */}
-                <div className="text-center mt-8">
-                    <button onClick={loadResults} className="btn-outline px-6 py-2" aria-label="Refresh results from blockchain">
+                {/* Refresh and Export Actions */}
+                <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mt-8">
+                    <button onClick={loadResults} className="btn-outline px-6 py-2" aria-label="Refresh results from cryptographic ledger">
                         <i className="fa-solid fa-arrows-rotate mr-2"></i>Refresh Live Results
+                    </button>
+                    <button onClick={generateResultsPDF} className="btn-secondary px-6 py-2" aria-label="Export Cryptographic PDF Report">
+                        <i className="fa-solid fa-file-pdf mr-2"></i>Export PDF Report
                     </button>
                 </div>
             </div>

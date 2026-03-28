@@ -42,17 +42,17 @@ function CandidatesPage() {
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 
                 {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 border-b-4 border-[#d97014] rounded-t-lg shadow-sm mb-6">
+                <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 border-b-4 border-accent-saffron rounded-t-lg shadow-sm mb-6">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-orange-50 text-[#d97014] rounded-full flex items-center justify-center text-2xl shadow-inner border border-orange-100">
+                        <div className="w-12 h-12 bg-orange-50 text-accent-saffron rounded-full flex items-center justify-center text-2xl shadow-inner border border-orange-100">
                             <i className="fa-solid fa-address-card"></i>
                         </div>
                         <div>
-                            <h1 className="text-2xl font-bold text-[#0b2b54]">Know Your Candidates / उम्मीदवार विवरण</h1>
+                            <h1 className="text-2xl font-bold text-primary">Know Your Candidates / उम्मीदवार विवरण</h1>
                             <p className="text-sm text-gray-500">View official affidavits, criminal records, and asset declarations.</p>
                         </div>
                     </div>
-                    <Link to="/" className="mt-4 md:mt-0 text-sm font-semibold text-[#0b2b54] hover:text-[#d97014] transition-colors flex items-center gap-2 px-4 py-2 border border-gray-200 rounded">
+                    <Link to="/" className="mt-4 md:mt-0 text-sm font-semibold text-primary hover:text-accent-saffron transition-colors flex items-center gap-2 px-4 py-2 border border-gray-200 rounded">
                         <i className="fa-solid fa-arrow-left"></i> Home
                     </Link>
                 </div>
@@ -66,7 +66,7 @@ function CandidatesPage() {
                             placeholder="Search by candidate or party name..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-[#0b2b54] focus:border-[#0b2b54] transition-shadow text-sm"
+                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-primary focus:border-primary transition-shadow text-sm"
                         />
                     </div>
                     <div className="text-sm font-bold text-gray-600 bg-gray-100 px-4 py-2 rounded-full border border-gray-200">
@@ -78,7 +78,7 @@ function CandidatesPage() {
                 <div className="bg-white rounded shadow-md border border-gray-200 overflow-hidden">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-[#0b2b54] text-white text-xs uppercase tracking-wider">
+                            <tr className="bg-primary text-white text-xs uppercase tracking-wider">
                                 <th className="p-4 w-16 text-center">S.No</th>
                                 <th className="p-4">Candidate Profile</th>
                                 <th className="p-4 hidden md:table-cell">Party Affiliation</th>
@@ -108,7 +108,7 @@ function CandidatesPage() {
                                         {candidate.affidavit ? (
                                             <button 
                                                 onClick={() => setSelectedAffidavit(candidate)}
-                                                className="text-xs font-bold px-3 py-1.5 bg-white border border-[#0b2b54] text-[#0b2b54] rounded hover:bg-[#0b2b54] hover:text-white transition-colors focus:ring-2 focus:ring-offset-1 focus:ring-[#0b2b54]"
+                                                className="text-xs font-bold px-3 py-1.5 bg-white border border-primary text-primary rounded hover:bg-primary hover:text-white transition-colors focus:ring-2 focus:ring-offset-1 focus:ring-primary"
                                                 aria-label={`View affidavit for ${candidate.name}`}
                                             >
                                                 <i className="fa-solid fa-file-pdf mr-1"></i> View Form 26
@@ -134,11 +134,11 @@ function CandidatesPage() {
                 {/* Affidavit Modal */}
                 {selectedAffidavit && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-60 backdrop-blur-sm animate-fade-in">
-                        <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border-t-8 border-[#0b2b54]">
+                        <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border-t-8 border-primary">
                             
                             <div className="flex justify-between items-start p-6 border-b border-gray-200 bg-gray-50">
                                 <div>
-                                    <div className="text-xs font-bold text-[#d97014] uppercase tracking-widest mb-1">Form 26 Affidavit Summary</div>
+                                    <div className="text-xs font-bold text-accent-saffron uppercase tracking-widest mb-1">Form 26 Affidavit Summary</div>
                                     <h2 className="text-2xl font-black text-gray-900 uppercase">{selectedAffidavit.name}</h2>
                                     <p className="text-sm font-semibold text-gray-600 mt-1">{selectedAffidavit.party}</p>
                                 </div>
@@ -169,7 +169,7 @@ function CandidatesPage() {
                                     </div>
                                 </div>
 
-                                <h3 className="text-sm font-bold border-b border-gray-200 pb-2 mb-4 text-[#0b2b54] uppercase tracking-wider"><i className="fa-solid fa-scale-balanced mr-2"></i>Legal & Financial Declarations</h3>
+                                <h3 className="text-sm font-bold border-b border-gray-200 pb-2 mb-4 text-primary uppercase tracking-wider"><i className="fa-solid fa-scale-balanced mr-2"></i>Legal & Financial Declarations</h3>
                                 
                                 <div className="space-y-4">
                                     <div className="flex justify-between items-center p-4 border rounded shadow-sm bg-white">

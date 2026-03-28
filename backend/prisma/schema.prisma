@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,8 +11,25 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum Role {
+  VOTER
+  SUPER_ADMIN
+  ELECTION_OFFICER
+  AUDITOR
+}
+
+enum ElectionStatus {
+  DRAFT
+  PUBLISHED
+  ACTIVE
+  PAUSED
+  CLOSED
+  ARCHIVED
+}
+
 model User {
   id               Int      @id @default(autoincrement())
+  auth_id          String?  @unique
   fullname         String
   voter_id         String   @unique
   email            String   @unique
@@ -23,8 +37,13 @@ model User {
   aadhaar_number   String?  @unique
   mobile_number    String?
   wallet_address   String?
-  has_voted        Boolean  @default(false)
+  
+  // Legacy global vote flag (deprecating in favor of ElectionVoter.has_voted)
+  has_voted        Boolean  @default(false) 
+  
+  role             Role     @default(VOTER)
   created_at       DateTime @default(now())
+  
   father_name      String?
   gender           String?
   dob              String?
@@ -33,16 +52,59 @@ model User {
   address          String?
 
   votes            Vote[]
+  election_voters  ElectionVoter[]
+}
+
+model Election {
+  id              Int      @id @default(autoincrement())
+  name            String
+  description     String?
+  instructions    String?
+  start_time      DateTime?
+  end_time        DateTime?
+  status          ElectionStatus @default(DRAFT)
+  rules           Json?
+  created_at      DateTime @default(now())
+
+  candidates      ElectionCandidate[]
+  voters          ElectionVoter[]
+  votes           Vote[]
+}
+
+model ElectionCandidate {
+  id               Int      @id @default(autoincrement())
+  election_id      Int
+  candidate_name   String
+  party_name       String?
+  party_symbol     String?
+  state_code       Int      @default(0)
+  constituency_code Int     @default(0)
+
+  election         Election @relation(fields: [election_id], references: [id], onDelete: Cascade)
+}
+
+model ElectionVoter {
+  id               Int      @id @default(autoincrement())
+  election_id      Int
+  user_id          Int
+  has_voted        Boolean  @default(false)
+  registration_time DateTime @default(now())
+
+  election         Election @relation(fields: [election_id], references: [id], onDelete: Cascade)
+  user             User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([election_id, user_id])
 }
 
 model Vote {
   id           Int      @id @default(autoincrement())
-  voter_id     String
-  candidate_id Int
+  voter_id     String   // Maps to User.voter_id
+  election_id  Int?     // Made optional for legacy support migrating over
   tx_hash      String?
   voted_at     DateTime @default(now())
 
   user         User     @relation(fields: [voter_id], references: [voter_id])
+  election     Election? @relation(fields: [election_id], references: [id])
 }
 
 model AdminAuditLog {
@@ -65,8 +127,8 @@ model LoginHistory {
 
 model OtpDeliveryLog {
   id          Int      @id @default(autoincrement())
-  recipient   String   // email or phone number
-  purpose     String   // e.g., login, password-reset
+  recipient   String
+  purpose     String
   success     Boolean  @default(false)
   error_msg   String?
   sent_at     DateTime @default(now())
@@ -89,10 +151,10 @@ model Constituency {
 
 model SupportTicket {
   id          Int      @id @default(autoincrement())
-  user_id     String   // Maps to user's voter_id or email
+  user_id     String
   issue_type  String
   description String
-  status      String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED
+  status      String   @default("OPEN")
   admin_reply String?
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt

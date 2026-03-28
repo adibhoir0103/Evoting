@@ -11,37 +11,37 @@ function Footer() {
                         <div className="h-12 w-12 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
                             <i className="fa-solid fa-landmark text-primary text-xl"></i>
                         </div>
-                        <span className="text-[10px] font-bold text-[#0b2b54] mt-2">Election Commission</span>
+                        <span className="text-[10px] font-bold text-primary mt-2">Election Commission</span>
                     </a>
                     <a href="https://digitalindia.gov.in" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center group">
                         <div className="h-12 w-12 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
                             <i className="fa-solid fa-microchip text-primary text-xl"></i>
                         </div>
-                        <span className="text-[10px] font-bold text-[#0b2b54] mt-2">Digital India</span>
+                        <span className="text-[10px] font-bold text-primary mt-2">Digital India</span>
                     </a>
                     <a href="https://mygov.in" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center group">
                         <div className="h-12 w-12 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
                             <i className="fa-solid fa-users text-primary text-xl"></i>
                         </div>
-                        <span className="text-[10px] font-bold text-[#0b2b54] mt-2">MyGov</span>
+                        <span className="text-[10px] font-bold text-primary mt-2">MyGov</span>
                     </a>
                     <a href="https://www.nic.in" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center group">
                         <div className="h-12 w-12 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
                             <i className="fa-solid fa-globe text-primary text-xl"></i>
                         </div>
-                        <span className="text-[10px] font-bold text-[#0b2b54] mt-2">NIC</span>
+                        <span className="text-[10px] font-bold text-primary mt-2">NIC</span>
                     </a>
                 </div>
             </div>
 
-            {/* 2. Main Footer Data (Dark Blue - WCAG AA Compliant Contrast) */}
-            <div className="bg-[#0b2b54] text-white py-10">
+            {/* 2. Main Footer Data */}
+            <div className="bg-primary text-white py-10">
                 <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-10">
                     {/* Left: Branding & Info */}
                     <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
                         <a href="https://india.gov.in" target="_blank" rel="noopener noreferrer" className="shrink-0 bg-white p-3 rounded-lg flex items-center justify-center">
                             <div className="h-14 w-14 flex items-center justify-center">
-                                <i className="fa-solid fa-building-columns text-[#0b2b54] text-3xl"></i>
+                                <i className="fa-solid fa-building-columns text-primary text-3xl"></i>
                             </div>
                         </a>
                         <div className="text-center sm:text-left">
@@ -58,27 +58,27 @@ function Footer() {
                         <div className="text-center md:text-right">
                             <h4 className="text-sm font-bold uppercase tracking-widest mb-3 text-white">ECI on Social Media</h4>
                             <div className="flex justify-center md:justify-end gap-3 items-center">
-                                <a href="https://facebook.com/ECI" target="_blank" rel="noopener noreferrer" aria-label="Follow ECI on Facebook" className="w-8 h-8 rounded-full bg-white text-[#0b2b54] flex items-center justify-center hover:bg-gray-200 focus:ring-2 focus:ring-accent-saffron transition-colors"><i className="fa-brands fa-facebook-f"></i></a>
-                                <a href="https://twitter.com/ECISVEEP" target="_blank" rel="noopener noreferrer" aria-label="Follow ECI on Twitter" className="w-8 h-8 rounded-full bg-white text-[#0b2b54] flex items-center justify-center hover:bg-gray-200 focus:ring-2 focus:ring-accent-saffron transition-colors"><i className="fa-brands fa-twitter"></i></a>
-                                <a href="https://linkedin.com/company/election-commission-of-india" target="_blank" rel="noopener noreferrer" aria-label="Follow ECI on LinkedIn" className="w-8 h-8 rounded-full bg-white text-[#0b2b54] flex items-center justify-center hover:bg-gray-200 focus:ring-2 focus:ring-accent-saffron transition-colors"><i className="fa-brands fa-linkedin-in"></i></a>
-                                <a href="https://youtube.com/eci" target="_blank" rel="noopener noreferrer" aria-label="Subscribe to ECI on YouTube" className="w-8 h-8 rounded-full bg-white text-[#0b2b54] flex items-center justify-center hover:bg-gray-200 focus:ring-2 focus:ring-accent-saffron transition-colors"><i className="fa-brands fa-youtube"></i></a>
+                                <a href="https://facebook.com/ECI" target="_blank" rel="noopener noreferrer" aria-label="Follow ECI on Facebook" className="w-8 h-8 rounded-full bg-white text-primary flex items-center justify-center hover:bg-gray-200 focus:ring-2 focus:ring-accent-saffron transition-colors"><i className="fa-brands fa-facebook-f"></i></a>
+                                <a href="https://twitter.com/ECISVEEP" target="_blank" rel="noopener noreferrer" aria-label="Follow ECI on Twitter" className="w-8 h-8 rounded-full bg-white text-primary flex items-center justify-center hover:bg-gray-200 focus:ring-2 focus:ring-accent-saffron transition-colors"><i className="fa-brands fa-twitter"></i></a>
+                                <a href="https://linkedin.com/company/election-commission-of-india" target="_blank" rel="noopener noreferrer" aria-label="Follow ECI on LinkedIn" className="w-8 h-8 rounded-full bg-white text-primary flex items-center justify-center hover:bg-gray-200 focus:ring-2 focus:ring-accent-saffron transition-colors"><i className="fa-brands fa-linkedin-in"></i></a>
+                                <a href="https://youtube.com/eci" target="_blank" rel="noopener noreferrer" aria-label="Subscribe to ECI on YouTube" className="w-8 h-8 rounded-full bg-white text-primary flex items-center justify-center hover:bg-gray-200 focus:ring-2 focus:ring-accent-saffron transition-colors"><i className="fa-brands fa-youtube"></i></a>
                             </div>
                         </div>
 
                         <div className="text-right text-xs text-gray-300 pt-2">
-                            <p>Latest Version - 3.1.4</p>
-                            <p>Released date - 27-March-2026</p>
+                            <p>Current Portal Implementation Version</p>
+                            <p>Released — March 2026</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="max-w-7xl mx-auto px-4 mt-8 text-center text-xs text-gray-300">
-                    <p>Bharat E-Vote website is best viewed on desktop & laptop using latest version of Chrome (ver 89+), Firefox (ver 87+), Safari (ver 14+), MS Edge (ver 89+) or an equivalent browser with a screen resolution of 1024×768 or higher.</p>
+                <div className="max-w-7xl mx-auto px-4 mt-8 text-center text-[11px] text-gray-300">
+                    <p>Bharat E-Vote website is rigorously tested for Chrome (ver 89+), Firefox (ver 87+), Safari (ver 14+), MS Edge (ver 89+). Please ensure your device supports 256-bit encryption before voting.</p>
                 </div>
             </div>
 
-            {/* 3. Sub Footer Links (Darkest Blue) */}
-            <div className="bg-[#05152c] text-white py-6">
+            {/* 3. Sub Footer Links */}
+            <div className="bg-slate-900 text-white py-6">
                 <div className="max-w-7xl mx-auto px-4 text-center">
                     <p className="text-xs font-semibold mb-4 text-gray-200">
                         Designed & developed by Election Commission of India, Govt. of India and hosted on Meghraj cloud

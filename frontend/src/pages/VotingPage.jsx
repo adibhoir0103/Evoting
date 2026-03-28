@@ -4,7 +4,9 @@ import { BlockchainService } from '../services/blockchainService';
 import { authService } from '../services/authService';
 import { zkpClientService } from '../services/zkpService';
 import ZKPVerificationPanel from '../components/ZKPVerificationPanel';
+import Turnstile from 'react-turnstile'; // Changed to react-turnstile library
 import { indianStates, getStateName } from '../utils/indianStates';
+import { jsPDF } from 'jspdf';
 
 function VotingPage({ user, onUserUpdate }) {
     const navigate = useNavigate();
@@ -13,14 +15,15 @@ function VotingPage({ user, onUserUpdate }) {
     const [hasVoted, setHasVoted] = useState(false);
     const [isAuthorized, setIsAuthorized] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [txLoading, setTxLoading] = useState(false);
+    const [voteState, setVoteState] = useState('idle'); // idle | checking | selecting | reviewing | signing | pending | confirming | confirmed | failed | recovered
     const [txHash, setTxHash] = useState('');
-    const [txStatus, setTxStatus] = useState(''); // 'pending' | 'confirming' | 'confirmed' | ''
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [walletConnected, setWalletConnected] = useState(false);
     const [walletAddress, setWalletAddress] = useState('');
     const [selectedCandidate, setSelectedCandidate] = useState(null);
+    const [accessTurnstileToken, setAccessTurnstileToken] = useState(''); // Gate 1: Ballot Access
+    const [turnstileToken, setTurnstileToken] = useState(''); // Gate 2: Vote Submission
     const [voterConstituencyInfo, setVoterConstituencyInfo] = useState(null);
 
     // ZKP State
@@ -45,13 +48,13 @@ function VotingPage({ user, onUserUpdate }) {
 
     // BUG-023: Modal scroll lock
     useEffect(() => {
-        if (selectedCandidate) {
+        if (selectedCandidate || showVerification || ['checking', 'signing', 'pending', 'confirming'].includes(voteState)) {
             document.body.style.overflow = 'hidden';
         } else {
             document.body.style.overflow = '';
         }
         return () => { document.body.style.overflow = ''; };
-    }, [selectedCandidate]);
+    }, [selectedCandidate, showVerification, voteState]);
 
     const connectWallet = async () => {
         try {
@@ -72,7 +75,7 @@ function VotingPage({ user, onUserUpdate }) {
 
             await loadBlockchainData(service, account);
         } catch (err) {
-            setError(err.message || 'Failed to connect wallet');
+            setError(err.message || 'Failed to connect cryptographic vault');
         } finally {
             setLoading(false);
         }
@@ -120,10 +123,12 @@ function VotingPage({ user, onUserUpdate }) {
     };
 
     const confirmVote = (candidate) => {
+        setVoteState('reviewing');
         setSelectedCandidate(candidate);
     };
 
     const cancelVote = () => {
+        setVoteState('selecting');
         setSelectedCandidate(null);
     };
 
@@ -131,22 +136,24 @@ function VotingPage({ user, onUserUpdate }) {
         if (!selectedCandidate) return;
 
         try {
-            setTxLoading(true);
+            setVoteState('checking');
             setTxHash('');
-            setTxStatus('pending');
             setError('');
 
+            // Acquire Clerk Token for API Calls
+            const clerkToken = localStorage.getItem('token'); // Use standard token cache for authService calls
+            if (!clerkToken) throw new Error("Clerk Authentication Missing");
+
+            // 1. Pre-Flight Server Checks (Upstash Token Acquisition)
+            const upstashToken = await authService.getPreflightToken(clerkToken);
+
             const service = BlockchainService.getInstance();
-
             let isZKP = false;
-            try {
-                isZKP = await service.isZKPEnabled();
-            } catch (e) {
-                // ZKP check failed, proceed with legacy
-            }
+            try { isZKP = await service.isZKPEnabled(); } catch (e) { /* legacy */ }
 
+            setVoteState('signing'); // Prompting Wallet
+            
             if (isZKP && voterSecret) {
-                setTxStatus('pending');
                 const votePackage = await zkpClientService.generateVotePackage(
                     selectedCandidate.id,
                     voterSecret,
@@ -156,16 +163,11 @@ function VotingPage({ user, onUserUpdate }) {
 
                 let ipfsHash = '';
                 try {
-                    const ipfsResult = await zkpClientService.pinVoteToIPFS(
-                        votePackage.commitment,
-                        votePackage.nullifierHash
-                    );
+                    const ipfsResult = await zkpClientService.pinVoteToIPFS(votePackage.commitment, votePackage.nullifierHash);
                     ipfsHash = ipfsResult.ipfsHash || '';
-                } catch (e) {
-                    console.log('IPFS pinning skipped:', e.message);
-                }
+                } catch (e) { console.log('IPFS pinning skipped'); }
 
-                setTxStatus('confirming');
+                setVoteState('pending');
                 const receipt = await service.submitEncryptedVote(
                     votePackage.commitment,
                     votePackage.nullifierHash,
@@ -173,10 +175,12 @@ function VotingPage({ user, onUserUpdate }) {
                     votePackage.proof,
                     ipfsHash
                 );
+                
+                setVoteState('confirming');
                 setTxHash(receipt.hash);
-                setTxStatus('confirmed');
-
-                await authService.recordVote(selectedCandidate.id, receipt.hash);
+                
+                await authService.recordVote(receipt.hash, upstashToken, turnstileToken, clerkToken);
+                setVoteState('confirmed');
 
                 setZkpVoteData({
                     nullifierHash: votePackage.nullifierHash,
@@ -187,33 +191,35 @@ function VotingPage({ user, onUserUpdate }) {
                 setShowVerification(true);
                 setSelectedCandidate(null);
             } else {
-                setTxStatus('confirming');
+                setVoteState('pending');
                 const receipt = await service.vote(selectedCandidate.id);
+                setVoteState('confirming');
                 setTxHash(receipt.hash);
-                setTxStatus('confirmed');
 
-                await authService.recordVote(selectedCandidate.id, receipt.hash);
+                await authService.recordVote(receipt.hash, upstashToken, turnstileToken, clerkToken);
+                setVoteState('confirmed');
 
                 setSuccess(`Vote cast successfully! Tx: ${receipt.hash.slice(0, 10)}...`);
                 setHasVoted(true);
                 setSelectedCandidate(null);
-
-                if (onUserUpdate) {
-                    onUserUpdate({ ...user, hasVoted: true });
-                }
-
-                await loadBlockchainData(BlockchainService.getInstance(), walletAddress);
+                
+                if (onUserUpdate) onUserUpdate({ ...user, hasVoted: true });
+                await loadBlockchainData(service, walletAddress);
             }
         } catch (err) {
             const msg = err.message || 'Failed to cast vote';
             if (msg.includes('rejected') || msg.includes('ACTION_REJECTED')) {
-                setError('Transaction cancelled. You can try again.');
+                setError('You rejected the transaction — you have not voted yet.');
+                setVoteState('recovered');
             } else {
                 setError(msg);
+                setVoteState('failed');
+                
+                // Fire Sentry Alarm for vote-drop threshold tracking > 5%
+                if (window.Sentry) {
+                    window.Sentry.captureMessage(`Vote Cast Failure: ${msg}`, { level: 'error', tags: { module: 'vote_submission', error_type: 'rpc_revert' } });
+                }
             }
-            setTxStatus('');
-        } finally {
-            setTxLoading(false);
         }
     };
 
@@ -237,38 +243,6 @@ function VotingPage({ user, onUserUpdate }) {
                     blockchainService={BlockchainService.getInstance()}
                     onVerificationComplete={handleVerificationComplete}
                 />
-            </section>
-        );
-    }
-
-    // Render wallet connection screen
-    if (!walletConnected && !loading) {
-        return (
-            <section className="min-h-[60vh] flex items-center justify-center px-4 py-12">
-                <div className="gov-card text-center max-w-md w-full p-8">
-                    <div className="text-6xl text-primary mb-4">
-                        <i className="fa-solid fa-wallet"></i>
-                    </div>
-                    <h2 className="text-2xl font-bold text-primary mb-2">Connect Blockchain Wallet</h2>
-                    <p className="text-gray-500 mb-6">
-                        To ensure vote transparency and immutability, connect your MetaMask wallet.
-                    </p>
-                    {error && <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded text-sm mb-4 text-left"><i className="fa-solid fa-circle-exclamation mr-2"></i>{error}</div>}
-                    <button onClick={connectWallet} className="btn-primary w-full py-3 text-lg">
-                        <i className="fa-solid fa-link mr-2"></i> Connect MetaMask
-                    </button>
-                    <div className="mt-6 pt-5 border-t border-gray-200">
-                        <p className="text-gray-400 text-sm mb-1">Don't have MetaMask?</p>
-                        <a
-                            href="https://metamask.io/download/"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary font-semibold hover:underline"
-                        >
-                            Download MetaMask →
-                        </a>
-                    </div>
-                </div>
             </section>
         );
     }
@@ -304,7 +278,25 @@ function VotingPage({ user, onUserUpdate }) {
                     <div className="mt-6 pt-5 border-t border-gray-200">
                         <p className="text-gray-400 text-sm">Jai Hind! 🇮🇳</p>
                     </div>
-                    <Link to="/" className="btn-primary mt-6 inline-flex px-8"><i className="fa-solid fa-home mr-2"></i> Return Home</Link>
+                    <div className="mt-6 pt-5 border-t border-gray-200">
+                        <p className="text-gray-400 text-sm">Jai Hind! 🇮🇳</p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                        <button
+                            onClick={() => navigate('/dashboard', { replace: true })}
+                            className="btn-primary min-w-[200px]"
+                            aria-label="Return to Dashboard securely"
+                        >
+                            <i className="fa-solid fa-house mr-2"></i>Return to Dashboard
+                        </button>
+                        <button 
+                            onClick={generateVoteReceipt}
+                            className="btn-secondary min-w-[200px]" 
+                            aria-label="Download cryptographic vote receipt PDF"
+                        >
+                            <i className="fa-solid fa-download mr-2"></i> Download Receipt
+                        </button>
+                    </div>
                 </div>
             </section>
         );
@@ -319,125 +311,238 @@ function VotingPage({ user, onUserUpdate }) {
                 <p className="text-gray-500 mt-1">Select your candidate and confirm your choice</p>
             </div>
 
-            {/* Status Bar */}
-            <div className="flex flex-wrap justify-center gap-3 mb-8">
-                <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border ${votingActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
-                    <i className={`fa-solid ${votingActive ? 'fa-circle-check' : 'fa-circle-xmark'}`}></i>
-                    Voting: {votingActive ? 'Active' : 'Inactive'}
-                </span>
-                <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border ${isAuthorized ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
-                    <i className={`fa-solid ${isAuthorized ? 'fa-check' : 'fa-exclamation-triangle'}`}></i>
-                    Status: {isAuthorized ? 'Authorized' : 'Not Authorized'}
-                </span>
-                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border border-gray-200 bg-gray-50 text-gray-600">
-                    <i className="fa-solid fa-wallet"></i>
-                    {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
-                </span>
-            </div>
+            {/* BREADCRUMB - RPwD Act / GIGW 3.0 Compliance */}
+            <nav aria-label="Breadcrumb" className="max-w-4xl mx-auto mb-6 px-4 md:px-0">
+              <ol className="flex text-sm text-gray-500 font-medium">
+                <li><Link to="/" className="hover:text-primary transition-colors focus-visible">Home</Link><span className="mx-2">/</span></li>
+                <li><Link to="/dashboard" className="hover:text-primary transition-colors focus-visible">Dashboard</Link><span className="mx-2">/</span></li>
+                <li className="text-gray-900" aria-current="page">Cast Vote Securely</li>
+              </ol>
+            </nav>
 
-            {/* Error/Success Messages */}
+            {/* ERROR / SUCCESS ALERTS */}
             {error && (
-                <div className="max-w-3xl mx-auto mb-4">
-                    <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded text-sm"><i className="fa-solid fa-circle-exclamation mr-2"></i>{error}</div>
+                <div className="max-w-4xl mx-auto bg-red-50 text-red-700 p-4 mb-6 rounded-lg text-sm border-l-4 border-l-red-500 flex items-center shadow-sm" role="alert" aria-live="assertive">
+                    <i className="fa-solid fa-circle-exclamation mr-2"></i>{error}
                 </div>
             )}
             {success && (
-                <div className="max-w-3xl mx-auto mb-4">
-                    <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-4 rounded text-sm"><i className="fa-solid fa-check-circle mr-2"></i>{success}</div>
+                <div className="max-w-4xl mx-auto bg-green-50 text-green-700 p-4 mb-6 rounded-lg text-sm border-l-4 border-l-green-500 flex items-center shadow-sm" role="alert" aria-live="assertive">
+                    <i className="fa-solid fa-check-circle mr-2"></i>{success}
                 </div>
             )}
 
-            {/* Warnings */}
-            {!isAuthorized && (
-                <div className="max-w-3xl mx-auto mb-4">
-                    <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded text-sm font-medium">
-                        <i className="fa-solid fa-exclamation-triangle mr-2"></i> You are not authorized to vote. Please contact your local Election Officer.
+            {/* Render wallet connection screen */}
+            {!walletConnected && !loading ? (
+                <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center">
+                    <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-200">
+                         <i className="fa-solid fa-shield-halved text-2xl text-blue-600"></i>
                     </div>
-                </div>
-            )}
-
-            {!votingActive && isAuthorized && (
-                <div className="max-w-3xl mx-auto mb-4">
-                    <div className="bg-yellow-50 border border-yellow-300 text-yellow-800 p-4 rounded text-sm font-medium">
-                        <i className="fa-solid fa-clock mr-2"></i> Voting is not currently active. Polling hours: 7:00 AM - 6:00 PM.
-                    </div>
-                </div>
-            )}
-
-            {/* Constituency Info */}
-            {voterConstituencyInfo && (
-                <div className="max-w-3xl mx-auto mb-6">
-                    <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg text-sm">
-                        <i className="fa-solid fa-map-marker-alt mr-2"></i>
-                        <strong>Your Constituency:</strong> {getStateName(voterConstituencyInfo.stateCode)} — Constituency #{voterConstituencyInfo.constituencyCode}
-                    </div>
-                </div>
-            )}
-
-            {/* Candidates Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {candidates.length === 0 ? (
-                    <div className="gov-card text-center col-span-full p-8">
-                        <p className="text-gray-500">No candidates available in your constituency</p>
-                    </div>
-                ) : (
-                    candidates.map(candidate => (
-                        <div
-                            key={candidate.id}
-                            className={`gov-card text-center transition-all duration-200 ${selectedCandidate?.id === candidate.id ? 'ring-2 ring-primary border-primary' : ''} ${votingActive && isAuthorized ? 'cursor-pointer hover:shadow-gov-hover hover:scale-[1.02]' : 'opacity-60 cursor-not-allowed'}`}
-                            onClick={() => votingActive && isAuthorized && confirmVote(candidate)}
+                    <h2 className="text-2xl font-bold text-primary mb-2">Connect Secure Vault</h2>
+                    <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                        To guarantee vote transparency and mathematical integrity, connect your cryptographic vault to proceed.
+                    </p>
+                    <button 
+                        onClick={connectWallet} 
+                        className="btn-primary"
+                        aria-label="Connect Secure Cryptographic Vault"
+                    >
+                        <i className="fa-solid fa-link mr-2"></i> Verify Secure Identity
+                    </button>
+                    <div className="mt-6 border-t border-gray-100 pt-6">
+                        <p className="text-gray-400 text-sm mb-1">Vault extension not found?</p>
+                        <a 
+                            href="https://metamask.io/download/" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline text-sm font-semibold focus-visible px-2 py-1 rounded"
+                            aria-label="Download supported Vault provider"
                         >
-                            <div className="w-16 h-16 rounded-full bg-blue-50 text-primary flex items-center justify-center mx-auto mb-3 text-2xl font-bold border border-blue-200">
-                                {candidate.partySymbol || <i className="fa-solid fa-user-tie"></i>}
+                            Download Vault Provider →
+                        </a>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    {/* Status Bar */}
+                    <div className="flex flex-wrap justify-center gap-3 mb-8">
+                        <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border ${votingActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                            <i className={`fa-solid ${votingActive ? 'fa-circle-check' : 'fa-circle-xmark'}`}></i>
+                            Voting: {votingActive ? 'Active' : 'Inactive'}
+                        </span>
+                        <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border ${isAuthorized ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
+                            <i className={`fa-solid ${isAuthorized ? 'fa-check' : 'fa-exclamation-triangle'}`}></i>
+                            Status: {isAuthorized ? 'Authorized' : 'Not Authorized'}
+                        </span>
+                        <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border border-gray-200 bg-gray-50 text-gray-600">
+                            <i className="fa-solid fa-wallet"></i>
+                            {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                        </span>
+                    </div>
+
+                    {/* Election Info Card */}
+                    <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-xl shadow-sm border-l-4 border-l-blue-500 mb-8 border border-gray-200">
+                        <div className="mb-4 md:mb-0">
+                            <h2 className="text-2xl font-black tracking-tight text-gray-900">
+                                {voterConstituencyInfo?.stateCode === 0 ? 'National General Election' : 'Regional Legislative Election'}
+                            </h2>
+                            <p className="text-gray-500 font-medium">Secured by Cryptographic Zero-Knowledge Algorithms</p>
+                        </div>
+                        <div className="text-left md:text-right">
+                            <p className="text-gray-900 font-bold mb-1">
+                                <i className="fa-solid fa-flag text-blue-600 mr-2"></i>
+                                {voterConstituencyInfo?.stateCode === 0 
+                                    ? 'National Representative'
+                                    : `${getStateName(voterConstituencyInfo?.stateCode)} - Constituency ${voterConstituencyInfo?.constituencyCode}`}
+                            </p>
+                            <p className="text-sm font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-200 shadow-sm inline-block">
+                                <span className="relative flex h-2 w-2 mr-2 inline-flex">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                </span>
+                                Verified Authentic Session
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* BALLOT ACCESS TURNSTILE */}
+                    {!accessTurnstileToken && !hasVoted && (
+                        <div className="max-w-4xl mx-auto bg-white p-8 border border-gray-200 rounded-xl shadow-sm text-center mb-8">
+                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-200">
+                                <i className="fa-solid fa-shield-halved text-2xl text-blue-600"></i>
                             </div>
-                            <h3 className="text-lg font-bold text-gray-900">{candidate.name}</h3>
-                            <p className="font-bold text-accent-green text-sm mb-1">
-                                {candidate.partyName || 'Independent'}
-                            </p>
-                            <p className="text-xs text-gray-400">
-                                Candidate #{candidate.id}
-                                {candidate.stateCode ? ` | ${getStateName(candidate.stateCode)}` : ' | National'}
-                            </p>
-                            {votingActive && isAuthorized && (
-                                <button className="btn-primary mt-4 w-full py-2 text-sm">
-                                    Select Candidate
-                                </button>
+                            <h2 className="text-xl font-bold text-gray-900 mb-2">Verify Human Access</h2>
+                            <p className="text-gray-500 text-sm mb-6 max-w-sm mx-auto">Please complete the security challenge below to unlock the secure digital ballot payload.</p>
+                            
+                            <div className="inline-block border border-gray-200 p-2 rounded-lg bg-gray-50">
+                                <Turnstile onVerify={setAccessTurnstileToken} onError={() => setError('Bot check failed. Please refresh.')} action="ballot_access" />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Warnings */}
+                    {!isAuthorized && (
+                        <div className="max-w-3xl mx-auto mb-4">
+                            <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded text-sm font-medium">
+                                <i className="fa-solid fa-exclamation-triangle mr-2"></i> You are not authorized to vote. Please contact your local Election Officer.
+                            </div>
+                        </div>
+                    )}
+
+                    {!votingActive && isAuthorized && (
+                        <div className="max-w-3xl mx-auto mb-4">
+                            <div className="bg-yellow-50 border border-yellow-300 text-yellow-800 p-4 rounded text-sm font-medium">
+                                <i className="fa-solid fa-clock mr-2"></i> Voting is not currently active. Polling hours: 7:00 AM - 6:00 PM.
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Constituency Info */}
+                    {voterConstituencyInfo && (
+                        <div className="max-w-3xl mx-auto mb-6">
+                            <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg text-sm">
+                                <i className="fa-solid fa-map-marker-alt mr-2"></i>
+                                <strong>Your Constituency:</strong> {getStateName(voterConstituencyInfo.stateCode)} — Constituency #{voterConstituencyInfo.constituencyCode}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ELECTION CANDIDATES GRID (SEMANTIC HTML5 for Screen Readers) */}
+                    <fieldset 
+                        className={`max-w-4xl mx-auto transition-all duration-500 ${!accessTurnstileToken && !hasVoted ? 'opacity-30 pointer-events-none filter blur-sm' : ''}`}
+                        aria-describedby={candidates.length === 0 ? "no-candidates-msg" : undefined}
+                    >
+                        <legend className="visually-hidden">Select exactly one candidate for the election</legend>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {!votingActive ? (
+                                <div className="col-span-full bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center">
+                                    <i className="fa-solid fa-lock text-4xl text-gray-400 mb-3"></i>
+                                    <p className="font-bold text-gray-600">The voting gateway is currently cryptographically sealed.</p>
+                                </div>
+                            ) : candidates.length === 0 ? (
+                                <div id="no-candidates-msg" className="gov-card text-center col-span-full p-8">
+                                    <p className="text-gray-500">No candidates available in your constituency</p>
+                                </div>
+                            ) : (
+                                candidates.map(candidate => (
+                                    <label 
+                                        key={candidate.id} 
+                                        className={`gov-card cursor-pointer group flex flex-col relative focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 ${selectedCandidate?.id === candidate.id ? 'border-primary ring-2 ring-primary ring-opacity-50 bg-blue-50/30' : 'hover:border-primary'}`}
+                                        aria-label={`Select candidate ${candidate.name} from party ${candidate.partyName || 'Independent'}`}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="candidate"
+                                            value={candidate.id}
+                                            checked={selectedCandidate?.id === candidate.id}
+                                            onChange={() => votingActive && isAuthorized && setSelectedCandidate(candidate)}
+                                            className="peer visually-hidden focus-visible"
+                                            aria-describedby={`desc-${candidate.id}`}
+                                            disabled={!votingActive || !isAuthorized}
+                                        />
+                                        <div className="w-16 h-16 rounded-full bg-blue-50 text-primary flex items-center justify-center mx-auto mb-3 text-2xl font-bold border border-blue-200">
+                                            {candidate.partySymbol || <i className="fa-solid fa-user-tie"></i>}
+                                        </div>
+                                        <h3 className="text-lg font-bold text-gray-900">{candidate.name}</h3>
+                                        <p className="font-bold text-accent-green text-sm mb-1">
+                                            {candidate.partyName || 'Independent'}
+                                        </p>
+                                        <p className="text-xs text-gray-400">
+                                            Candidate #{candidate.id}
+                                            {candidate.stateCode ? ` | ${getStateName(candidate.stateCode)}` : ' | National'}
+                                        </p>
+                                        {votingActive && isAuthorized && (
+                                            <button 
+                                                type="button" 
+                                                className="btn-primary mt-4 w-full py-2 text-sm"
+                                                onClick={() => confirmVote(candidate)}
+                                                disabled={selectedCandidate?.id === candidate.id}
+                                            >
+                                                {selectedCandidate?.id === candidate.id ? 'Selected' : 'Select Candidate'}
+                                            </button>
+                                        )}
+                                    </label>
+                                ))
                             )}
                         </div>
-                    ))
-                )}
-            </div>
+                    </fieldset>
+                </>
+            )}
 
             {/* Confirmation & Transaction Modal */}
             {selectedCandidate && (
-                <div className={`fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4`} onClick={txLoading ? undefined : cancelVote}>
+                <div className={`fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4`} onClick={['checking', 'signing', 'pending', 'confirming'].includes(voteState) ? undefined : cancelVote}>
                     <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8 relative" onClick={e => e.stopPropagation()}>
-                        {!txLoading && (
+                        {['reviewing', 'failed', 'recovered'].includes(voteState) && (
                             <button className="absolute top-3 right-4 text-gray-400 hover:text-gray-600 text-2xl" onClick={cancelVote} aria-label="Close">&times;</button>
                         )}
 
                         {/* Transaction Processing Overlay */}
-                        {txLoading ? (
+                        {['checking', 'signing', 'pending', 'confirming', 'confirmed'].includes(voteState) ? (
                             <div className="text-center py-4">
                                 <div className="w-20 h-20 rounded-full bg-blue-50 text-primary flex items-center justify-center mx-auto mb-4 border-2 border-blue-200">
-                                    <i className={`fa-solid ${txStatus === 'confirmed' ? 'fa-check-circle text-green-600' : 'fa-circle-notch fa-spin'} text-3xl`}></i>
+                                    <i className={`fa-solid ${voteState === 'confirmed' ? 'fa-check-circle text-green-600' : 'fa-circle-notch fa-spin'} text-3xl`}></i>
                                 </div>
                                 <h2 className="text-xl font-bold text-primary mb-2">
-                                    {txStatus === 'pending' && 'Waiting for MetaMask...'}
-                                    {txStatus === 'confirming' && 'Confirming on Blockchain...'}
-                                    {txStatus === 'confirmed' && 'Vote Confirmed!'}
+                                    {voteState === 'checking' && 'Acquiring Pre-Flight Token...'}
+                                    {voteState === 'signing' && 'Waiting for Secure Vault Signature...'}
+                                    {voteState === 'pending' && 'Transmitting to RPC Mempool...'}
+                                    {voteState === 'confirming' && 'Awaiting Block Confirmations...'}
+                                    {voteState === 'confirmed' && 'Zero-Knowledge Vote Confirmed!'}
                                 </h2>
                                 <p className="text-gray-500 text-sm mb-4">
-                                    {txStatus === 'pending' && 'Please approve the transaction in your MetaMask wallet.'}
-                                    {txStatus === 'confirming' && 'Your transaction is being mined. Do not close this window.'}
-                                    {txStatus === 'confirmed' && 'Your vote has been successfully recorded on the blockchain.'}
+                                    {voteState === 'checking' && 'Authenticating eligibility against blockchain and issuing TTL Redis Lock.'}
+                                    {voteState === 'signing' && 'Please approve the gas estimation and signature in your Vault provider.'}
+                                    {voteState === 'pending' && 'Mined to mempool. Waiting for validator nodes.'}
+                                    {voteState === 'confirming' && 'Your transaction is being verified. Do not close this window.'}
+                                    {voteState === 'confirmed' && 'Your vote has been irrevocably appended to the Bharat E-Vote ledger.'}
                                 </p>
 
                                 {/* Progress Steps */}
                                 <div className="flex justify-center gap-2 mb-4">
-                                    <div className={`w-3 h-3 rounded-full ${txStatus === 'pending' ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`}></div>
-                                    <div className={`w-3 h-3 rounded-full ${txStatus === 'confirming' ? 'bg-blue-500 animate-pulse' : txStatus === 'confirmed' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                                    <div className={`w-3 h-3 rounded-full ${txStatus === 'confirmed' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                                    <div className={`w-3 h-3 rounded-full ${['checking', 'signing', 'pending'].includes(voteState) ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`}></div>
+                                    <div className={`w-3 h-3 rounded-full ${voteState === 'confirming' ? 'bg-blue-500 animate-pulse' : voteState === 'confirmed' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                                    <div className={`w-3 h-3 rounded-full ${voteState === 'confirmed' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
                                 </div>
 
                                 {/* Transaction Hash */}
@@ -477,11 +582,21 @@ function VotingPage({ user, onUserUpdate }) {
                                     <i className="fa-solid fa-exclamation-triangle mr-1"></i> Once submitted, your vote <strong>cannot be changed</strong>. This action is final.
                                 </div>
 
+                                <Turnstile onVerify={setTurnstileToken} onError={() => setError('Bot check failed. Please refresh.')} action="submit_vote" />
+
                                 <div className="flex gap-3">
-                                    <button className="btn-secondary flex-1 py-3" onClick={cancelVote} disabled={txLoading}>
+                                    <button 
+                                        className="btn-secondary flex-1 py-3" 
+                                        onClick={cancelVote} 
+                                        disabled={['checking', 'signing', 'pending', 'confirming'].includes(voteState)}
+                                    >
                                         Cancel
                                     </button>
-                                    <button className="btn-primary flex-1 py-3" onClick={submitVote} disabled={txLoading}>
+                                    <button 
+                                        className="btn-primary flex-1 py-3" 
+                                        onClick={submitVote} 
+                                        disabled={['checking', 'signing', 'pending', 'confirming'].includes(voteState) || !turnstileToken}
+                                    >
                                         Confirm Vote
                                     </button>
                                 </div>

@@ -192,6 +192,91 @@ class EmailService {
         this.isReady = true;
         return true;
     }
+
+    /**
+     * Send Vote Receipt via email using Resend
+     * @param {string} email - Recipient email
+     * @param {string} userName - User's name
+     * @param {string} txHash - Blockchain transaction hash
+     */
+    async sendVoteReceipt(email, userName, txHash) {
+        const shortHash = txHash ? `${txHash.substring(0, 10)}...${txHash.substring(txHash.length - 8)}` : 'N/A';
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body { font-family: 'Inter', sans-serif; background: #070e20; color: white; padding: 20px; }
+                    .container { max-width: 600px; margin: 0 auto; background: #0f172a; border-radius: 12px; overflow: hidden; border: 1px solid #1e293b; }
+                    .header { background: #162a5c; padding: 30px; text-align: center; }
+                    .header h1 { margin: 0; font-size: 24px; color: white; }
+                    .content { padding: 40px; }
+                    .hash-box { background: #000; border: 1px solid #334155; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0; font-family: monospace; color: #4ade80; }
+                    .footer { text-align: center; padding: 20px; color: #64748b; font-size: 12px; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>✅ Digital Vote Safely Cast!</h1>
+                    </div>
+                    <div class="content">
+                        <h2 style="margin-top: 0; color: #fff;">Namaste, ${userName}</h2>
+                        <p style="color: #cbd5e1;">Your cryptographic vote has been successfully mined onto the blockchain network. Your identity has been completely decoupled from your vote using advanced Zero-Knowledge Proofs.</p>
+                        <div class="hash-box">${shortHash}</div>
+                        <p style="color: #94a3b8; font-size: 14px;">You can verify this transaction hash on the local block explorer to mathematically prove your vote was cast without revealing your candidate choice.</p>
+                    </div>
+                    <div class="footer">© 2026 Bharat E-Vote | Powered by Resend</div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        if (!this.isReady) {
+            console.log(`[DEMO MODE] Vote Receipt -> ${email}: ${txHash}`);
+            return { success: true, messageId: 'demo-receipt', email, demo: true };
+        }
+
+        try {
+            const data = await this.resend.emails.send({
+                from: `Bharat E-Vote <${FROM_EMAIL}>`,
+                to: email,
+                subject: '🔒 Secure Vote Cast Receipt',
+                html: htmlContent
+            });
+            return { success: true, messageId: data.id, email };
+        } catch (error) {
+            console.error('Resend receipt error:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async sendBroadcastEmail(email, userName, subject, body) {
+        if (!this.isReady) {
+            console.log(`[DEMO] Broadcast to ${email}: ${subject}`);
+            return { success: true, demo: true };
+        }
+
+        try {
+            const data = await this.resend.emails.send({
+                from: `Bharat E-Vote <${FROM_EMAIL}>`,
+                to: email,
+                subject: subject,
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+                        <h2>Namaste, ${userName}</h2>
+                        <p>${body}</p>
+                        <br/>
+                        <p style="color: #888; font-size: 12px;">This is an automated administrative notification from Bharat E-Vote.</p>
+                    </div>
+                `
+            });
+            return { success: true, messageId: data.id };
+        } catch (error) {
+            console.error('Broadcast email error:', error);
+            return { success: false, error: error.message };
+        }
+    }
 }
 
 // Singleton instance

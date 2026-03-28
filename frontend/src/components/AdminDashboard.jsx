@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BlockchainService } from '../services/blockchainService';
+import { useDropzone } from 'react-dropzone';
+import { useAuth } from '@clerk/clerk-react';
 import LoadingSpinner from './LoadingSpinner';
 
 function AdminDashboard({ account, onError }) {
@@ -9,6 +11,9 @@ function AdminDashboard({ account, onError }) {
     const [candidateName, setCandidateName] = useState('');
     const [voterAddress, setVoterAddress] = useState('');
     const [batchVoters, setBatchVoters] = useState('');
+    const [csvFile, setCsvFile] = useState(null);
+    const [targetElectionId, setTargetElectionId] = useState(1);
+    const { getToken } = useAuth();
 
     const service = BlockchainService.getInstance();
 
@@ -105,6 +110,44 @@ function AdminDashboard({ account, onError }) {
         }
     };
 
+    const onDrop = useCallback(acceptedFiles => {
+        setCsvFile(acceptedFiles[0]);
+    }, []);
+    const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: { 'text/csv': ['.csv'] } });
+
+    const handleCsvUpload = async (e) => {
+        e.preventDefault();
+        if (!csvFile) {
+            onError('Please drop a CSV file first');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', csvFile);
+
+            const token = await getToken();
+            const res = await fetch(`http://localhost:5000/api/v1/admin/elections/${targetElectionId}/voters/bulk`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                onError(`✅ Success! Whitelisted ${data.successCount} voters. (Skipped ${data.errorCount})`);
+                setCsvFile(null);
+            } else {
+                onError(`❌ CSV Error: ${data.error}`);
+            }
+        } catch (error) {
+            onError('❌ Failed to push CSV to server network');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleToggleVoting = async () => {
         setLoading(true);
         try {
@@ -188,18 +231,23 @@ function AdminDashboard({ account, onError }) {
                 </div>
 
                 <div className="card">
-                    <h3 className="text-xl font-semibold text-white mb-4">👥 Batch Authorize Voters</h3>
-                    <form onSubmit={handleBatchAuthorize} className="space-y-4">
-                        <textarea
-                            placeholder="Enter addresses (one per line)"
-                            value={batchVoters}
-                            onChange={(e) => setBatchVoters(e.target.value)}
-                            rows="3"
-                            className="input-field"
-                            disabled={loading}
-                        />
-                        <button type="submit" disabled={loading} className="btn-primary w-full">
-                            Authorize All
+                    <h3 className="text-xl font-semibold text-white mb-4">👥 DB Bulk Upload Pipeline</h3>
+                    <form onSubmit={handleCsvUpload} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">Target Election ID</label>
+                            <input type="number" value={targetElectionId} onChange={(e) => setTargetElectionId(e.target.value)} className="input-field w-24" />
+                        </div>
+                        <div {...getRootProps()} className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary bg-primary/20' : 'border-gray-500 bg-gray-800 hover:border-gray-400'}`}>
+                            <input {...getInputProps()} />
+                            <i className="fa-solid fa-file-csv text-3xl text-gray-400 mb-2"></i>
+                            {csvFile ? (
+                                <p className="text-sm text-green-400 font-bold">{csvFile.name}</p>
+                            ) : (
+                                <p className="text-sm text-gray-300">Drag 'n' drop a CSV file here, or click to browse</p>
+                            )}
+                        </div>
+                        <button type="submit" disabled={loading || !csvFile} className="btn-secondary w-full">
+                            Upload CSV via Backend API
                         </button>
                     </form>
                 </div>

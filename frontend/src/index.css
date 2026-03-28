@@ -4,12 +4,16 @@
 @tailwind components;
 @tailwind utilities;
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-gov-bg text-gov-text font-sans antialiased min-h-screen selection:bg-primary selection:text-white;
   }
 
   .dark body, body.dark, html.dark body {
-    background-color: #0f172a;
+    background-color: #070e20;
     color: #e2e8f0;
   }
   
@@ -33,13 +37,13 @@
   }
 
   html.dark .gov-card {
-    background-color: #1e293b;
-    border-color: #334155;
+    background-color: #0f1a36;
+    border-color: #1a2c5b;
     color: #e2e8f0;
   }
 
   html.dark .gov-card:hover {
-    border-color: #475569;
+    border-color: #263f7a;
   }
   
   /* Buttons */
@@ -52,13 +56,13 @@
   }
 
   html.dark .btn-secondary {
-    background-color: #334155;
-    border-color: #475569;
-    color: #e2e8f0;
+    background-color: #1a2c5b;
+    border-color: #263f7a;
+    color: #f1f5f9;
   }
 
   html.dark .btn-secondary:hover {
-    background-color: #475569;
+    background-color: #263f7a;
   }
 
   .btn-outline {
@@ -80,8 +84,8 @@
   }
 
   html.dark .input-field {
-    background-color: #1e293b;
-    border-color: #475569;
+    background-color: #0f1a36;
+    border-color: #263f7a;
     color: #e2e8f0;
   }
 
@@ -90,7 +94,7 @@
   }
 
   html.dark .input-field:disabled {
-    background-color: #0f172a;
+    background-color: #070e20;
     color: #64748b;
   }
   
@@ -102,22 +106,26 @@
 
 /* Dark mode global overrides */
 html.dark {
-  background-color: #0f172a;
+  background-color: #070e20;
   color-scheme: dark;
 }
 
 html.dark body {
-  background-color: #0f172a;
+  background-color: #070e20;
   color: #e2e8f0;
 }
 
-html.dark .bg-white { background-color: #1e293b !important; }
-html.dark .bg-gray-50, html.dark .bg-\[#f3f4f6\] { background-color: #0f172a !important; }
-html.dark .bg-gray-100 { background-color: #1e293b !important; }
+html.dark .bg-white { background-color: #0f1a36 !important; }
+html.dark .bg-gray-50, html.dark .bg-\[#f3f4f6\] { background-color: #070e20 !important; }
+html.dark .bg-gray-100 { background-color: #0f1a36 !important; }
 html.dark .bg-blue-50 { background-color: rgba(30, 64, 175, 0.15) !important; }
 html.dark .bg-green-50 { background-color: rgba(16, 185, 129, 0.15) !important; }
 html.dark .bg-red-50 { background-color: rgba(239, 68, 68, 0.15) !important; }
 html.dark .bg-yellow-50 { background-color: rgba(245, 158, 11, 0.15) !important; }
+
+html.dark .bg-primary { background-color: #1e3a8a !important; }
+html.dark .btn-primary { background-color: #1e3a8a !important; border-color: #3b82f6 !important; }
+html.dark .btn-primary:hover { background-color: #1e40af !important; }
 
 html.dark .text-gray-900 { color: #f1f5f9 !important; }
 html.dark .text-gray-800 { color: #e2e8f0 !important; }
@@ -125,14 +133,20 @@ html.dark .text-gray-700 { color: #cbd5e1 !important; }
 html.dark .text-gray-600 { color: #94a3b8 !important; }
 html.dark .text-gray-500 { color: #64748b !important; }
 
-html.dark .border-gray-200 { border-color: #334155 !important; }
-html.dark .border-gray-300 { border-color: #475569 !important; }
-html.dark .border-gray-100 { border-color: #1e293b !important; }
+html.dark .text-primary { color: #93c5fd !important; }
+html.dark .text-primary-800 { color: #bfdbfe !important; }
 
-html.dark .shadow-sm { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important; }
-html.dark .shadow-md { box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3) !important; }
+html.dark .border-gray-200 { border-color: #1a2c5b !important; }
+html.dark .border-gray-300 { border-color: #263f7a !important; }
+html.dark .border-gray-100 { border-color: #0f1a36 !important; }
 
-html.dark table tbody tr:hover { background-color: #334155 !important; }
+html.dark .border-primary { border-color: #3b82f6 !important; }
+html.dark .border-blue-200 { border-color: #2563eb !important; }
+
+html.dark .shadow-sm { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important; }
+html.dark .shadow-md { box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4) !important; }
+
+html.dark table tbody tr:hover { background-color: #1a2c5b !important; }
 
 /* Loading spinner animation */
 @keyframes spin {
@@ -165,4 +179,31 @@ html.font-xlarge { font-size: 20px !important; }
 /* Dark mode & Scaling transition */
 * {
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, font-size 0.2s ease;
+}
+
+/* National Monument Watermark */
+.bg-watermark {
+  position: relative;
+}
+
+.bg-watermark::before {
+  content: "";
+  position: fixed; /* Fixed so it stays perfectly visible while scrolling */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 65vh; /* Large, majestic scale */
+  height: 65vh;
+  background-image: url("/assets/emblem.svg");
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: contain;
+  opacity: 0.05; /* Faint, attractive overlay */
+  z-index: 0; /* Keep behind content but above background color */
+  pointer-events: none; /* Let clicks pass through */
+}
+
+html.dark .bg-watermark::before {
+  opacity: 0.03; /* Slightly fainter on dark mode */
+  filter: invert(1); /* Switch to white */
 }

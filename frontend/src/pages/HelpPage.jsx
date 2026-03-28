@@ -3,38 +3,34 @@ import { Link, useNavigate } from 'react-router-dom';
 
 function HelpPage() {
     const navigate = useNavigate();
-    const [activeSection, setActiveSection] = useState('metamask');
+    const [activeSection, setActiveSection] = useState('vault');
 
     const faqData = [
         {
-            id: 'metamask',
-            title: 'MetaMask Connection Issues',
-            icon: 'fa-wallet',
+            id: 'vault',
+            title: 'Secure Vault Connection Issues',
+            icon: 'fa-shield-halved',
             content: [
                 {
-                    q: 'MetaMask is not connecting',
-                    a: `1. Install MetaMask from metamask.io/download
-2. Create or import a wallet
-3. Add Hardhat Network:
-   • Network Name: Hardhat Local
-   • RPC URL: http://127.0.0.1:8545
-   • Chain ID: 31337
-   • Currency: ETH
-4. Refresh the page and try again`
+                    q: 'Secure Vault is not connecting',
+                    a: `1. Ensure your vault browser extension is installed and updated
+2. Open the vault UI and unlock it
+3. Ensure it is connected to the authorized National Voting Network
+4. Refresh the page and click "Verify Secure Identity" again`
                 },
                 {
                     q: 'Transaction failed or pending',
-                    a: `1. Check if Hardhat node is running (should be on port 8545)
-2. Reset your MetaMask account: Settings → Advanced → Reset Account
-3. Ensure you have enough ETH for gas fees
-4. Try disconnecting and reconnecting your wallet`
+                    a: `1. Ensure your vault has successfully linked with the session
+2. Reset your vault connection from the extension settings
+3. Ensure the network can cover the automated verification cost
+4. Try disconnecting and reconnecting your identity`
                 },
                 {
-                    q: 'Wrong network error',
-                    a: `Switch to Hardhat Local network in MetaMask:
-1. Click network dropdown in MetaMask
-2. Select "Hardhat Local" (Chain ID 31337)
-3. If not listed, add it manually using the RPC URL above`
+                    q: 'Wrong access network error',
+                    a: `Switch to the official voting network within your vault:
+1. Click the network dropdown in your external vault
+2. Select the designated "National Voting Ledger"
+3. If not listed, contact the Helpdesk for manual network entry details`
                 }
             ]
         },
@@ -62,7 +58,7 @@ function HelpPage() {
                     a: `Candidates must be added by the admin before voting:
 1. The admin adds candidates via the Admin Dashboard
 2. Refresh the page after candidates are added
-3. If issue persists, check if the smart contract is deployed`
+3. If issue persists, check if the cryptographic contract is deployed`
                 }
             ]
         },
@@ -108,10 +104,10 @@ function HelpPage() {
 4. Check if backend server is running on port 5000`
                 },
                 {
-                    q: 'Blockchain data decode error',
-                    a: `This usually means the smart contract needs redeployment:
-1. Ensure Hardhat node is running: npx hardhat node
-2. Deploy contract: npx hardhat run scripts/deploy.js --network localhost
+                    q: 'Cryptographic data decode error',
+                    a: `This usually means the ledger contract needs administrative redeployment:
+1. Ensure the backend cryptographic engine is running
+2. Contact the technical administrator to synchronize the ledger
 3. Refresh the frontend application`
                 }
             ]
@@ -135,9 +131,9 @@ function HelpPage() {
                     </h3>
                     <ol className="text-gray-700 pl-5 space-y-1 list-decimal text-sm">
                         <li><strong>Refresh the page</strong> (Ctrl+F5 for hard refresh)</li>
-                        <li><strong>Check MetaMask</strong> is on Hardhat network (Chain ID: 31337)</li>
-                        <li><strong>Reset MetaMask:</strong> Settings → Advanced → Reset Account</li>
-                        <li><strong>Verify servers running:</strong> Backend (port 5000), Frontend (port 3000), Hardhat (port 8545)</li>
+                        <li><strong>Check your Secure Vault</strong> to ensure it points to the correct network</li>
+                        <li><strong>Restart your browser session</strong> to clear cache</li>
+                        <li><strong>Verify administrative connectivity</strong> with the backend system</li>
                     </ol>
                 </div>
 
