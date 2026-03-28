@@ -44,6 +44,7 @@ function App() {
     const [user, setUser] = useState(null);
     const [isAdmin, setIsAdmin] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [fetchFailed, setFetchFailed] = useState(false);
 
     useEffect(() => {
         const syncUserWithDB = async () => {
@@ -51,6 +52,7 @@ function App() {
 
             if (isSignedIn) {
                 try {
+                    setFetchFailed(false);
                     // Pull the active high-security Clerk Session JWT
                     const sessionToken = await getToken();
                     // Inject into local storage for the legacy authService headers to use safely
@@ -65,6 +67,7 @@ function App() {
                     }
                 } catch (err) {
                     console.error('Failed to sync DB user with Clerk Session:', err);
+                    setFetchFailed(true);
                 }
             } else {
                 // If Clerk signs out, purge the local state immediately
@@ -151,11 +154,36 @@ function App() {
         }
     };
 
+    // Retry handler for when backend is waking up
+    const retryFetch = () => {
+        setLoading(true);
+        setFetchFailed(false);
+        // Re-trigger the sync effect
+        window.location.reload();
+    };
+
     if (loading) {
         return (
-            <div className="loading-container" style={{ minHeight: '100vh' }}>
+            <div className="loading-container" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                 <div className="spinner"></div>
-                <p style={{ color: '#555', marginTop: '1rem' }}>Loading Bharat E-Vote Portal...</p>
+                <p style={{ color: '#555', marginTop: '1rem', fontSize: '1.1rem' }}>Connecting to Bharat E-Vote Portal...</p>
+                <p style={{ color: '#999', marginTop: '0.5rem', fontSize: '0.85rem' }}>This may take up to 60 seconds on first load</p>
+            </div>
+        );
+    }
+
+    // If the backend is unreachable, show a retry screen instead of wrongly redirecting to onboarding
+    if (isSignedIn && !user && fetchFailed) {
+        return (
+            <div className="loading-container" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '2rem' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
+                <h2 style={{ color: '#333', marginBottom: '0.5rem', fontSize: '1.5rem' }}>Server is Starting Up</h2>
+                <p style={{ color: '#666', maxWidth: '400px', lineHeight: '1.6', marginBottom: '1.5rem' }}>
+                    The backend server is waking up from sleep mode. This typically takes 30-60 seconds on the first visit.
+                </p>
+                <button onClick={retryFetch} style={{ padding: '12px 32px', fontSize: '1rem', backgroundColor: '#162a5c', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    🔄 Retry Connection
+                </button>
             </div>
         );
     }
@@ -174,7 +202,7 @@ function App() {
                             element={
                                 isAdmin ? <Navigate to="/admin" replace /> :
                                 (isSignedIn && user) ? <Navigate to="/dashboard" replace /> :
-                                (isSignedIn && !user) ? <Navigate to="/onboarding" replace /> :
+                                (isSignedIn && !user && !fetchFailed) ? <Navigate to="/onboarding" replace /> :
                                 <LandingPage user={user} />
                             }
                         />
@@ -184,7 +212,7 @@ function App() {
                             path="/login"
                             element={
                                 (isSignedIn && user) ? <Navigate to="/dashboard" replace /> :
-                                (isSignedIn && !user) ? <Navigate to="/onboarding" replace /> :
+                                (isSignedIn && !user && !fetchFailed) ? <Navigate to="/onboarding" replace /> :
                                 <LoginPage />
                             }
                         />
@@ -194,7 +222,7 @@ function App() {
                             path="/signup"
                             element={
                                 (isSignedIn && user) ? <Navigate to="/dashboard" replace /> :
-                                (isSignedIn && !user) ? <Navigate to="/onboarding" replace /> :
+                                (isSignedIn && !user && !fetchFailed) ? <Navigate to="/onboarding" replace /> :
                                 <SignupPage />
                             }
                         />
