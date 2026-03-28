@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+
 const AuditLogs = () => {
     const { getToken } = useAuth();
     const [logs, setLogs] = useState([]);
@@ -10,7 +12,7 @@ const AuditLogs = () => {
         const fetchLogs = async () => {
             try {
                 const token = await getToken();
-                const res = await fetch('http://localhost:5000/api/v1/admin/audit', {
+                const res = await fetch(`${API_URL}/admin/audit`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();

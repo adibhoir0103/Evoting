@@ -28,7 +28,7 @@ function AdminPanel() {
              // but if we are using Clerk, we fetch DB token using getSession
             const token = localStorage.getItem('token');
             try {
-                const res = await fetch('http://localhost:5000/api/v1/admin/stats', {
+                const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1'}/admin/stats`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (res.ok) {

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+
 const VoterRolls = () => {
     const { getToken } = useAuth();
     const [elections, setElections] = useState([]);
@@ -12,7 +14,7 @@ const VoterRolls = () => {
     useEffect(() => {
         const fetchElections = async () => {
             const token = await getToken();
-            const res = await fetch('http://localhost:5000/api/v1/admin/elections', {
+            const res = await fetch(`${API_URL}/admin/elections`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
@@ -36,7 +38,7 @@ const VoterRolls = () => {
 
         try {
             const token = await getToken();
-            const res = await fetch(`http://localhost:5000/api/v1/admin/elections/${selectedElection}/voters/upload`, {
+            const res = await fetch(`${API_URL}/admin/elections/${selectedElection}/voters/upload`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`

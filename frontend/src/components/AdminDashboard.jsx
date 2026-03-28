@@ -128,7 +128,7 @@ function AdminDashboard({ account, onError }) {
             formData.append('file', csvFile);
 
             const token = await getToken();
-            const res = await fetch(`http://localhost:5000/api/v1/admin/elections/${targetElectionId}/voters/bulk`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1'}/admin/elections/${targetElectionId}/voters/bulk`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
                 body: formData

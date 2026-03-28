@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+
 const ElectionWizard = () => {
     const { getToken } = useAuth();
     const [elections, setElections] = useState([]);
@@ -10,7 +12,7 @@ const ElectionWizard = () => {
     const fetchElections = async () => {
         try {
             const token = await getToken();
-            const res = await fetch('http://localhost:5000/api/v1/admin/elections', {
+            const res = await fetch(`${API_URL}/admin/elections`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -32,7 +34,7 @@ const ElectionWizard = () => {
         e.preventDefault();
         try {
             const token = await getToken();
-            const res = await fetch('http://localhost:5000/api/v1/admin/elections', {
+            const res = await fetch(`${API_URL}/admin/elections`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -54,7 +56,7 @@ const ElectionWizard = () => {
     const updateStatus = async (id, status, reason = '') => {
         try {
             const token = await getToken();
-            const res = await fetch(`http://localhost:5000/api/v1/admin/elections/${id}/status`, {
+            const res = await fetch(`${API_URL}/admin/elections/${id}/status`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
