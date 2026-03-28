@@ -19,14 +19,27 @@ class BlockchainEventListener {
         this.provider = null;
         this.contract = null;
         // The deployed contract address (syncs with React client address)
-        this.contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; 
-        this.rpcUrl = process.env.RPC_URL || "ws://127.0.0.1:8545";
+        this.contractAddress = process.env.CONTRACT_ADDRESS || "0x5FbDB2315678afecb367f032d93F642f64180aa3"; 
+        this.rpcUrl = process.env.RPC_URL || (process.env.NODE_ENV === 'production' ? null : "ws://127.0.0.1:8545");
     }
 
     async init() {
+        if (!this.rpcUrl) {
+            console.log('⏭️ Skipping WebSocket EVM Listener in Production (No RPC_URL provided).');
+            return;
+        }
+
         try {
             // Attempt WebSocket connection for live persistent streaming
             this.provider = new ethers.WebSocketProvider(this.rpcUrl);
+            
+            // Prevent asymmetric unhandled socket panics from crashing Node.js
+            if (this.provider.websocket) {
+                this.provider.websocket.on('error', (e) => {
+                    console.error('⚠️ [EVM Socket Fallback]:', e.message);
+                });
+            }
+
             this.contract = new ethers.Contract(this.contractAddress, VotingABI, this.provider);
 
             console.log(`✅ Event-Driven Engine attached to EVM on ${this.rpcUrl}`);
