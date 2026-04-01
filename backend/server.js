@@ -210,9 +210,10 @@ const authenticateToken = [
     requireAuth(),
     async (req, res, next) => {
         try {
-            const auth_id = req.auth?.userId || req.auth?.claims?.sub;
+            const authPayload = typeof req.auth === 'function' ? req.auth() : req.auth;
+            const auth_id = authPayload?.userId || authPayload?.claims?.sub;
             if (!auth_id) {
-                console.error("Clerk Token Verification Failed. req.auth =", req.auth);
+                console.error("Clerk Token Verification Failed. authPayload =", authPayload);
                 return res.status(401).json({ error: 'Unauthorized: Invalid authentication session' });
             }
             const localUser = await prisma.user.findUnique({ where: { auth_id } });
@@ -268,10 +269,12 @@ app.put('/api/v1/user/profile', authenticateToken, async (req, res) => {
 app.post('/api/v1/auth/register-clerk', requireAuth(), async (req, res) => {
     try {
         const { fullname, voterId, aadhaarNumber, mobileNumber, stateCode, constituencyCode, email } = req.body;
-        const auth_id = req.auth?.userId || req.auth?.claims?.sub;
+        
+        const authPayload = typeof req.auth === 'function' ? req.auth() : req.auth;
+        const auth_id = authPayload?.userId || authPayload?.claims?.sub;
 
         if (!auth_id) {
-            console.error("Clerk Token Verification Failed in register. req.auth =", req.auth);
+            console.error("Clerk Token Verification Failed in register. authPayload =", authPayload);
             return res.status(401).json({ error: 'Unauthorized session' });
         }
 
