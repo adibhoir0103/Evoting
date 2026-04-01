@@ -8,8 +8,12 @@
         "@testing-library/jest-dom": "^5.17.0",
         "@testing-library/react": "^13.4.0",
         "@testing-library/user-event": "^13.5.0",
+        "@vitejs/plugin-react": "^6.0.1",
         "axios": "^1.14.0",
         "ethers": "^6.9.0",
+        "i18next": "^25.10.10",
+        "i18next-browser-languagedetector": "^8.2.1",
+        "i18next-http-backend": "^3.0.2",
         "jspdf": "^4.2.1",
         "jspdf-autotable": "^5.0.7",
         "posthog-js": "^1.363.6",
@@ -19,12 +23,12 @@
         "react-dropzone": "^15.0.0",
         "react-helmet-async": "^3.0.0",
         "react-hot-toast": "^2.6.0",
+        "react-i18next": "^17.0.0",
         "react-router-dom": "^6.30.3",
         "react-turnstile": "^1.1.5",
         "recharts": "^3.8.0",
-        "web-vitals": "^2.1.4",
-        "@vitejs/plugin-react": "^6.0.1",
-        "vite": "^8.0.2"
+        "vite": "^8.0.2",
+        "web-vitals": "^2.1.4"
     },
     "scripts": {
         "start": "vite",

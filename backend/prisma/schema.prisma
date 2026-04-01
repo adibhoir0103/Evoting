@@ -21,6 +21,7 @@ enum Role {
 enum ElectionStatus {
   DRAFT
   PUBLISHED
+  AWAITING_APPROVAL
   ACTIVE
   PAUSED
   CLOSED
@@ -158,4 +159,22 @@ model SupportTicket {
   admin_reply String?
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
+}
+
+model KeystrokeProfile {
+  id              Int      @id @default(autoincrement())
+  user_email      String
+  sample_count    Int      @default(0)
+  hold_times      String   @default("[]")   // JSON array of average hold times per key position
+  flight_times    String   @default("[]")   // JSON array of average inter-key delays
+  mean_speed      Float    @default(0)      // Overall average typing speed (chars/sec)
+  std_deviation   Float    @default(0)      // Standard deviation of timing pattern
+  is_enrolled     Boolean  @default(false)  // True after MIN_SAMPLES collected
+  last_verified   DateTime?
+  last_score      Float?                    // Last comparison score (0 = perfect match, higher = suspicious)
+  flagged_count   Int      @default(0)      // Number of times keystroke mismatch flagged
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@unique([user_email])
 }

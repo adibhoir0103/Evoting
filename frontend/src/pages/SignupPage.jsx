@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useSignUp } from '@clerk/clerk-react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import Turnstile from '../components/Turnstile';
 
 export default function SignupPage() {
     const { isLoaded, signUp, setActive } = useSignUp();
@@ -12,6 +13,7 @@ export default function SignupPage() {
     const [checkingOtp, setCheckingOtp] = useState(false);
     const [otpCode, setOtpCode] = useState('');
     const [loading, setLoading] = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState(null);
 
     const handleSignupWithPassword = async (e) => {
         e.preventDefault();
@@ -107,6 +109,9 @@ export default function SignupPage() {
             {/* Ambient Background Glows */}
             <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] bg-teal-500/20 dark:bg-teal-600/20 rounded-full blur-[150px] pointer-events-none animate-pulse"></div>
             <div className="absolute bottom-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-500/20 dark:bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none"></div>
+
+            {/* Invisible Turnstile Bot Protection */}
+            <Turnstile onVerify={setTurnstileToken} action="signup" />
 
             <div className="w-full max-w-md relative z-10 transition-all duration-500 mt-4">
                 

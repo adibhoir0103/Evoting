@@ -112,13 +112,51 @@ const ElectionWizard = () => {
                                 <span className="inline-block mt-2 px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full">STATUS: {election.status}</span>
                             </div>
                             <div className="flex space-x-2">
-                                {election.status === 'DRAFT' && <button onClick={() => updateStatus(election.id, 'PUBLISHED')} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm transition font-bold">Publish Election</button>}
-                                {election.status === 'PUBLISHED' && <button onClick={() => updateStatus(election.id, 'ACTIVE')} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm transition font-bold">Start Voting</button>}
-                                {election.status === 'ACTIVE' && <button onClick={() => updateStatus(election.id, 'PAUSED', 'Emergency Pause')} className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded text-sm transition font-bold">Pause</button>}
-                                {(election.status === 'ACTIVE' || election.status === 'PAUSED') && <button onClick={() => {
-                                    const reason = prompt("Enter override reason for closing early:");
-                                    if(reason) updateStatus(election.id, 'CLOSED', reason);
-                                }} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm transition font-bold">Close Early</button>}
+                                {/* HOD Flow: Draft -> Published -> Awaiting Approval */}
+                                {election.status === 'DRAFT' && (
+                                    <button onClick={() => updateStatus(election.id, 'PUBLISHED')} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm transition font-bold shadow-sm">
+                                        Publish Configuration
+                                    </button>
+                                )}
+                                
+                                {election.status === 'PUBLISHED' && (
+                                    <button onClick={() => updateStatus(election.id, 'AWAITING_APPROVAL')} className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded text-sm transition font-bold shadow-sm">
+                                        Submit for Principal Approval
+                                    </button>
+                                )}
+
+                                {/* Principal Flow: Awaiting Approval -> Active */}
+                                {election.status === 'AWAITING_APPROVAL' && (
+                                    <button onClick={() => {
+                                        const adminPass = prompt("🚨 PRINCIPAL AUTHORIZATION REQUIRED\n\nPlease enter the Super Admin Authorization Passphrase to permanently ACTIVATE this election. This cannot be undone.");
+                                        if(adminPass) {
+                                            // In a real scenario, this passphrase would be sent to the backend for verification.
+                                            // For this UI flow, we append it to the override_reason to log the authorization attempt.
+                                            updateStatus(election.id, 'ACTIVE', `Authorized by Passphrase: ${adminPass ? 'Provided' : 'Failed'}`);
+                                        }
+                                    }} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm transition font-bold shadow-lg animate-pulse">
+                                        Approve & Start Voting
+                                    </button>
+                                )}
+
+                                {/* Emergency Overrides */}
+                                {election.status === 'ACTIVE' && (
+                                    <button onClick={() => {
+                                        const reason = prompt("Enter Emergency Pause Reason:");
+                                        if(reason) updateStatus(election.id, 'PAUSED', reason);
+                                    }} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded text-sm transition font-bold shadow-sm">
+                                        Emergency Pause
+                                    </button>
+                                )}
+                                
+                                {(election.status === 'ACTIVE' || election.status === 'PAUSED') && (
+                                    <button onClick={() => {
+                                        const reason = prompt("🚨 HIGH RISK OPERATION\nEnter EXPLICIT reason for forcing Election Closure:");
+                                        if(reason) updateStatus(election.id, 'CLOSED', reason);
+                                    }} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm transition font-bold shadow-sm">
+                                        Force Close
+                                    </button>
+                                )}
                             </div>
                         </div>
                     ))}

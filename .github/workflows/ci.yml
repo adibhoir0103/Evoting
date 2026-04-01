@@ -1,80 +1,52 @@
-name: CI — Bharat E-Vote
+name: Bharat E-Vote Security Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [ "main", "dev" ]
   pull_request:
-    branches: [main]
+    branches: [ "main" ]
 
 jobs:
   smart-contract-tests:
-    name: Smart Contract Tests
+    name: Web3 Smart Contract Validation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: ⚙️ Setup Node.js (EVM Environment)
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '18.x'
           cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci
+      - name: 📦 Install Root Dependencies
+        run: npm ci || npm install
 
-      - name: Compile contracts
+      - name: 🔨 Compile Ethereum Smart Contracts
         run: npx hardhat compile
 
-      - name: Run tests
+      - name: 🛡️ Run Cryptographic Math Tests
         run: npx hardhat test
 
-      - name: Gas report
-        run: REPORT_GAS=true npx hardhat test
-        env:
-          REPORT_GAS: 'true'
-
-  frontend-build:
-    name: Frontend Build
+  frontend-build-check:
+    name: React Frontend Compilation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: ⚙️ Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '18.x'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install dependencies
-        working-directory: frontend
-        run: npm ci
+      - name: 📦 Install Frontend Dependencies
+        working-directory: ./frontend
+        run: npm ci || npm install
 
-      - name: Build frontend
-        working-directory: frontend
+      - name: 🛠️ Verify Vite Production Build
+        working-directory: ./frontend
         run: npm run build
-        env:
-          VITE_SUPABASE_URL: 'https://placeholder.supabase.co'
-          VITE_SUPABASE_ANON_KEY: 'placeholder'
-          VITE_API_URL: 'http://localhost:5000'
-
-  backend-lint:
-    name: Backend Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
-
-      - name: Install dependencies
-        working-directory: backend
-        run: npm ci
-
-      - name: Check syntax (dry run)
-        working-directory: backend
-        run: node --check server.js

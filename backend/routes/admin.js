@@ -12,13 +12,23 @@ const emailService = require('../services/emailService');
 // Configure Multer for CSV Uploads
 const upload = multer({ dest: 'uploads/' });
 
-// Custom Middleware: Check if user is an Admin
+// Custom Middleware: Check if user is an Admin or Auditor
 const isAdmin = async (req, res, next) => {
     try {
         if (!req.auth || !req.auth.userId) return res.status(401).json({ error: 'Unauthorized' });
         const user = await prisma.user.findUnique({ where: { auth_id: req.auth.userId } });
         
-        if (!user || (user.role !== 'SUPER_ADMIN' && user.role !== 'ELECTION_OFFICER')) {
+        const adminRoles = ['SUPER_ADMIN', 'ELECTION_OFFICER'];
+        const readOnlyRoles = ['AUDITOR'];
+        const isReadRequest = req.method === 'GET';
+
+        // AUDITOR can only access GET (read-only) endpoints
+        if (user && readOnlyRoles.includes(user.role) && isReadRequest) {
+            req.adminUser = user;
+            return next();
+        }
+
+        if (!user || !adminRoles.includes(user.role)) {
             // Log unauthorized access attempt
              await prisma.adminAuditLog.create({
                 data: {
@@ -79,16 +89,33 @@ router.post('/elections', async (req, res) => {
 });
 
 // Update election status (Publish, Pause, Close)
+// HOD→Principal Approval Flow: Only SUPER_ADMIN can move to ACTIVE
 router.patch('/elections/:id/status', async (req, res) => {
     try {
         const { id } = req.params;
         const { status, override_reason } = req.body;
         
-        const validStatuses = ['DRAFT', 'PUBLISHED', 'ACTIVE', 'PAUSED', 'CLOSED', 'ARCHIVED'];
+        const validStatuses = ['DRAFT', 'PUBLISHED', 'AWAITING_APPROVAL', 'ACTIVE', 'PAUSED', 'CLOSED', 'ARCHIVED'];
         if (!validStatuses.includes(status)) return res.status(400).json({ error: 'Invalid status' });
 
         const election = await prisma.election.findUnique({ where: { id: parseInt(id) } });
         if (!election) return res.status(404).json({ error: 'Election not found' });
+
+        // ===== HOD → PRINCIPAL APPROVAL GATE =====
+        // ELECTION_OFFICER (HOD) can only draft and submit for approval
+        // SUPER_ADMIN (Principal) is required to activate the election
+        if (status === 'ACTIVE' && req.adminUser.role !== 'SUPER_ADMIN') {
+            await logAction(req.adminUser.email, 'ACTIVATION_DENIED', `Election Officer attempted to activate Election ${id} without Principal approval`, req.ip);
+            return res.status(403).json({ 
+                error: 'Activation Denied: Only the Super Admin (Principal) can activate an election. Please submit for approval first.',
+                requiredAction: 'AWAITING_APPROVAL'
+            });
+        }
+
+        // ELECTION_OFFICER must submit for approval before activation
+        if (status === 'AWAITING_APPROVAL' && election.status !== 'PUBLISHED') {
+            return res.status(400).json({ error: 'Election must be in PUBLISHED state before submitting for approval.' });
+        }
 
         // TIME-LOCK HEURISTIC: No critical configuration changes allowed within 60 minutes of start_time
         // Only exceptions: Admin emergency PAUSE or CLOSE
@@ -113,7 +140,7 @@ router.patch('/elections/:id/status', async (req, res) => {
             data: { status }
         });
 
-        await logAction(req.adminUser.email, `UPDATE_ELECTION_STATUS_${status}`, `Election ${id} updated to ${status}. Reason: ${override_reason || 'Standard lifecycle'}`, req.ip);
+        await logAction(req.adminUser.email, `UPDATE_ELECTION_STATUS_${status}`, `Election ${id} updated to ${status}. Reason: ${override_reason || 'Standard lifecycle'}. Approver Role: ${req.adminUser.role}`, req.ip);
         res.json(updatedElection);
     } catch (err) {
         console.error(err);
@@ -337,30 +364,77 @@ router.get('/audit', async (req, res) => {
     }
 });
 
-// Broadcast Email to Election Voters
+// Broadcast Email to Election Voters (via QStash for reliability)
 router.post('/elections/:id/notify', async (req, res) => {
     try {
         const { subject, body } = req.body;
         const electionId = parseInt(req.params.id);
+        const qStashWorker = require('../services/qStashWorker');
         
         const voters = await prisma.electionVoter.findMany({
             where: { election_id: electionId },
             include: { user: true }
         });
         
-        let sent = 0;
+        let queued = 0;
         for (const v of voters) {
             if (v.user && v.user.email) {
-                await emailService.sendBroadcastEmail(v.user.email, v.user.fullname, subject, body);
-                sent++;
+                qStashWorker.publish('send_broadcast', {
+                    email: v.user.email,
+                    fullname: v.user.fullname,
+                    subject,
+                    body
+                });
+                queued++;
             }
         }
         
-        await logAction(req.adminUser.email, 'BROADCAST_EMAIL', `Dispatched notification "${subject}" to ${sent} voters in Election ${electionId}`, req.ip);
-        res.json({ message: 'Broadcast complete', stats: { totalVoters: voters.length, emailsSent: sent } });
+        await logAction(req.adminUser.email, 'BROADCAST_EMAIL', `Queued notification "${subject}" to ${queued} voters in Election ${electionId} via QStash`, req.ip);
+        res.json({ message: 'Broadcast queued', stats: { totalVoters: voters.length, emailsQueued: queued } });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Broadcast failed' });
+    }
+});
+
+// ==========================================
+// ADMIN STATS (Dashboard Overview)
+// ==========================================
+
+// Get system-wide statistics for admin overview dashboard
+router.get('/stats', async (req, res) => {
+    try {
+        const [totalUsers, votedUsers, totalElections, activeElections, pendingApprovals] = await Promise.all([
+            prisma.user.count({ where: { role: 'VOTER' } }),
+            prisma.user.count({ where: { role: 'VOTER', has_voted: true } }),
+            prisma.election.count(),
+            prisma.election.count({ where: { status: 'ACTIVE' } }),
+            prisma.election.count({ where: { status: 'AWAITING_APPROVAL' } })
+        ]);
+
+        const totalVotes = await prisma.vote.count();
+        const votingPercentage = totalUsers > 0 ? ((votedUsers / totalUsers) * 100).toFixed(1) : 0;
+
+        // Recent audit trail (last 10 events)
+        const recentAudit = await prisma.adminAuditLog.findMany({
+            orderBy: { created_at: 'desc' },
+            take: 10,
+            select: { action: true, admin_email: true, created_at: true, details: true }
+        });
+
+        res.json({
+            totalUsers,
+            votedUsers,
+            totalVotes,
+            votingPercentage: parseFloat(votingPercentage),
+            totalElections,
+            activeElections,
+            pendingApprovals,
+            recentAudit
+        });
+    } catch (err) {
+        console.error('Stats error:', err);
+        res.status(500).json({ error: 'Failed to fetch stats' });
     }
 });
 

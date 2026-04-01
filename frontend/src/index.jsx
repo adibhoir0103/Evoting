@@ -5,6 +5,7 @@ import posthog from 'posthog-js';
 import { HelmetProvider } from 'react-helmet-async';
 import { ClerkProvider } from '@clerk/clerk-react';
 import './index.css';
+import './i18n'; // Global i18n initialization
 import App from './App';
 
 // Import your publishable key

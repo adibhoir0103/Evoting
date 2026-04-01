@@ -266,14 +266,9 @@ function ResultsPage() {
                         <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
                             <i className="fa-solid fa-chart-bar text-primary mr-2"></i>
                             Vote Distribution {selectedState > 0 ? `— ${getStateName(selectedState)}` : ''}
+                            {votingActive && <span className="ml-3 text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded border border-red-200 uppercase tracking-widest font-black flex items-center gap-1"><span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping"></span>Live</span>}
                         </h3>
-                        {votingActive ? (
-                            <div className="flex flex-col items-center justify-center h-[300px] text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                                <i className="fa-solid fa-lock text-5xl mb-4 text-gray-400"></i>
-                                <p className="font-bold text-lg">Cryptographic Vault Sealed</p>
-                                <p className="text-sm mt-1 text-center px-4">Individual candidate tallies are strictly suppressed until the Election is officially CLOSED.</p>
-                            </div>
-                        ) : chartData.length > 0 ? (
+                        {chartData.length > 0 ? (
                             <ResponsiveContainer width="100%" height={300}>
                                 <BarChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -303,15 +298,9 @@ function ResultsPage() {
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                         <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
                             <i className="fa-solid fa-ranking-star text-accent-saffron mr-2"></i>
-                            Candidate Leaderboard {votingActive ? '' : `(${filteredCandidates.length})`}
+                            Candidate Leaderboard ({filteredCandidates.length})
+                            {votingActive && <span className="ml-3 text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded border border-red-200 uppercase tracking-widest font-black flex items-center gap-1"><span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping"></span>Live</span>}
                         </h3>
-                        {votingActive ? (
-                            <div className="flex flex-col items-center justify-center h-[300px] text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                                <i className="fa-solid fa-user-secret text-5xl mb-4 text-gray-400"></i>
-                                <p className="font-bold text-lg">Secrecy Maintained</p>
-                                <p className="text-sm mt-1 text-center px-4">Leaderboard rankings are hidden during the ACTIVE voting window to prevent voter bias.</p>
-                            </div>
-                        ) : (
                         <div className="space-y-3 max-h-[340px] overflow-y-auto" role="list" aria-label="Candidate rankings">
                             {[...filteredCandidates].sort((a, b) => Number(b.voteCount) - Number(a.voteCount)).map((c, idx) => {
                                 const totalFiltered = filteredCandidates.reduce((s, x) => s + Number(x.voteCount), 0);
@@ -341,12 +330,11 @@ function ResultsPage() {
                                 </div>
                             )}
                         </div>
-                        )}
                     </div>
                 </div>
 
                 {/* State-wise Breakdown Table */}
-                {!votingActive && selectedState === 0 && stateBreakdown().length > 0 && (
+                {selectedState === 0 && stateBreakdown().length > 0 && (
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-8">
                         <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
                             <i className="fa-solid fa-map-location-dot text-primary mr-2"></i>

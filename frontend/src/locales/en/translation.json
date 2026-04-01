@@ -1,0 +1,20 @@
+{
+  "nav": {
+    "home": "Home",
+    "onboarding": "Onboarding",
+    "dashboard": "Voter Dashboard",
+    "voting": "Cast Vote",
+    "results": "Results",
+    "admin": "Admin Panel",
+    "welcome": "Welcome",
+    "logout": "Secure Logout",
+    "language": "Language"
+  },
+  "hero": {
+    "title": "Decentralized Government Election Portal",
+    "subtitle": "Secured by zero-knowledge proofs and blockchain transparency. Vote with absolute confidence in the integrity of the democratic process.",
+    "login": "Secure Login via Clerk",
+    "createAccount": "Create Voter Account",
+    "verifyEpic": "Verify EPIC ID →"
+  }
+}

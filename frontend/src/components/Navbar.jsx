@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { authService } from '../services/authService';
 
 function Navbar({ user, onLogout, isAdmin }) {
@@ -11,6 +12,11 @@ function Navbar({ user, onLogout, isAdmin }) {
     const dropdownRef = useRef(null);
     const location = useLocation();
     const navigate = useNavigate();
+    const { t, i18n } = useTranslation();
+
+    const changeLanguage = (lng) => {
+        i18n.changeLanguage(lng);
+    };
 
     useEffect(() => {
         if (toastMessage) {
@@ -81,8 +87,22 @@ function Navbar({ user, onLogout, isAdmin }) {
                         </div>
                     </div>
                     
-                    {/* Right: Accessibility Controls */}
+                    {/* Right: Accessibility Controls & Language */}
                     <div className="flex items-center gap-3 sm:gap-4">
+                        {/* Language Toggler */}
+                        <div className="flex items-center">
+                            <i className="fa-solid fa-language text-accent-saffron mr-1.5 text-sm"></i>
+                            <select 
+                                className="bg-slate-800 border-none text-white text-[10px] md:text-xs font-semibold py-0.5 pl-1 pr-6 rounded focus:ring-1 focus:ring-accent-saffron cursor-pointer"
+                                onChange={(e) => changeLanguage(e.target.value)}
+                                value={i18n.language || 'en'}
+                                aria-label="Select Language"
+                            >
+                                <option value="en">English</option>
+                                <option value="hi">हिंदी (Hindi)</option>
+                                <option value="mr">मराठी (Marathi)</option>
+                            </select>
+                        </div>
                         <span className="hidden lg:inline text-gray-400 font-medium">Screen Reader Access</span>
                         
                         {/* Font Resizer */}
@@ -153,28 +173,26 @@ function Navbar({ user, onLogout, isAdmin }) {
 
                         {/* Desktop Navigation */}
                         <nav aria-label="Desktop Navigation" className="hidden md:flex items-center space-x-6">
-                            <Link to="/" className={navLinkClass('/')}>Home</Link>
-                            <Link to="/guidelines" className={navLinkClass('/guidelines')}>Guidelines</Link>
-                            <Link to="/help" className={navLinkClass('/help')}>Help</Link>
+                            <Link to="/" className={navLinkClass('/')}>{t('nav.home')}</Link>
+                            <Link to="/guidelines" className={navLinkClass('/guidelines')}>{t('nav.onboarding')}</Link>
                             <Link to="/results" className={navLinkClass('/results')}>
-                                <i className="fa-solid fa-chart-column mr-1"></i>Results
+                                <i className="fa-solid fa-chart-column mr-1"></i>{t('nav.results')}
                             </Link>
                             
                             {/* Voter-specific links */}
                             {isLoggedIn && user && !isAdminUser && (
                                 <>
-                                    <Link to="/dashboard" className={navLinkClass('/dashboard')}>Dashboard</Link>
+                                    <Link to="/dashboard" className={navLinkClass('/dashboard')}>{t('nav.dashboard')}</Link>
                                     <Link to="/vote" className={navLinkClass('/vote')}>
-                                        <i className="fa-solid fa-vote-yea mr-1"></i>Vote
+                                        <i className="fa-solid fa-vote-yea mr-1"></i>{t('nav.voting')}
                                     </Link>
-                                    <Link to="/candidates" className={navLinkClass('/candidates')}>Candidates</Link>
                                 </>
                             )}
 
                             {/* Admin-specific links */}
                             {isAdminUser && (
                                 <Link to="/admin-panel" className={`text-sm font-semibold hover:text-red-600 transition-colors flex items-center gap-1.5 ${location.pathname === '/admin-panel' ? 'text-red-600 border-b-2 border-red-500 pb-1' : 'text-gray-600'}`}>
-                                    <i className="fa-solid fa-user-shield text-red-500"></i>Admin Panel
+                                    <i className="fa-solid fa-user-shield text-red-500"></i>{t('nav.admin')}
                                 </Link>
                             )}
 
@@ -199,7 +217,7 @@ function Navbar({ user, onLogout, isAdmin }) {
                                         </div>
                                     </div>
                                     <button onClick={onLogout} className="btn-secondary py-1.5 px-4 text-sm">
-                                        <i className="fa-solid fa-arrow-right-from-bracket mr-2"></i>Logout
+                                        <i className="fa-solid fa-arrow-right-from-bracket mr-2"></i>{t('nav.logout')}
                                     </button>
                                 </div>
                             ) : (
@@ -237,21 +255,19 @@ function Navbar({ user, onLogout, isAdmin }) {
                     {/* Mobile Menu */}
                     {mobileMenuOpen && (
                         <nav id="mobile-menu" aria-label="Mobile Navigation" className="md:hidden absolute top-full left-0 w-full bg-white shadow-xl border-t border-gray-200 py-4 px-4 space-y-2 z-50">
-                            <Link to="/" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Home</Link>
-                            <Link to="/guidelines" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Guidelines</Link>
-                            <Link to="/help" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Help</Link>
-                            <Link to="/results" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-chart-column mr-2"></i>Results</Link>
+                            <Link to="/" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">{t('nav.home')}</Link>
+                            <Link to="/guidelines" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">{t('nav.onboarding')}</Link>
+                            <Link to="/results" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-chart-column mr-2"></i>{t('nav.results')}</Link>
                             
                             {isLoggedIn && user && !isAdminUser && (
                                 <>
-                                    <Link to="/dashboard" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Dashboard</Link>
-                                    <Link to="/vote" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-vote-yea mr-2"></i>Vote</Link>
-                                    <Link to="/candidates" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Candidates</Link>
+                                    <Link to="/dashboard" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">{t('nav.dashboard')}</Link>
+                                    <Link to="/vote" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-vote-yea mr-2"></i>{t('nav.voting')}</Link>
                                 </>
                             )}
 
                             {isAdminUser && (
-                                <Link to="/admin-panel" className="block px-3 py-2 rounded text-sm font-semibold text-red-600 hover:bg-red-50"><i className="fa-solid fa-user-shield mr-2"></i>Admin Panel</Link>
+                                <Link to="/admin-panel" className="block px-3 py-2 rounded text-sm font-semibold text-red-600 hover:bg-red-50"><i className="fa-solid fa-user-shield mr-2"></i>{t('nav.admin')}</Link>
                             )}
 
                             <div className="border-t border-gray-200 pt-3 mt-3">

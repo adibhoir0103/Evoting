@@ -39,7 +39,7 @@ import { useUser, useAuth } from '@clerk/clerk-react';
 
 function App() {
     const { isLoaded, isSignedIn, user: clerkUser } = useUser();
-    const { getToken } = useAuth();
+    const { getToken, signOut } = useAuth();
 
     const [user, setUser] = useState(null);
     const [isAdmin, setIsAdmin] = useState(false);
@@ -193,7 +193,7 @@ function App() {
             <ActivityMonitor>
                 <Toaster position="bottom-right" toastOptions={{ duration: 4000, style: { background: '#333', color: '#fff' } }} />
                 <div className="flex flex-col min-h-screen bg-watermark">
-                    <Navbar user={user} onLogout={() => { signOut(); authService.logout(); }} isAdmin={isAdmin} />
+                    <Navbar user={user} onLogout={async () => { await signOut(); authService.logout(); setUser(null); setIsAdmin(false); }} isAdmin={isAdmin} />
                     <main id="main-content" className="flex-grow focus:outline-none" tabIndex="-1">
                     <Routes>
                         {/* Landing Page - Redirect if logged in */}
@@ -202,7 +202,6 @@ function App() {
                             element={
                                 isAdmin ? <Navigate to="/admin" replace /> :
                                 (isSignedIn && user) ? <Navigate to="/dashboard" replace /> :
-                                (isSignedIn && !user && !fetchFailed) ? <Navigate to="/onboarding" replace /> :
                                 <LandingPage user={user} />
                             }
                         />

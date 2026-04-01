@@ -232,6 +232,87 @@ function VotingPage({ user, onUserUpdate }) {
         }
     };
 
+    // ===== PDF VOTE RECEIPT GENERATOR =====
+    const generateVoteReceipt = () => {
+        try {
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            
+            // Header
+            doc.setFillColor(0, 51, 102);
+            doc.rect(0, 0, pageWidth, 40, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(20);
+            doc.setFont('helvetica', 'bold');
+            doc.text('BHARAT E-VOTE', pageWidth / 2, 18, { align: 'center' });
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.text('Official Digital Vote Receipt — Election Commission of India', pageWidth / 2, 28, { align: 'center' });
+            doc.text('Secured by Zero-Knowledge Blockchain Cryptography', pageWidth / 2, 35, { align: 'center' });
+
+            // Body
+            doc.setTextColor(0, 0, 0);
+            let y = 55;
+
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Vote Confirmation Receipt', 20, y); y += 12;
+
+            doc.setDrawColor(0, 51, 102);
+            doc.setLineWidth(0.5);
+            doc.line(20, y, pageWidth - 20, y); y += 10;
+
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'normal');
+            const details = [
+                ['Voter Name:', user?.fullname || 'N/A'],
+                ['Voter ID:', user?.voterId || 'N/A'],
+                ['Wallet Address:', walletAddress || 'N/A'],
+                ['Transaction Hash:', txHash || 'N/A'],
+                ['Constituency:', voterConstituencyInfo ? `State ${voterConstituencyInfo.stateCode} — Constituency ${voterConstituencyInfo.constituencyCode}` : 'National'],
+                ['Timestamp:', new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })],
+                ['Election:', 'General Election 2026'],
+                ['Verification:', 'Blockchain-Immutable, Zero-Knowledge Verified']
+            ];
+
+            for (const [label, value] of details) {
+                doc.setFont('helvetica', 'bold');
+                doc.text(label, 20, y);
+                doc.setFont('helvetica', 'normal');
+                const lines = doc.splitTextToSize(value, pageWidth - 85);
+                doc.text(lines, 65, y);
+                y += (lines.length * 6) + 4;
+            }
+
+            y += 5;
+            doc.setDrawColor(0, 51, 102);
+            doc.line(20, y, pageWidth - 20, y); y += 10;
+
+            // Security Notice
+            doc.setFillColor(240, 249, 255);
+            doc.roundedRect(20, y, pageWidth - 40, 30, 3, 3, 'F');
+            doc.setFontSize(9);
+            doc.setTextColor(0, 51, 102);
+            doc.text('SECURITY NOTICE', 25, y + 8);
+            doc.setTextColor(80, 80, 80);
+            doc.setFontSize(8);
+            doc.text('This receipt proves your participation without revealing your vote choice.', 25, y + 15);
+            doc.text('Your vote is encrypted on the Ethereum blockchain and cannot be altered or deleted.', 25, y + 21);
+            doc.text('Verify this transaction at: https://etherscan.io/tx/' + (txHash || ''), 25, y + 27);
+
+            // Footer
+            const footerY = doc.internal.pageSize.getHeight() - 20;
+            doc.setFontSize(8);
+            doc.setTextColor(150, 150, 150);
+            doc.text(`Generated: ${new Date().toISOString()} | Bharat E-Vote v2.0 | Jai Hind!`, pageWidth / 2, footerY, { align: 'center' });
+
+            doc.save(`BharatEVote_Receipt_${Date.now()}.pdf`);
+        } catch (err) {
+            console.error('PDF generation failed:', err);
+            setError('Failed to generate receipt. Please try again.');
+        }
+    };
+
     // ===== ZKP COMPULSORY VERIFICATION SCREEN =====
     if (showVerification && zkpVoteData) {
         return (
@@ -275,9 +356,6 @@ function VotingPage({ user, onUserUpdate }) {
                     <p className="text-gray-500 text-sm">
                         Results will be declared after polls close at 6:00 PM as per Election Commission guidelines.
                     </p>
-                    <div className="mt-6 pt-5 border-t border-gray-200">
-                        <p className="text-gray-400 text-sm">Jai Hind! 🇮🇳</p>
-                    </div>
                     <div className="mt-6 pt-5 border-t border-gray-200">
                         <p className="text-gray-400 text-sm">Jai Hind! 🇮🇳</p>
                     </div>

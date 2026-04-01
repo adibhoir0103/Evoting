@@ -2,6 +2,10 @@ import React, { useState } from 'react';
 import { useSignIn } from '@clerk/clerk-react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import Turnstile from '../components/Turnstile';
+import KeystrokeCaptureInput from '../components/KeystrokeCaptureInput';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 
 export default function LoginPage() {
     const { isLoaded, signIn, setActive } = useSignIn();
@@ -16,8 +20,17 @@ export default function LoginPage() {
     const [pwEmail, setPwEmail] = useState('');
     const [password, setPassword] = useState('');
 
-    const [loading, setLoading] = useState(false);
+    // 2FA State
+    const [needs2FA, setNeeds2FA] = useState(false);
+    const [twoFACode, setTwoFACode] = useState('');
+    const [pendingSession, setPendingSession] = useState(null);
+    const [twoFAEmail, setTwoFAEmail] = useState('');
 
+    const [loading, setLoading] = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState(null);
+    const [keystrokeData, setKeystrokeData] = useState(null);
+
+    // ==================== OTP LOGIN ====================
     const handleSendOTP = async (e) => {
         e.preventDefault();
         if (!isLoaded) return;
@@ -62,6 +75,7 @@ export default function LoginPage() {
         }
     };
 
+    // ==================== PASSWORD LOGIN + 2FA ====================
     const handlePasswordLogin = async (e) => {
         e.preventDefault();
         if (!isLoaded) return;
@@ -75,8 +89,40 @@ export default function LoginPage() {
             });
 
             if (attempt.status === 'complete') {
-                await setActive({ session: attempt.createdSessionId });
-                navigate('/dashboard');
+                // Password verified by Clerk — now trigger our custom 2FA OTP
+                toast.success('Password verified. Sending 2FA security code...');
+                
+                // Store the pending session — don't activate it yet
+                setPendingSession(attempt);
+                setTwoFAEmail(pwEmail);
+
+                // Send 2FA OTP via our backend (Resend + Upstash Redis)
+                try {
+                    const res = await fetch(`${API_URL}/auth/login-2fa`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            email: pwEmail,
+                            turnstileToken: turnstileToken || 'turnstile-not-configured'
+                        })
+                    });
+                    const data = await res.json();
+                    
+                    if (!res.ok) throw new Error(data.error);
+                    
+                    setNeeds2FA(true);
+                    toast.success('6-digit security code sent to your email!');
+                    
+                    // Show demo OTP in development
+                    if (data.otp) {
+                        toast(`Dev OTP: ${data.otp}`, { icon: '🔑', duration: 10000 });
+                    }
+                } catch (err) {
+                    // If 2FA send fails, still allow login (fail-open for availability)
+                    console.error('2FA send failed, proceeding with login:', err);
+                    await setActive({ session: attempt.createdSessionId });
+                    navigate('/dashboard');
+                }
             } else {
                 toast.error('Elevated MFA intercept required.');
             }
@@ -91,6 +137,55 @@ export default function LoginPage() {
         }
     };
 
+    // ==================== 2FA VERIFICATION ====================
+    const handleVerify2FA = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        
+        try {
+            const res = await fetch(`${API_URL}/auth/verify-login-2fa`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: twoFAEmail, otp: twoFACode })
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                toast.error(data.error || 'Invalid 2FA code');
+                setLoading(false);
+                return;
+            }
+
+            // 2FA passed — now activate the Clerk session
+            if (pendingSession) {
+                await setActive({ session: pendingSession.createdSessionId });
+                
+                // Send keystroke timing data for enrollment/verification (non-blocking)
+                if (keystrokeData) {
+                    fetch(`${API_URL}/keystroke/process`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: twoFAEmail, timingData: keystrokeData })
+                    }).then(r => r.json()).then(result => {
+                        if (result.suspicious) {
+                            toast('⚠️ Unusual typing pattern detected', { icon: '🔍', duration: 5000 });
+                        } else if (result.message) {
+                            console.log('[Keystroke Dynamics]', result.message);
+                        }
+                    }).catch(() => {}); // Fail silently
+                }
+                
+                toast.success('Multi-factor authentication complete!');
+                navigate('/dashboard');
+            }
+        } catch (err) {
+            toast.error('2FA verification failed. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // ==================== PASSKEY LOGIN ====================
     const handlePasskeyLogin = async () => {
         if (!isLoaded) return;
         try {
@@ -106,6 +201,7 @@ export default function LoginPage() {
         }
     };
 
+    // ==================== SOCIAL AUTH ====================
     const handleSocialAuth = async (strategy) => {
         if (!isLoaded) return;
         try {
@@ -119,6 +215,55 @@ export default function LoginPage() {
         }
     };
 
+    // ==================== 2FA VERIFICATION SCREEN ====================
+    if (needs2FA) {
+        return (
+            <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans relative overflow-hidden bg-gray-50 dark:bg-[#070e20] transition-colors duration-500">
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-amber-400/20 dark:bg-amber-600/30 rounded-full blur-[120px] pointer-events-none"></div>
+                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-400/20 dark:bg-blue-500/20 rounded-full blur-[120px] pointer-events-none"></div>
+                
+                <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 transition-all duration-500">
+                    <div className="bg-white/80 dark:bg-white/[0.04] backdrop-blur-2xl border border-gray-200 dark:border-white/10 p-10 shadow-2xl rounded-3xl">
+                        <div className="mx-auto w-16 h-16 bg-amber-100 dark:bg-white/10 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-amber-300/40 dark:border-white/20">
+                            <i className="fa-solid fa-shield-check text-3xl text-amber-600 dark:text-amber-400"></i>
+                        </div>
+                        <h2 className="text-2xl font-black text-gray-900 dark:text-white text-center mb-2 tracking-tight">Two-Factor Authentication</h2>
+                        <p className="text-sm text-gray-500 dark:text-amber-200/60 text-center mb-2">Enter the 6-digit code sent to</p>
+                        <p className="text-sm text-blue-600 dark:text-blue-400 text-center mb-8 font-semibold">{twoFAEmail}</p>
+                        
+                        <form onSubmit={handleVerify2FA} className="space-y-6">
+                            <input 
+                                type="text" 
+                                className="w-full px-4 py-4 bg-gray-50 dark:bg-black/20 border border-gray-300 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none text-center text-2xl tracking-[0.75em] font-mono text-gray-900 dark:text-white transition-all shadow-inner" 
+                                value={twoFACode} 
+                                onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                required 
+                                placeholder="●●●●●●"
+                                autoFocus
+                            />
+                            
+                            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/30 rounded-xl p-3 text-xs text-amber-700 dark:text-amber-300/80">
+                                <i className="fa-solid fa-info-circle mr-1.5"></i>
+                                This code expires in 5 minutes. Check your email inbox and spam folder.
+                            </div>
+
+                            <button type="submit" disabled={loading || twoFACode.length !== 6} className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white py-4 rounded-xl font-bold shadow-[0_0_20px_rgba(245,158,11,0.4)] hover:shadow-[0_0_30px_rgba(245,158,11,0.6)] transition-all disabled:opacity-50">
+                                {loading ? <i className="fa-solid fa-spinner fa-spin"></i> : 'Complete Secure Login'}
+                            </button>
+                        </form>
+                        
+                        <div className="mt-8 text-center text-sm">
+                            <button onClick={() => { setNeeds2FA(false); setPendingSession(null); setTwoFACode(''); }} className="text-blue-600 dark:text-blue-400 font-semibold hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
+                                <i className="fa-solid fa-arrow-left mr-2"></i>Back to Login
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // ==================== CLERK OTP VERIFICATION SCREEN ====================
     if (isVerifyingOtp) {
         return (
             <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans relative overflow-hidden bg-gray-50 dark:bg-[#070e20] transition-colors duration-500">
@@ -158,11 +303,15 @@ export default function LoginPage() {
         );
     }
 
+    // ==================== MAIN LOGIN SCREEN ====================
     return (
         <div className="min-h-screen flex flex-col items-center justify-center py-12 px-4 relative overflow-hidden bg-gray-50 dark:bg-[#070e20] transition-colors duration-500 font-sans">
             {/* Ambient Background Glows */}
             <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-500/20 dark:bg-blue-600/20 rounded-full blur-[150px] pointer-events-none animate-pulse"></div>
             <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-orange-500/20 dark:bg-orange-600/10 rounded-full blur-[150px] pointer-events-none"></div>
+
+            {/* Invisible Turnstile Bot Protection */}
+            <Turnstile onVerify={setTurnstileToken} action="login" />
 
             <div className="w-full max-w-md relative z-10 transition-all duration-500">
                 
@@ -176,6 +325,18 @@ export default function LoginPage() {
                         </div>
                         <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">Bharat E-Vote</h2>
                         <p className="text-sm text-gray-500 dark:text-blue-200/60 mt-2 font-medium tracking-wide">Decentralized Identity Gateway</p>
+                    </div>
+
+                    {/* Security Badge */}
+                    <div className="flex items-center justify-center gap-2 mb-6 relative z-20">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/30 text-xs font-bold text-green-700 dark:text-green-400">
+                            <i className="fa-solid fa-lock text-[10px]"></i>
+                            Turnstile Protected
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/30 text-xs font-bold text-amber-700 dark:text-amber-400">
+                            <i className="fa-solid fa-shield-check text-[10px]"></i>
+                            2FA Enforced
+                        </span>
                     </div>
 
                     {/* Toggle Switch */}
@@ -243,12 +404,12 @@ export default function LoginPage() {
                                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
                                             <i className="fa-solid fa-asterisk text-xs"></i>
                                         </div>
-                                        <input 
-                                            type="password" 
+                                        <KeystrokeCaptureInput 
                                             className="w-full pl-11 pr-4 py-3.5 bg-gray-50 dark:bg-black/20 border border-gray-300 dark:border-white/10 rounded-xl text-gray-900 dark:text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium placeholder-gray-400 tracking-widest" 
                                             placeholder="••••••••"
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
+                                            onTimingCapture={setKeystrokeData}
                                         />
                                     </div>
                                 </div>

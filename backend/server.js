@@ -22,9 +22,23 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { clerkMiddleware, requireAuth } = require('@clerk/express');
 const prisma = new PrismaClient();
+const otpService = require('./services/otpService');
+const { otpLimiterUpstash, authLimiterUpstash, zkpLimiterUpstash } = require('./services/rateLimiter');
 
 const blockchainListener = require('./services/blockchainListener');
 const qStashWorker = require('./services/qStashWorker');
+const ipfsService = require('./services/ipfsService');
+
+// Helper: Log Admin Action (used during admin login audit trail)
+async function logAdminAction(admin_email, action, details, ip_address) {
+    try {
+        await prisma.adminAuditLog.create({
+            data: { admin_email, action, details, ip_address }
+        });
+    } catch (err) {
+        console.error('Audit log write error:', err.message);
+    }
+}
 
 // Initialize Backend EVM WebSocket Listeners for real-time contract tracing
 blockchainListener.init();
@@ -196,7 +210,11 @@ const authenticateToken = [
     requireAuth(),
     async (req, res, next) => {
         try {
-            const auth_id = req.auth.userId;
+            const auth_id = req.auth?.userId || req.auth?.claims?.sub;
+            if (!auth_id) {
+                console.error("Clerk Token Verification Failed. req.auth =", req.auth);
+                return res.status(401).json({ error: 'Unauthorized: Invalid authentication session' });
+            }
             const localUser = await prisma.user.findUnique({ where: { auth_id } });
             
             if (!localUser) {
@@ -250,7 +268,12 @@ app.put('/api/v1/user/profile', authenticateToken, async (req, res) => {
 app.post('/api/v1/auth/register-clerk', requireAuth(), async (req, res) => {
     try {
         const { fullname, voterId, aadhaarNumber, mobileNumber, stateCode, constituencyCode, email } = req.body;
-        const auth_id = req.auth.userId;
+        const auth_id = req.auth?.userId || req.auth?.claims?.sub;
+
+        if (!auth_id) {
+            console.error("Clerk Token Verification Failed in register. req.auth =", req.auth);
+            return res.status(401).json({ error: 'Unauthorized session' });
+        }
 
         // Validation
         if (!fullname || !voterId || !email) {
@@ -364,8 +387,48 @@ app.post('/api/v1/user/link-wallet', authenticateToken, async (req, res) => {
 
 // ===================== VOTE ROUTES =====================
 
-// In-Memory Redis proxy replacing Upstash for strict TTL Token Generation
-const redisVoteTokens = new Map();
+// Upstash Redis for vote pre-flight tokens (persistent, survives server restarts)
+const { Redis: UpstashRedis } = require('@upstash/redis');
+let voteTokenRedis = null;
+const voteTokenFallback = new Map(); // In-memory fallback only if Upstash not configured
+
+if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    voteTokenRedis = new UpstashRedis({
+        url: process.env.UPSTASH_REDIS_REST_URL,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN
+    });
+    console.log('✅ Vote Pre-Flight Tokens: Upstash Redis connected');
+} else {
+    console.warn('⚠️  Vote Pre-Flight Tokens: Using in-memory fallback (no Upstash configured)');
+}
+
+async function storeVoteToken(auth_id, token) {
+    if (voteTokenRedis) {
+        await voteTokenRedis.set(`vote-token:${auth_id}`, JSON.stringify({ token }), { ex: 300 });
+    } else {
+        voteTokenFallback.set(auth_id, { token, expiresAt: Date.now() + 300000 });
+    }
+}
+
+async function getVoteToken(auth_id) {
+    if (voteTokenRedis) {
+        const data = await voteTokenRedis.get(`vote-token:${auth_id}`);
+        if (!data) return null;
+        return typeof data === 'string' ? JSON.parse(data) : data;
+    } else {
+        const entry = voteTokenFallback.get(auth_id);
+        if (!entry || Date.now() > entry.expiresAt) { voteTokenFallback.delete(auth_id); return null; }
+        return entry;
+    }
+}
+
+async function deleteVoteToken(auth_id) {
+    if (voteTokenRedis) {
+        await voteTokenRedis.del(`vote-token:${auth_id}`);
+    } else {
+        voteTokenFallback.delete(auth_id);
+    }
+}
 
 // Generate 5-minute single-use token (Pre-Flight Check)
 app.get('/api/v1/vote/pre-flight', requireAuth(), async (req, res) => {
@@ -380,9 +443,7 @@ app.get('/api/v1/vote/pre-flight', requireAuth(), async (req, res) => {
         if (user.has_voted) return res.status(400).json({ error: 'You have already voted' });
 
         const token = require('crypto').randomBytes(32).toString('hex');
-        const ttl = Date.now() + 5 * 60 * 1000; // 5 minutes validity
-        
-        redisVoteTokens.set(auth_id, { token, expiresAt: ttl });
+        await storeVoteToken(auth_id, token);
         res.json({ upstashToken: token });
     } catch (err) {
         console.error('Pre-flight error:', err);
@@ -400,18 +461,18 @@ app.post('/api/v1/vote/record', requireAuth(), verifyTurnstile, async (req, res)
             return res.status(400).json({ error: 'Transaction hash is required' });
         }
 
-        // 1. Upstash Redis Cache Check
-        const cacheEntry = redisVoteTokens.get(auth_id);
+        // 1. Upstash Redis Cache Check (persistent across restarts)
+        const cacheEntry = await getVoteToken(auth_id);
         if (!cacheEntry) {
             return res.status(403).json({ error: 'No pre-flight token session found. Access Denied.' });
         }
-        if (cacheEntry.token !== upstashToken || Date.now() > cacheEntry.expiresAt) {
-            redisVoteTokens.delete(auth_id);
+        if (cacheEntry.token !== upstashToken) {
+            await deleteVoteToken(auth_id);
             return res.status(403).json({ error: 'Pre-flight token invalid or expired. Access Denied.' });
         }
         
         // Burn the token instantly to prevent race conditions
-        redisVoteTokens.delete(auth_id);
+        await deleteVoteToken(auth_id);
 
         // Verify voter through Clerk backend UUID
         const user = await prisma.user.findUnique({
@@ -450,7 +511,24 @@ app.post('/api/v1/vote/record', requireAuth(), verifyTurnstile, async (req, res)
             });
         }
 
-        res.json({ message: 'Zero-Knowledge Vote securely recorded & QStash receipt enqueued' });
+        // Auto-pin vote metadata to IPFS for tamper-proof decentralized receipt
+        let ipfsHash = null;
+        try {
+            const ipfsResult = await ipfsService.pinVoteMetadata({
+                commitment: txHash, // Use tx hash as commitment for non-ZKP votes
+                nullifierHash: `voter-${user.voter_id}`,
+                timestamp: new Date().toISOString()
+            });
+            ipfsHash = ipfsResult.ipfsHash;
+            console.log(`📌 Vote IPFS pinned: ${ipfsHash}`);
+        } catch (ipfsErr) {
+            console.warn('IPFS pinning failed (non-blocking):', ipfsErr.message);
+        }
+
+        res.json({ 
+            message: 'Zero-Knowledge Vote securely recorded & QStash receipt enqueued',
+            ipfsHash: ipfsHash || null
+        });
     } catch (error) {
         console.error('Record vote error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -488,8 +566,201 @@ app.get('/api/v1/vote/receipt', authenticateToken, async (req, res) => {
     }
 });
 
-// ===================== AADHAAR OTP ROUTES =====================
-// Legacy OTP routes have been decommissioned and migrated securely to Clerk WebAuthn headless APIs.
+// ===================== OTP ROUTES (2FA + Password Reset) =====================
+
+// Send OTP (for 2FA after password login, or password reset)
+app.post('/api/v1/auth/send-otp', otpLimiter, otpLimiterUpstash, verifyTurnstile, async (req, res) => {
+    try {
+        const { email, purpose } = req.body;
+        if (!email) return res.status(400).json({ error: 'Email is required' });
+
+        const cleanEmail = email.trim().toLowerCase();
+
+        // For password-reset, verify user exists
+        if (purpose === 'password-reset') {
+            const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
+            if (!user) {
+                // Return success to prevent email enumeration attacks
+                return res.json({ message: 'If this email is registered, an OTP has been sent.' });
+            }
+        }
+
+        const result = await otpService.sendOTP(cleanEmail, cleanEmail, 'email');
+        
+        // Log delivery
+        await prisma.otpDeliveryLog.create({
+            data: {
+                recipient: cleanEmail,
+                purpose: purpose || 'login-2fa',
+                success: result.success
+            }
+        }).catch(() => {}); // Non-blocking
+
+        res.json({ 
+            message: result.message,
+            ...(result.demoOTP && { otp: result.demoOTP }) // Only in dev mode
+        });
+    } catch (error) {
+        console.error('Send OTP error:', error);
+        res.status(500).json({ error: 'Failed to send OTP' });
+    }
+});
+
+// Verify OTP (for 2FA after password login, or password reset)
+app.post('/api/v1/auth/verify-otp', otpLimiter, otpLimiterUpstash, verifyTurnstile, async (req, res) => {
+    try {
+        const { email, otp, purpose } = req.body;
+        if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
+
+        const cleanEmail = email.trim().toLowerCase();
+        const result = await otpService.verifyOTP(cleanEmail, otp);
+
+        if (!result.success) {
+            return res.status(400).json({ error: result.message });
+        }
+
+        // Log successful verification
+        await prisma.otpDeliveryLog.create({
+            data: {
+                recipient: cleanEmail,
+                purpose: `${purpose || 'login-2fa'}-verified`,
+                success: true
+            }
+        }).catch(() => {});
+
+        res.json({ message: result.message, verified: true });
+    } catch (error) {
+        console.error('Verify OTP error:', error);
+        res.status(500).json({ error: 'Failed to verify OTP' });
+    }
+});
+
+// Reset Password — OTP verified, then delegates actual password change to Clerk
+// We NEVER store passwords locally (password field is always null).
+// Frontend uses Clerk's reset_password_email_code strategy after this returns success.
+app.post('/api/v1/auth/reset-password', authLimiter, async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+        if (!email || !otp) {
+            return res.status(400).json({ error: 'Email and OTP are required' });
+        }
+
+        const cleanEmail = email.trim().toLowerCase();
+
+        // Verify OTP
+        const otpResult = await otpService.verifyOTP(cleanEmail, otp);
+        if (!otpResult.success) {
+            return res.status(400).json({ error: otpResult.message });
+        }
+
+        // Log successful verification for audit
+        await prisma.otpDeliveryLog.create({
+            data: {
+                recipient: cleanEmail,
+                purpose: 'password-reset-verified',
+                success: true
+            }
+        }).catch(() => {});
+
+        // Signal frontend to proceed with Clerk's password reset
+        // The actual password change happens via Clerk SDK on the frontend
+        res.json({ 
+            message: 'OTP verified. You may now reset your password.',
+            verified: true,
+            // Frontend will use signIn.resetPassword() with Clerk
+            clerkResetReady: true
+        });
+    } catch (error) {
+        console.error('Reset password error:', error);
+        res.status(500).json({ error: 'Failed to verify reset request' });
+    }
+});
+
+// Send Login 2FA OTP (called after Clerk password auth succeeds)
+app.post('/api/v1/auth/login-2fa', otpLimiter, otpLimiterUpstash, async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ error: 'Email is required' });
+
+        const cleanEmail = email.trim().toLowerCase();
+        const result = await otpService.sendOTP(cleanEmail, `2fa:${cleanEmail}`, 'email');
+
+        await prisma.otpDeliveryLog.create({
+            data: {
+                recipient: cleanEmail,
+                purpose: 'login-2fa',
+                success: result.success
+            }
+        }).catch(() => {});
+
+        res.json({ 
+            message: 'Security verification code sent to your email.',
+            ...(result.demoOTP && { otp: result.demoOTP })
+        });
+    } catch (error) {
+        console.error('Login 2FA error:', error);
+        res.status(500).json({ error: 'Failed to send 2FA code' });
+    }
+});
+
+// Verify Login 2FA OTP
+app.post('/api/v1/auth/verify-login-2fa', otpLimiter, otpLimiterUpstash, async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+        if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
+
+        const cleanEmail = email.trim().toLowerCase();
+        const result = await otpService.verifyOTP(`2fa:${cleanEmail}`, otp);
+
+        if (!result.success) {
+            return res.status(400).json({ error: result.message });
+        }
+
+        res.json({ message: '2FA verification successful', verified: true });
+    } catch (error) {
+        console.error('Verify Login 2FA error:', error);
+        res.status(500).json({ error: 'Failed to verify 2FA code' });
+    }
+});
+
+// ===================== KEYSTROKE DYNAMICS ROUTES =====================
+
+const keystrokeService = require('./services/keystrokeService');
+
+// Enroll or verify keystroke pattern (called during password login)
+app.post('/api/v1/keystroke/process', apiLimiter, async (req, res) => {
+    try {
+        const { email, timingData } = req.body;
+        if (!email || !timingData) {
+            return res.status(400).json({ error: 'Email and timing data are required' });
+        }
+
+        const result = await keystrokeService.processKeystroke(email.trim().toLowerCase(), timingData);
+        
+        res.json({
+            enrolled: result.enrolled,
+            suspicious: result.suspicious,
+            score: result.score,
+            message: result.message
+        });
+    } catch (error) {
+        console.error('Keystroke process error:', error);
+        // Fail-open: never block login due to keystroke service failure
+        res.json({ enrolled: false, suspicious: false, score: 0, message: 'Service unavailable' });
+    }
+});
+
+// Get keystroke enrollment status
+app.get('/api/v1/keystroke/status/:email', apiLimiter, async (req, res) => {
+    try {
+        const email = req.params.email.trim().toLowerCase();
+        const status = await keystrokeService.getStatus(email);
+        res.json(status);
+    } catch (error) {
+        console.error('Keystroke status error:', error);
+        res.json({ enrolled: false, sampleCount: 0, flaggedCount: 0 });
+    }
+});
 
 // ===================== ADMIN ROUTES =====================
 
@@ -568,7 +839,7 @@ const authenticateAdmin = async (req, res, next) => {
 // ===================== ZKP ROUTES =====================
 
 const zkpService = require('./services/zkpService');
-const ipfsService = require('./services/ipfsService');
+// ipfsService already imported at top of file
 
 // Get ZKP status
 app.get('/api/v1/zkp/status', apiLimiter, (req, res) => {
@@ -580,7 +851,7 @@ app.get('/api/v1/zkp/status', apiLimiter, (req, res) => {
 });
 
 // Generate vote commitment
-app.post('/api/v1/zkp/generate-commitment', zkpLimiter, authenticateToken, (req, res) => {
+app.post('/api/v1/zkp/generate-commitment', zkpLimiter, zkpLimiterUpstash, authenticateToken, (req, res) => {
     try {
         const { candidateId } = req.body;
         if (!candidateId || candidateId < 1) {
@@ -600,7 +871,7 @@ app.post('/api/v1/zkp/generate-commitment', zkpLimiter, authenticateToken, (req,
 });
 
 // Generate ZK proof
-app.post('/api/v1/zkp/generate-proof', zkpLimiter, authenticateToken, (req, res) => {
+app.post('/api/v1/zkp/generate-proof', zkpLimiter, zkpLimiterUpstash, authenticateToken, (req, res) => {
     try {
         const { candidateId, randomness, candidatesCount, commitment, nullifierHash } = req.body;
 
@@ -623,7 +894,7 @@ app.post('/api/v1/zkp/generate-proof', zkpLimiter, authenticateToken, (req, res)
 });
 
 // Generate nullifier
-app.post('/api/v1/zkp/generate-nullifier', zkpLimiter, authenticateToken, (req, res) => {
+app.post('/api/v1/zkp/generate-nullifier', zkpLimiter, zkpLimiterUpstash, authenticateToken, (req, res) => {
     try {
         const { voterSecret, electionId } = req.body;
 
@@ -647,7 +918,7 @@ app.post('/api/v1/zkp/generate-nullifier', zkpLimiter, authenticateToken, (req, 
 });
 
 // Verify ZK proof (public endpoint — rate limited to prevent proof-grinding)
-app.post('/api/v1/zkp/verify-proof', zkpLimiter, (req, res) => {
+app.post('/api/v1/zkp/verify-proof', zkpLimiter, zkpLimiterUpstash, (req, res) => {
     try {
         const { commitment, nullifierHash, proof, candidatesCount } = req.body;
 
@@ -676,7 +947,7 @@ app.post('/api/v1/zkp/verify-proof', zkpLimiter, (req, res) => {
 });
 
 // Generate complete vote package
-app.post('/api/v1/zkp/generate-vote-package', zkpLimiter, authenticateToken, (req, res) => {
+app.post('/api/v1/zkp/generate-vote-package', zkpLimiter, zkpLimiterUpstash, authenticateToken, (req, res) => {
     try {
         const { candidateId, voterSecret, candidatesCount, electionId } = req.body;
 

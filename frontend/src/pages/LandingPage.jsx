@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
 
 // Utility: Extract proper initials from any name, stripping titles
@@ -13,6 +14,7 @@ const getInitials = (fullName) => {
 
 function LandingPage() {
     const navigate = useNavigate();
+    const { t } = useTranslation();
 
     return (
         <div className="flex flex-col min-h-screen bg-transparent font-sans">
@@ -35,13 +37,11 @@ function LandingPage() {
                             </div>
                             
                             <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-gray-900 leading-tight tracking-tight drop-shadow-md">
-                                Secure, Transparent, and <br/>
-                                <span className="text-primary block mt-2">Verifiable E-Voting</span>
+                                {t('hero.title')}
                             </h2>
                             
                             <p className="text-lg text-gray-800 font-medium max-w-2xl leading-relaxed drop-shadow-sm">
-                                Empowering every Indian citizen with blockchain-backed digital voting. 
-                                Exercise your democratic right securely from anywhere using Aadhaar biometric authentication.
+                                {t('hero.subtitle')}
                             </p>
                             
                             <div className="flex flex-col sm:flex-row gap-4 pt-4">
@@ -51,7 +51,7 @@ function LandingPage() {
                                     aria-label="Sign In as Voter"
                                 >
                                     <i className="fa-solid fa-right-to-bracket text-xl"></i>
-                                    Sign In
+                                    {t('hero.login')}
                                 </button>
                                 <button 
                                     onClick={() => navigate('/signup')} 
@@ -59,7 +59,7 @@ function LandingPage() {
                                     aria-label="Register New Voter"
                                 >
                                     <i className="fa-solid fa-user-plus text-primary text-xl"></i>
-                                    New Voter Registration
+                                    {t('hero.createAccount')}
                                 </button>
                             </div>
                         </div>
