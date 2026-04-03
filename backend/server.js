@@ -112,6 +112,19 @@ app.use(express.json({ limit: '10kb' })); // Limit payload size
 // Mount Clerk context handler globally
 app.use(clerkMiddleware());
 
+// ===================== HEALTH CHECK =====================
+app.get('/', (req, res) => {
+    res.json({
+        status: 'running',
+        service: 'Bharat E-Vote Backend API',
+        version: '2.0.0',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        endpoints: '/api/v1/*',
+        documentation: 'https://github.com/adibhoir0103/Evoting'
+    });
+});
+
 // Rate limiters
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes

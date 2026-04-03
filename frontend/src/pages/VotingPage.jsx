@@ -4,6 +4,7 @@ import { BlockchainService } from '../services/blockchainService';
 import { authService } from '../services/authService';
 import { zkpClientService } from '../services/zkpService';
 import ZKPVerificationPanel from '../components/ZKPVerificationPanel';
+import ProctorGuard from '../components/ProctorGuard';
 import Turnstile from 'react-turnstile'; // Changed to react-turnstile library
 import { indianStates, getStateName } from '../utils/indianStates';
 import { jsPDF } from 'jspdf';
@@ -25,6 +26,10 @@ function VotingPage({ user, onUserUpdate }) {
     const [accessTurnstileToken, setAccessTurnstileToken] = useState(''); // Gate 1: Ballot Access
     const [turnstileToken, setTurnstileToken] = useState(''); // Gate 2: Vote Submission
     const [voterConstituencyInfo, setVoterConstituencyInfo] = useState(null);
+
+    // Proctored Voting Window State
+    const [proctorActive, setProctorActive] = useState(false);
+    const [proctorCandidate, setProctorCandidate] = useState(null);
 
     // ZKP State
     const [zkpMode, setZkpMode] = useState(false);
@@ -130,6 +135,119 @@ function VotingPage({ user, onUserUpdate }) {
     const cancelVote = () => {
         setVoteState('selecting');
         setSelectedCandidate(null);
+    };
+
+    // ===== PROCTOR GUARD HANDLERS =====
+    const enterProctorMode = () => {
+        setProctorActive(true);
+        setProctorCandidate(null);
+        setVoteState('selecting');
+        setError('');
+        setSuccess('');
+    };
+
+    const handleProctorSelectCandidate = (candidate) => {
+        setProctorCandidate(candidate);
+        setSelectedCandidate(candidate);
+    };
+
+    const handleProctorConfirmVote = async (candidate) => {
+        if (!candidate) return;
+        setSelectedCandidate(candidate);
+        // Trigger the existing submitVote flow
+        await submitVoteFromProctor(candidate);
+    };
+
+    const handleProctorCancel = () => {
+        setProctorActive(false);
+        setProctorCandidate(null);
+        setSelectedCandidate(null);
+        setVoteState('idle');
+    };
+
+    // Dedicated submit handler for proctor mode (uses the same logic as submitVote)
+    const submitVoteFromProctor = async (candidate) => {
+        if (!candidate) return;
+
+        try {
+            setVoteState('checking');
+            setTxHash('');
+            setError('');
+
+            const clerkToken = localStorage.getItem('token');
+            if (!clerkToken) throw new Error("Clerk Authentication Missing");
+
+            const upstashToken = await authService.getPreflightToken(clerkToken);
+
+            const service = BlockchainService.getInstance();
+            let isZKP = false;
+            try { isZKP = await service.isZKPEnabled(); } catch (e) { /* legacy */ }
+
+            setVoteState('signing');
+
+            if (isZKP && voterSecret) {
+                const votePackage = await zkpClientService.generateVotePackage(
+                    candidate.id,
+                    voterSecret,
+                    candidates.length,
+                    'bharat-evote-2026'
+                );
+
+                let ipfsHash = '';
+                try {
+                    const ipfsResult = await zkpClientService.pinVoteToIPFS(votePackage.commitment, votePackage.nullifierHash);
+                    ipfsHash = ipfsResult.ipfsHash || '';
+                } catch (e) { console.log('IPFS pinning skipped'); }
+
+                setVoteState('pending');
+                const receipt = await service.submitEncryptedVote(
+                    votePackage.commitment,
+                    votePackage.nullifierHash,
+                    votePackage.identityCommitment,
+                    votePackage.proof,
+                    ipfsHash
+                );
+
+                setVoteState('confirming');
+                setTxHash(receipt.hash);
+
+                await authService.recordVote(receipt.hash, upstashToken, turnstileToken || 'turnstile-not-configured', clerkToken);
+                setVoteState('confirmed');
+
+                setZkpVoteData({
+                    nullifierHash: votePackage.nullifierHash,
+                    commitment: votePackage.commitment,
+                    ipfsHash: ipfsHash,
+                    txHash: receipt.hash
+                });
+                setHasVoted(true);
+                if (onUserUpdate) onUserUpdate({ ...user, hasVoted: true });
+            } else {
+                setVoteState('pending');
+                const receipt = await service.vote(candidate.id);
+                setVoteState('confirming');
+                setTxHash(receipt.hash);
+
+                await authService.recordVote(receipt.hash, upstashToken, turnstileToken || 'turnstile-not-configured', clerkToken);
+                setVoteState('confirmed');
+
+                setSuccess(`Vote cast successfully! Tx: ${receipt.hash.slice(0, 10)}...`);
+                setHasVoted(true);
+                if (onUserUpdate) onUserUpdate({ ...user, hasVoted: true });
+            }
+        } catch (err) {
+            const msg = err.message || 'Failed to cast vote';
+            if (msg.includes('rejected') || msg.includes('ACTION_REJECTED')) {
+                setError('You rejected the transaction — you have not voted yet.');
+                setVoteState('recovered');
+            } else {
+                setError(msg);
+                setVoteState('failed');
+                if (window.Sentry) {
+                    window.Sentry.captureMessage(`Vote Cast Failure: ${msg}`, { level: 'error', tags: { module: 'vote_submission', error_type: 'rpc_revert' } });
+                }
+            }
+        }
     };
 
     const submitVote = async () => {
@@ -525,164 +643,66 @@ function VotingPage({ user, onUserUpdate }) {
                         </div>
                     )}
 
-                    {/* ELECTION CANDIDATES GRID (SEMANTIC HTML5 for Screen Readers) */}
-                    <fieldset 
-                        className={`max-w-4xl mx-auto transition-all duration-500 ${!accessTurnstileToken && !hasVoted ? 'opacity-30 pointer-events-none filter blur-sm' : ''}`}
-                        aria-describedby={candidates.length === 0 ? "no-candidates-msg" : undefined}
-                    >
-                        <legend className="visually-hidden">Select exactly one candidate for the election</legend>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {!votingActive ? (
-                                <div className="col-span-full bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center">
-                                    <i className="fa-solid fa-lock text-4xl text-gray-400 mb-3"></i>
-                                    <p className="font-bold text-gray-600">The voting gateway is currently cryptographically sealed.</p>
+                    {/* ENTER SECURE VOTING WINDOW CTA */}
+                    <div className={`max-w-4xl mx-auto transition-all duration-500 ${!accessTurnstileToken && !hasVoted ? 'opacity-30 pointer-events-none filter blur-sm' : ''}`}>
+                        {!votingActive ? (
+                            <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center">
+                                <i className="fa-solid fa-lock text-4xl text-gray-400 mb-3"></i>
+                                <p className="font-bold text-gray-600">The voting gateway is currently cryptographically sealed.</p>
+                            </div>
+                        ) : candidates.length === 0 ? (
+                            <div className="gov-card text-center p-8">
+                                <p className="text-gray-500">No candidates available in your constituency</p>
+                            </div>
+                        ) : (
+                            <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-200 text-center">
+                                <div className="w-20 h-20 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-5 border border-blue-200 shadow-sm">
+                                    <i className="fa-solid fa-shield-halved text-3xl text-blue-600"></i>
                                 </div>
-                            ) : candidates.length === 0 ? (
-                                <div id="no-candidates-msg" className="gov-card text-center col-span-full p-8">
-                                    <p className="text-gray-500">No candidates available in your constituency</p>
+                                <h2 className="text-2xl font-black text-gray-900 mb-2">Ready to Cast Your Vote</h2>
+                                <p className="text-gray-500 mb-2 max-w-md mx-auto">
+                                    You will enter a <strong>secure proctored window</strong> with a <strong>60-second timer</strong>. 
+                                    Tab switching, screenshots, and keyboard shortcuts will be blocked.
+                                </p>
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 text-sm text-amber-800 max-w-md mx-auto">
+                                    <i className="fa-solid fa-triangle-exclamation mr-1"></i>
+                                    <strong>Important:</strong> Complete your vote within the timer. The window will auto-close on expiry.
                                 </div>
-                            ) : (
-                                candidates.map(candidate => (
-                                    <label 
-                                        key={candidate.id} 
-                                        className={`gov-card cursor-pointer group flex flex-col relative focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 ${selectedCandidate?.id === candidate.id ? 'border-primary ring-2 ring-primary ring-opacity-50 bg-blue-50/30' : 'hover:border-primary'}`}
-                                        aria-label={`Select candidate ${candidate.name} from party ${candidate.partyName || 'Independent'}`}
+                                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                                    <button 
+                                        className="btn-primary px-8 py-3 text-base font-bold shadow-lg hover:shadow-xl transition-all"
+                                        onClick={enterProctorMode}
+                                        disabled={!votingActive || !isAuthorized}
+                                        aria-label="Enter secure proctored voting window"
                                     >
-                                        <input
-                                            type="radio"
-                                            name="candidate"
-                                            value={candidate.id}
-                                            checked={selectedCandidate?.id === candidate.id}
-                                            onChange={() => votingActive && isAuthorized && setSelectedCandidate(candidate)}
-                                            className="peer visually-hidden focus-visible"
-                                            aria-describedby={`desc-${candidate.id}`}
-                                            disabled={!votingActive || !isAuthorized}
-                                        />
-                                        <div className="w-16 h-16 rounded-full bg-blue-50 text-primary flex items-center justify-center mx-auto mb-3 text-2xl font-bold border border-blue-200">
-                                            {candidate.partySymbol || <i className="fa-solid fa-user-tie"></i>}
-                                        </div>
-                                        <h3 className="text-lg font-bold text-gray-900">{candidate.name}</h3>
-                                        <p className="font-bold text-accent-green text-sm mb-1">
-                                            {candidate.partyName || 'Independent'}
-                                        </p>
-                                        <p className="text-xs text-gray-400">
-                                            Candidate #{candidate.id}
-                                            {candidate.stateCode ? ` | ${getStateName(candidate.stateCode)}` : ' | National'}
-                                        </p>
-                                        {votingActive && isAuthorized && (
-                                            <button 
-                                                type="button" 
-                                                className="btn-primary mt-4 w-full py-2 text-sm"
-                                                onClick={() => confirmVote(candidate)}
-                                                disabled={selectedCandidate?.id === candidate.id}
-                                            >
-                                                {selectedCandidate?.id === candidate.id ? 'Selected' : 'Select Candidate'}
-                                            </button>
-                                        )}
-                                    </label>
-                                ))
-                            )}
-                        </div>
-                    </fieldset>
+                                        <i className="fa-solid fa-lock mr-2"></i>
+                                        Enter Secure Voting Window
+                                    </button>
+                                </div>
+                                <p className="text-gray-400 text-xs mt-4">
+                                    <i className="fa-solid fa-info-circle mr-1"></i>
+                                    {candidates.length} candidate{candidates.length !== 1 ? 's' : ''} in your constituency
+                                </p>
+                            </div>
+                        )}
+                    </div>
                 </>
             )}
 
-            {/* Confirmation & Transaction Modal */}
-            {selectedCandidate && (
-                <div className={`fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4`} onClick={['checking', 'signing', 'pending', 'confirming'].includes(voteState) ? undefined : cancelVote}>
-                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8 relative" onClick={e => e.stopPropagation()}>
-                        {['reviewing', 'failed', 'recovered'].includes(voteState) && (
-                            <button className="absolute top-3 right-4 text-gray-400 hover:text-gray-600 text-2xl" onClick={cancelVote} aria-label="Close">&times;</button>
-                        )}
-
-                        {/* Transaction Processing Overlay */}
-                        {['checking', 'signing', 'pending', 'confirming', 'confirmed'].includes(voteState) ? (
-                            <div className="text-center py-4">
-                                <div className="w-20 h-20 rounded-full bg-blue-50 text-primary flex items-center justify-center mx-auto mb-4 border-2 border-blue-200">
-                                    <i className={`fa-solid ${voteState === 'confirmed' ? 'fa-check-circle text-green-600' : 'fa-circle-notch fa-spin'} text-3xl`}></i>
-                                </div>
-                                <h2 className="text-xl font-bold text-primary mb-2">
-                                    {voteState === 'checking' && 'Acquiring Pre-Flight Token...'}
-                                    {voteState === 'signing' && 'Waiting for Secure Vault Signature...'}
-                                    {voteState === 'pending' && 'Transmitting to RPC Mempool...'}
-                                    {voteState === 'confirming' && 'Awaiting Block Confirmations...'}
-                                    {voteState === 'confirmed' && 'Zero-Knowledge Vote Confirmed!'}
-                                </h2>
-                                <p className="text-gray-500 text-sm mb-4">
-                                    {voteState === 'checking' && 'Authenticating eligibility against blockchain and issuing TTL Redis Lock.'}
-                                    {voteState === 'signing' && 'Please approve the gas estimation and signature in your Vault provider.'}
-                                    {voteState === 'pending' && 'Mined to mempool. Waiting for validator nodes.'}
-                                    {voteState === 'confirming' && 'Your transaction is being verified. Do not close this window.'}
-                                    {voteState === 'confirmed' && 'Your vote has been irrevocably appended to the Bharat E-Vote ledger.'}
-                                </p>
-
-                                {/* Progress Steps */}
-                                <div className="flex justify-center gap-2 mb-4">
-                                    <div className={`w-3 h-3 rounded-full ${['checking', 'signing', 'pending'].includes(voteState) ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`}></div>
-                                    <div className={`w-3 h-3 rounded-full ${voteState === 'confirming' ? 'bg-blue-500 animate-pulse' : voteState === 'confirmed' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                                    <div className={`w-3 h-3 rounded-full ${voteState === 'confirmed' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                                </div>
-
-                                {/* Transaction Hash */}
-                                {txHash && (
-                                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-4 text-left">
-                                        <p className="text-xs text-gray-500 font-medium mb-1">Transaction Hash</p>
-                                        <p className="text-xs text-gray-700 font-mono break-all">{txHash}</p>
-                                    </div>
-                                )}
-
-                                <p className="text-xs text-gray-400 mt-4">
-                                    <i className="fa-solid fa-lock mr-1"></i>
-                                    This window cannot be closed while the transaction is processing.
-                                </p>
-                            </div>
-                        ) : (
-                            /* Normal Confirmation View */
-                            <>
-                                <h2 className="text-xl font-bold text-primary mb-2">Confirm Your Vote</h2>
-                                <p className="text-gray-500 mb-4">You are about to vote for:</p>
-
-                                <div className="bg-[#F5F7FA] border-2 border-primary rounded-lg p-6 text-center mb-4">
-                                    <div className="w-16 h-16 rounded-full bg-blue-50 text-primary flex items-center justify-center mx-auto mb-3 text-3xl font-bold border border-blue-200">
-                                        {selectedCandidate.partySymbol || <i className="fa-solid fa-user-tie"></i>}
-                                    </div>
-                                    <h3 className="text-lg font-bold text-primary">{selectedCandidate.name}</h3>
-                                    <p className="font-bold text-accent-green text-base mb-1">
-                                        {selectedCandidate.partyName || 'Independent'}
-                                    </p>
-                                    <p className="text-gray-500 text-sm">
-                                        Candidate #{selectedCandidate.id}
-                                        {selectedCandidate.stateCode ? ` | ${getStateName(selectedCandidate.stateCode)} Constituency: ${selectedCandidate.constituencyCode}` : ' | National List'}
-                                    </p>
-                                </div>
-
-                                <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 mb-6 text-sm text-yellow-800">
-                                    <i className="fa-solid fa-exclamation-triangle mr-1"></i> Once submitted, your vote <strong>cannot be changed</strong>. This action is final.
-                                </div>
-
-                                <Turnstile onVerify={setTurnstileToken} onError={() => setError('Bot check failed. Please refresh.')} action="submit_vote" />
-
-                                <div className="flex gap-3">
-                                    <button 
-                                        className="btn-secondary flex-1 py-3" 
-                                        onClick={cancelVote} 
-                                        disabled={['checking', 'signing', 'pending', 'confirming'].includes(voteState)}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button 
-                                        className="btn-primary flex-1 py-3" 
-                                        onClick={submitVote} 
-                                        disabled={['checking', 'signing', 'pending', 'confirming'].includes(voteState) || !turnstileToken}
-                                    >
-                                        Confirm Vote
-                                    </button>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
-            )}
+            {/* PROCTORED VOTING WINDOW */}
+            <ProctorGuard
+                active={proctorActive}
+                candidates={candidates}
+                selectedCandidate={proctorCandidate}
+                onSelectCandidate={handleProctorSelectCandidate}
+                onConfirmVote={handleProctorConfirmVote}
+                onCancel={handleProctorCancel}
+                voteState={voteState}
+                txHash={txHash}
+                user={user}
+                voterConstituencyInfo={voterConstituencyInfo}
+                error={error}
+            />
         </section>
     );
 }
