@@ -18,9 +18,9 @@ class BlockchainEventListener {
     constructor() {
         this.provider = null;
         this.contract = null;
-        // The deployed contract address (syncs with React client address)
+        // The deployed contract address (will be updated after Sepolia deployment)
         this.contractAddress = process.env.CONTRACT_ADDRESS || "0x5FbDB2315678afecb367f032d93F642f64180aa3"; 
-        this.rpcUrl = process.env.RPC_URL || (process.env.NODE_ENV === 'production' ? null : "ws://127.0.0.1:8545");
+        this.rpcUrl = process.env.RPC_URL || process.env.SEPOLIA_RPC_URL?.replace('https://', 'wss://') || (process.env.NODE_ENV === 'production' ? null : "ws://127.0.0.1:8545");
     }
 
     async init() {
