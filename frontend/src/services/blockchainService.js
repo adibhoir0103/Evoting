@@ -22,15 +22,15 @@ export class BlockchainService {
     }
 
     /**
-     * Switch MetaMask to the Hardhat localhost network
+     * Switch MetaMask to the Sepolia testnet (via Alchemy)
      */
-    async switchToHardhatNetwork() {
-        const HARDHAT_CHAIN_ID = '0x539'; // 1337 in hex
+    async switchToSepoliaNetwork() {
+        const SEPOLIA_CHAIN_ID = '0xaa36a7'; // 11155111 in hex
 
         try {
             await window.ethereum.request({
                 method: 'wallet_switchEthereumChain',
-                params: [{ chainId: HARDHAT_CHAIN_ID }],
+                params: [{ chainId: SEPOLIA_CHAIN_ID }],
             });
         } catch (switchError) {
             // Chain not added yet — add it
@@ -38,10 +38,11 @@ export class BlockchainService {
                 await window.ethereum.request({
                     method: 'wallet_addEthereumChain',
                     params: [{
-                        chainId: HARDHAT_CHAIN_ID,
-                        chainName: 'Hardhat Localhost',
-                        rpcUrls: ['http://127.0.0.1:8545'],
-                        nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                        chainId: SEPOLIA_CHAIN_ID,
+                        chainName: 'Sepolia Testnet',
+                        rpcUrls: ['https://eth-sepolia.g.alchemy.com/v2/XbNu_qjjYV_V-FGBmkc3K'],
+                        nativeCurrency: { name: 'SepoliaETH', symbol: 'ETH', decimals: 18 },
+                        blockExplorerUrls: ['https://sepolia.etherscan.io'],
                     }],
                 });
             } else {
@@ -60,8 +61,8 @@ export class BlockchainService {
                 throw new Error('MetaMask is not installed. Please install MetaMask to use this application.');
             }
 
-            // Switch to Hardhat network first
-            await this.switchToHardhatNetwork();
+            // Switch to Sepolia network first
+            await this.switchToSepoliaNetwork();
 
             // Request account access
             const accounts = await window.ethereum.request({
@@ -113,7 +114,7 @@ export class BlockchainService {
             return currentAccount.toLowerCase() === adminAddress.toLowerCase();
         } catch (error) {
             console.error('Error checking admin status:', error);
-            throw new Error('Cannot verify admin status. Make sure Hardhat node is running and contract is deployed. Error: ' + error.message);
+            throw new Error('Cannot verify admin status. Make sure you are connected to Sepolia testnet and the contract is deployed. Error: ' + error.message);
         }
     }
 
