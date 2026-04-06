@@ -109,8 +109,13 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10kb' })); // Limit payload size
 
-// Mount Clerk context handler globally
-app.use(clerkMiddleware());
+// Prevent Clerk from crashing or interfering when processing custom Admin JWTs
+app.use((req, res, next) => {
+    if (req.path.startsWith('/api/v1/admin')) {
+        return next();
+    }
+    return clerkMiddleware()(req, res, next);
+});
 
 // ===================== HEALTH CHECK =====================
 app.get('/', (req, res) => {

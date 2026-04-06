@@ -48,7 +48,8 @@ const ElectionWizard = () => {
                 setFormData({ name: '', description: '', start_time: '', end_time: '' });
                 fetchElections();
             } else {
-                alert('Creation failed');
+                const errData = await res.json().catch(() => ({}));
+                alert(`Creation failed: ${errData.error || 'Server rejected the request'}`);
             }
         } catch (err) {
             console.error(err);
