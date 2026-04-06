@@ -17,10 +17,18 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          web3: ['ethers'],
-          ui: ['react-hot-toast', 'recharts']
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+              return 'vendor';
+            }
+            if (id.includes('ethers')) {
+              return 'web3';
+            }
+            if (id.includes('react-hot-toast') || id.includes('recharts')) {
+              return 'ui';
+            }
+          }
         }
       }
     }
