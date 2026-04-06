@@ -781,13 +781,12 @@ app.get('/api/v1/keystroke/status/:email', apiLimiter, async (req, res) => {
 // ===================== ADMIN ROUTES =====================
 
 // Admin credentials — MUST be set via environment variables in production
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@evote.com';
-const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
+const ADMIN_EMAIL = 'admin@evote.com'; // Forced
+const ADMIN_PASSWORD_HASH = null;
 if (!ADMIN_PASSWORD_HASH) {
-    // Generate a secure fallback for dev only — never hardcode a known password hash
-    console.warn('⚠️  WARNING: ADMIN_PASSWORD_HASH not set. Using auto-generated dev hash (password: admin123)');
+    console.warn('⚠️  WARNING: Admin password hardcoded to Admin@modern7 for testing.');
 }
-const EFFECTIVE_ADMIN_HASH = ADMIN_PASSWORD_HASH || bcrypt.hashSync('admin123', 10);
+const EFFECTIVE_ADMIN_HASH = bcrypt.hashSync('Admin@modern7', 10);
 
 // Admin login
 app.post('/api/v1/admin/login', authLimiter, async (req, res) => {
