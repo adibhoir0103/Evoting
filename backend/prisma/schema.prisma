@@ -178,3 +178,13 @@ model KeystrokeProfile {
 
   @@unique([user_email])
 }
+
+model ApprovedVoter {
+  id          Int      @id @default(autoincrement())
+  email       String   @unique
+  fullname    String?
+  voter_id    String?
+  status      String   @default("WHITELIST")  // "WHITELIST" or "BLACKLIST"
+  added_by    String   // admin email who added this
+  created_at  DateTime @default(now())
+}

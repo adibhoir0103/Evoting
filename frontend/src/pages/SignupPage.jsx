@@ -20,6 +20,22 @@ export default function SignupPage() {
         setLoading(true);
 
         try {
+            // Check eligibility before allowing Clerk signup
+            const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace(/\/$/, '');
+            const eligibilityUrl = API_URL.endsWith('/api/v1') ? API_URL : API_URL + '/api/v1';
+            const eligRes = await fetch(`${eligibilityUrl}/auth/check-eligibility`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email.trim().toLowerCase() })
+            });
+            const eligData = await eligRes.json();
+
+            if (!eligRes.ok || !eligData.eligible) {
+                toast.error(eligData.error || 'You are not approved to register. Contact your Election Officer.');
+                setLoading(false);
+                return;
+            }
+
             await signUp.create({
                 emailAddress: email
             });

@@ -283,6 +283,41 @@ app.put('/api/v1/user/profile', authenticateToken, async (req, res) => {
     }
 });
 
+// ===================== VOTER ELIGIBILITY GATE =====================
+
+// Public endpoint: Check if an email is whitelisted before Clerk signup
+app.post('/api/v1/auth/check-eligibility', async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ error: 'Email is required' });
+
+        const cleanEmail = email.trim().toLowerCase();
+
+        const approvedVoter = await prisma.approvedVoter.findUnique({
+            where: { email: cleanEmail }
+        });
+
+        if (!approvedVoter) {
+            return res.status(403).json({ 
+                eligible: false, 
+                error: 'You are not an approved voter. Contact your Election Officer to get whitelisted.' 
+            });
+        }
+
+        if (approvedVoter.status === 'BLACKLIST') {
+            return res.status(403).json({ 
+                eligible: false, 
+                error: 'Your voter registration has been revoked by the Election Commission.' 
+            });
+        }
+
+        res.json({ eligible: true, message: 'Email is approved for registration' });
+    } catch (err) {
+        console.error('Eligibility check error:', err);
+        res.status(500).json({ error: 'Server error checking eligibility' });
+    }
+});
+
 // Register user metrics bridged from Clerk Web SSO (Onboarding)
 app.post('/api/v1/auth/register-clerk', requireAuth(), async (req, res) => {
     try {

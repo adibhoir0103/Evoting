@@ -432,4 +432,138 @@ router.get('/stats', async (req, res) => {
     }
 });
 
+// ==========================================
+// APPROVED VOTER WHITELIST/BLACKLIST
+// ==========================================
+
+// List all approved/blacklisted voters
+router.get('/approved-voters', async (req, res) => {
+    try {
+        const voters = await prisma.approvedVoter.findMany({
+            orderBy: { created_at: 'desc' }
+        });
+        res.json(voters);
+    } catch (err) {
+        console.error('Fetch approved voters error:', err);
+        res.status(500).json({ error: 'Failed to fetch approved voters' });
+    }
+});
+
+// Add a single approved voter manually
+router.post('/approved-voters', async (req, res) => {
+    try {
+        const { email, fullname, voter_id, status } = req.body;
+        if (!email) return res.status(400).json({ error: 'Email is required' });
+
+        const cleanEmail = email.trim().toLowerCase();
+        const voterStatus = (status === 'BLACKLIST') ? 'BLACKLIST' : 'WHITELIST';
+
+        const voter = await prisma.approvedVoter.upsert({
+            where: { email: cleanEmail },
+            update: { fullname, voter_id, status: voterStatus },
+            create: {
+                email: cleanEmail,
+                fullname: fullname || null,
+                voter_id: voter_id || null,
+                status: voterStatus,
+                added_by: req.adminUser.email
+            }
+        });
+
+        await logAction(req.adminUser.email, 'ADD_APPROVED_VOTER', `Added ${cleanEmail} as ${voterStatus}`, req.ip);
+        res.status(201).json(voter);
+    } catch (err) {
+        console.error('Add approved voter error:', err);
+        res.status(500).json({ error: 'Failed to add voter' });
+    }
+});
+
+// Toggle voter status (WHITELIST <-> BLACKLIST)
+router.patch('/approved-voters/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        if (!['WHITELIST', 'BLACKLIST'].includes(status)) {
+            return res.status(400).json({ error: 'Status must be WHITELIST or BLACKLIST' });
+        }
+
+        const voter = await prisma.approvedVoter.update({
+            where: { id: parseInt(id) },
+            data: { status }
+        });
+
+        await logAction(req.adminUser.email, 'TOGGLE_VOTER_STATUS', `Changed ${voter.email} to ${status}`, req.ip);
+        res.json(voter);
+    } catch (err) {
+        console.error('Toggle voter error:', err);
+        res.status(500).json({ error: 'Failed to update voter status' });
+    }
+});
+
+// Delete an approved voter entry
+router.delete('/approved-voters/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const voter = await prisma.approvedVoter.delete({
+            where: { id: parseInt(id) }
+        });
+
+        await logAction(req.adminUser.email, 'DELETE_APPROVED_VOTER', `Removed ${voter.email} from approved list`, req.ip);
+        res.json({ message: 'Voter removed from approved list' });
+    } catch (err) {
+        console.error('Delete approved voter error:', err);
+        res.status(500).json({ error: 'Failed to delete voter' });
+    }
+});
+
+// Bulk upload approved voters via CSV
+router.post('/approved-voters/bulk', upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No CSV file uploaded' });
+
+        const results = [];
+        fs.createReadStream(req.file.path)
+            .pipe(csv())
+            .on('data', (data) => results.push(data))
+            .on('end', async () => {
+                let successCount = 0;
+                let errorCount = 0;
+
+                for (const row of results) {
+                    const email = (row.email || '').trim().toLowerCase();
+                    if (!email) { errorCount++; continue; }
+
+                    try {
+                        await prisma.approvedVoter.upsert({
+                            where: { email },
+                            update: { 
+                                fullname: row.fullname || row.name || undefined,
+                                voter_id: row.voter_id || undefined,
+                                status: row.status === 'BLACKLIST' ? 'BLACKLIST' : 'WHITELIST'
+                            },
+                            create: {
+                                email,
+                                fullname: row.fullname || row.name || null,
+                                voter_id: row.voter_id || null,
+                                status: row.status === 'BLACKLIST' ? 'BLACKLIST' : 'WHITELIST',
+                                added_by: req.adminUser.email
+                            }
+                        });
+                        successCount++;
+                    } catch (e) {
+                        errorCount++;
+                    }
+                }
+
+                fs.unlinkSync(req.file.path);
+                await logAction(req.adminUser.email, 'BULK_APPROVED_VOTERS', `Uploaded ${successCount} approved voters. ${errorCount} errors.`, req.ip);
+                res.json({ message: 'Bulk upload complete', successCount, errorCount });
+            });
+    } catch (err) {
+        console.error('Bulk upload error:', err);
+        res.status(500).json({ error: 'Failed to process CSV' });
+    }
+});
+
 module.exports = router;
