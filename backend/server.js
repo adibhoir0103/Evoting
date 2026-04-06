@@ -46,10 +46,11 @@ blockchainListener.init();
 const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-    console.error('⚠️  WARNING: JWT_SECRET is not set. Using insecure default for development only.');
+if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
+    console.error('FATAL: JWT_SECRET environment variable is required in production.');
+    process.exit(1);
 }
-const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'dev-only-insecure-key-fallback';
+const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'dev-only-local-key-' + require('crypto').randomBytes(16).toString('hex');
 
 // Helper: Basic input sanitization (XSS prevention)
 function sanitize(str) {
@@ -89,11 +90,14 @@ app.use(helmet({
             connectSrc: ["'self'", "http://localhost:*", "ws://localhost:*"]
         }
     },
-    crossOriginEmbedderPolicy: false
+    crossOriginEmbedderPolicy: false,
+    hsts: { maxAge: 31536000, includeSubDomains: true }
 }));
 const allowedOrigins = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(',')
-    : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5173', 'http://127.0.0.1:5173'];
+    : (process.env.NODE_ENV === 'production'
+        ? [] // No default origins in production — must be explicitly configured
+        : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5173', 'http://127.0.0.1:5173']);
 
 app.use(cors({
     origin: function (origin, callback) {
@@ -231,7 +235,7 @@ const authenticateToken = [
             const authPayload = typeof req.auth === 'function' ? req.auth() : req.auth;
             const auth_id = authPayload?.userId || authPayload?.claims?.sub;
             if (!auth_id) {
-                console.error("Clerk Token Verification Failed. authPayload =", authPayload);
+                console.error('Clerk Token Verification Failed. userId:', authPayload?.userId || 'none');
                 return res.status(401).json({ error: 'Unauthorized: Invalid authentication session' });
             }
             const localUser = await prisma.user.findUnique({ where: { auth_id } });
@@ -285,8 +289,17 @@ app.put('/api/v1/user/profile', authenticateToken, async (req, res) => {
 
 // ===================== VOTER ELIGIBILITY GATE =====================
 
+// Rate limiter to prevent email enumeration (10 checks per minute per IP)
+const eligibilityLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    message: { error: 'Too many eligibility checks. Please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
 // Public endpoint: Check if an email is whitelisted before Clerk signup
-app.post('/api/v1/auth/check-eligibility', async (req, res) => {
+app.post('/api/v1/auth/check-eligibility', eligibilityLimiter, async (req, res) => {
     try {
         const { email } = req.body;
         if (!email) return res.status(400).json({ error: 'Email is required' });
@@ -327,7 +340,7 @@ app.post('/api/v1/auth/register-clerk', requireAuth(), async (req, res) => {
         const auth_id = authPayload?.userId || authPayload?.claims?.sub;
 
         if (!auth_id) {
-            console.error("Clerk Token Verification Failed in register. authPayload =", authPayload);
+            console.error('Clerk Token Verification Failed in register. userId:', authPayload?.userId || 'none');
             return res.status(401).json({ error: 'Unauthorized session' });
         }
 
@@ -820,16 +833,34 @@ app.get('/api/v1/keystroke/status/:email', apiLimiter, async (req, res) => {
 
 // ===================== ADMIN ROUTES =====================
 
-// Admin credentials — MUST be set via environment variables in production
-const ADMIN_EMAIL = 'admin@evote.com'; // Forced
-const ADMIN_PASSWORD_HASH = null;
-if (!ADMIN_PASSWORD_HASH) {
-    console.warn('⚠️  WARNING: Admin password hardcoded to Admin@modern7 for testing.');
+// Admin credentials — loaded securely from environment variables
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@evote.com';
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
+
+// Pre-compute hash only as dev fallback — NEVER in production
+let EFFECTIVE_ADMIN_HASH;
+if (ADMIN_PASSWORD_HASH) {
+    EFFECTIVE_ADMIN_HASH = ADMIN_PASSWORD_HASH;
+    console.log('✅ Admin credentials loaded from environment variables');
+} else if (process.env.NODE_ENV === 'production') {
+    console.error('FATAL: ADMIN_PASSWORD_HASH must be set in production.');
+    process.exit(1);
+} else {
+    EFFECTIVE_ADMIN_HASH = bcrypt.hashSync(process.env.ADMIN_DEV_PASSWORD || 'Admin@modern7', 10);
+    console.warn('⚠️  Using development admin credentials. Set ADMIN_PASSWORD_HASH for production.');
 }
-const EFFECTIVE_ADMIN_HASH = bcrypt.hashSync('Admin@modern7', 10);
+
+// Strict rate limiter for admin login (5 attempts per 15 minutes)
+const adminLoginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    message: { error: 'Too many login attempts. Account locked for 15 minutes.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
 
 // Admin login
-app.post('/api/v1/admin/login', authLimiter, async (req, res) => {
+app.post('/api/v1/admin/login', adminLoginLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
 

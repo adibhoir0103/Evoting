@@ -13,8 +13,13 @@ const upload = multer({ dest: 'uploads/' });
 
 const jwt = require('jsonwebtoken');
 
-// Use the EXACT same JWT secret as server.js to avoid mismatch
-const EFFECTIVE_JWT_SECRET = process.env.JWT_SECRET || 'dev-only-insecure-key-fallback';
+// JWT Secret must match server.js — crash in production if missing
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
+    console.error('FATAL: JWT_SECRET environment variable is required in production.');
+    process.exit(1);
+}
+const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'dev-only-local-key-fallback';
 
 // Custom Middleware: Validate Custom Admin JWT (synchronous - no callback)
 const isAdmin = (req, res, next) => {
@@ -77,8 +82,8 @@ router.post('/elections', async (req, res) => {
         await logAction(req.adminUser.email, 'CREATE_ELECTION', `Created election ${election.id}: ${name}`, req.ip);
         res.status(201).json(election);
     } catch (err) {
-        console.error('Election creation error:', err);
-        res.status(500).json({ error: 'Failed to create election', detail: err.message });
+        console.error('Election creation error:', err.message);
+        res.status(500).json({ error: 'Failed to create election' });
     }
 });
 

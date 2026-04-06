@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 
 const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 const API_URL = rawUrl.startsWith('http') ? (rawUrl.endsWith('/api/v1') ? rawUrl : rawUrl.replace(/\/$/, '') + '/api/v1') : 'https://' + rawUrl.replace(/\/$/, '') + (rawUrl.endsWith('/api/v1') ? '' : '/api/v1');
@@ -11,6 +12,7 @@ const VoterRolls = () => {
     const [file, setFile] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
     const getToken = () => localStorage.getItem('adminToken');
 
@@ -71,15 +73,21 @@ const VoterRolls = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!confirm('Remove this voter from the approved list?')) return;
         try {
             const res = await fetch(`${API_URL}/admin/approved-voters/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${getToken()}` }
             });
-            if (res.ok) fetchVoters();
+            if (res.ok) {
+                toast.success('Voter removed from approved list');
+                fetchVoters();
+            } else {
+                toast.error('Failed to remove voter');
+            }
         } catch (e) {
-            console.error('Delete failed');
+            toast.error('Network error removing voter');
+        } finally {
+            setDeleteConfirmId(null);
         }
     };
 
@@ -252,9 +260,17 @@ const VoterRolls = () => {
                                                 }`}>
                                                 {v.status === 'WHITELIST' ? 'Blacklist' : 'Whitelist'}
                                             </button>
-                                            <button onClick={() => handleDelete(v.id)} className="px-3 py-1 rounded-lg text-xs font-bold bg-gray-50 text-gray-600 hover:bg-gray-100 transition">
-                                                <i className="fa-solid fa-trash"></i>
-                                            </button>
+                                            {deleteConfirmId === v.id ? (
+                                                <>
+                                                    <span className="text-xs text-red-600 font-medium">Sure?</span>
+                                                    <button onClick={() => handleDelete(v.id)} className="px-2 py-1 rounded-lg text-xs font-bold bg-red-100 text-red-700 hover:bg-red-200 transition">Yes</button>
+                                                    <button onClick={() => setDeleteConfirmId(null)} className="px-2 py-1 rounded-lg text-xs font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition">No</button>
+                                                </>
+                                            ) : (
+                                                <button onClick={() => setDeleteConfirmId(v.id)} className="px-3 py-1 rounded-lg text-xs font-bold bg-gray-50 text-gray-600 hover:bg-gray-100 transition">
+                                                    <i className="fa-solid fa-trash"></i>
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}
