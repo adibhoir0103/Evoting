@@ -283,7 +283,7 @@ function App() {
                         <Route
                             path="/admin"
                             element={
-                                isAdmin ? (
+                                (isAdmin || localStorage.getItem('adminToken')) ? (
                                     <div style={{ padding: '2rem 5%', background: '#F5F7FA', minHeight: '100vh' }}>
                                         <AdminDashboard />
                                     </div>
@@ -298,7 +298,7 @@ function App() {
 
                         {/* Admin Data Panel — Protected */}
                         <Route path="/admin-panel" element={
-                            isAdmin ? <AdminPanel /> : <Navigate to="/" replace />
+                            (isAdmin || localStorage.getItem('adminToken')) ? <AdminPanel /> : <Navigate to="/" replace />
                         } />
 
                         {/* Fallback — 404 */}
