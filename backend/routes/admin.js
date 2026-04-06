@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const { requireAuth } = require('@clerk/express');
 const multer = require('multer');
 const csv = require('csv-parser');
 const fs = require('fs');
@@ -14,6 +13,9 @@ const upload = multer({ dest: 'uploads/' });
 
 const jwt = require('jsonwebtoken');
 
+// Use the EXACT same JWT secret as server.js to avoid mismatch
+const EFFECTIVE_JWT_SECRET = process.env.JWT_SECRET || 'dev-only-insecure-key-fallback';
+
 // Custom Middleware: Validate Custom Admin JWT
 const isAdmin = async (req, res, next) => {
     try {
@@ -23,7 +25,7 @@ const isAdmin = async (req, res, next) => {
         if (!token) return res.status(401).json({ error: 'Unauthorized: No token provided' });
 
         // Verify the custom admin JWT we generated in server.js
-        jwt.verify(token, process.env.JWT_SECRET || 'election_secret_key', async (err, decoded) => {
+        jwt.verify(token, EFFECTIVE_JWT_SECRET, async (err, decoded) => {
             if (err) {
                 return res.status(403).json({ error: 'Forbidden: Invalid or expired Admin Token' });
             }

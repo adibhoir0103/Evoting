@@ -49,7 +49,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
     console.error('⚠️  WARNING: JWT_SECRET is not set. Using insecure default for development only.');
 }
-const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'dev-only-insecure-key-' + Date.now();
+const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'dev-only-insecure-key-fallback';
 
 // Helper: Basic input sanitization (XSS prevention)
 function sanitize(str) {
