@@ -9,7 +9,6 @@ export default function SignupPage() {
     const navigate = useNavigate();
 
     const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
     const [checkingOtp, setCheckingOtp] = useState(false);
     const [otpCode, setOtpCode] = useState('');
     const [loading, setLoading] = useState(false);
@@ -22,8 +21,7 @@ export default function SignupPage() {
 
         try {
             await signUp.create({
-                emailAddress: email,
-                password,
+                emailAddress: email
             });
 
             await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
@@ -146,22 +144,7 @@ export default function SignupPage() {
                                     />
                                 </div>
                             </div>
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider ml-1">Cryptographic Key</label>
-                                <div className="relative group">
-                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-teal-500 transition-colors">
-                                        <i className="fa-solid fa-lock text-sm"></i>
-                                    </div>
-                                    <input 
-                                        type="password" 
-                                        className="w-full pl-11 pr-4 py-3.5 bg-gray-50 dark:bg-black/20 border border-gray-300 dark:border-white/10 rounded-xl text-gray-900 dark:text-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all font-medium placeholder-gray-400 tracking-widest" 
-                                        placeholder="••••••••"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        required
-                                    />
-                                </div>
-                            </div>
+
                             <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white py-3.5 rounded-xl font-bold tracking-wide shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] transition-all">
                                 Construct Identity Node
                             </button>

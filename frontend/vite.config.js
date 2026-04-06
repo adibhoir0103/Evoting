@@ -13,6 +13,16 @@ export default defineConfig({
     open: true
   },
   build: {
-    outDir: 'dist'
+    outDir: 'dist',
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          web3: ['ethers'],
+          ui: ['react-hot-toast', 'recharts']
+        }
+      }
+    }
   }
 });
