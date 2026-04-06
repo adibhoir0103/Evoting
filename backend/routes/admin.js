@@ -79,8 +79,8 @@ router.post('/elections', async (req, res) => {
         await logAction(req.adminUser.email, 'CREATE_ELECTION', `Created election ${election.id}: ${name}`, req.ip);
         res.status(201).json(election);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Failed to create election' });
+        console.error('Election creation error:', err);
+        res.status(500).json({ error: 'Failed to create election', detail: err.message });
     }
 });
 

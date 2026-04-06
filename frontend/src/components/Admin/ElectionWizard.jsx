@@ -49,7 +49,7 @@ const ElectionWizard = () => {
                 fetchElections();
             } else {
                 const errData = await res.json().catch(() => ({}));
-                alert(`Creation failed: ${errData.error || 'Server rejected the request'}`);
+                alert(`Creation failed: ${errData.error || 'Server rejected the request'}${errData.detail ? '\n\nDetail: ' + errData.detail : ''}`);
             }
         } catch (err) {
             console.error(err);
