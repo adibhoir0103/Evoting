@@ -7,7 +7,8 @@
  * Uses Web Crypto API + BigInt for Pedersen commitments and Schnorr proofs.
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+const API_URL = rawUrl.startsWith('http') ? (rawUrl.endsWith('/api/v1') ? rawUrl : rawUrl.replace(/\/$/, '') + '/api/v1') : 'https://' + rawUrl.replace(/\/$/, '') + (rawUrl.endsWith('/api/v1') ? '' : '/api/v1');
 
 // Prime field constants (must match ZKPVoting.sol and backend zkpService.js)
 const PRIME = BigInt('0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141');
