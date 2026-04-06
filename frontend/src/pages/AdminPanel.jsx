@@ -17,16 +17,17 @@ function AdminPanel() {
     useEffect(() => {
         if (!isLoaded) return;
         
-        // Ensure user is loaded and authenticated
-        if (!user) {
+        // Get JWT from local storage
+        const token = localStorage.getItem('adminToken');
+
+        // Ensure user is loaded and authenticated either via Clerk or Custom JWT
+        if (!user && !token) {
             navigate('/admin-login'); // or root
             return;
         }
 
         const fetchStats = async () => {
-             // Let's use localStorage token if that's what we were banking on, 
-             // but if we are using Clerk, we fetch DB token using getSession
-            const token = localStorage.getItem('token');
+             // Use JWT if present, fallback to Clerk pattern if necessary
             try {
                 const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1'}/admin/stats`, {
                     headers: { 'Authorization': `Bearer ${token}` }
