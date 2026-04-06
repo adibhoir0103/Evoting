@@ -86,9 +86,9 @@ function App() {
         if (window.ethereum) {
             window.ethereum.on('accountsChanged', handleAccountsChanged);
             window.ethereum.on('chainChanged', (chainId) => {
-                const expectedChainId = '0xaa36a7'; // Sepolia = 11155111
+                const expectedChainId = '0x539'; // Hardhat = 1337
                 if (chainId !== expectedChainId) {
-                    toast.error('Wrong network! Please switch to Sepolia Testnet (Chain ID: 11155111)');
+                    toast.error('Wrong network! Please switch to Hardhat Localhost (Chain ID: 1337)');
                 }
                 window.location.reload();
             });
