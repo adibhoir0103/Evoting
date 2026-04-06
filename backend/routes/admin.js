@@ -16,31 +16,27 @@ const jwt = require('jsonwebtoken');
 // Use the EXACT same JWT secret as server.js to avoid mismatch
 const EFFECTIVE_JWT_SECRET = process.env.JWT_SECRET || 'dev-only-insecure-key-fallback';
 
-// Custom Middleware: Validate Custom Admin JWT
-const isAdmin = async (req, res, next) => {
+// Custom Middleware: Validate Custom Admin JWT (synchronous - no callback)
+const isAdmin = (req, res, next) => {
     try {
         const authHeader = req.headers['authorization'];
         const token = authHeader && authHeader.split(' ')[1];
         
         if (!token) return res.status(401).json({ error: 'Unauthorized: No token provided' });
 
-        // Verify the custom admin JWT we generated in server.js
-        jwt.verify(token, EFFECTIVE_JWT_SECRET, async (err, decoded) => {
-            if (err) {
-                return res.status(403).json({ error: 'Forbidden: Invalid or expired Admin Token' });
-            }
+        // Synchronous verify — throws on failure instead of using callback
+        const decoded = jwt.verify(token, EFFECTIVE_JWT_SECRET);
 
-            req.adminUser = {
-                id: decoded.id,
-                email: decoded.email,
-                role: 'SUPER_ADMIN' // Elevate the custom login to SUPER_ADMIN so they can create elections
-            };
+        req.adminUser = {
+            id: decoded.id,
+            email: decoded.email,
+            role: 'SUPER_ADMIN'
+        };
 
-            next();
-        });
+        next();
     } catch (err) {
-        console.error('Admin middleware error:', err);
-        res.status(500).json({ error: 'Internal Server Error' });
+        console.error('Admin JWT verification failed:', err.message);
+        return res.status(403).json({ error: 'Forbidden: Invalid or expired Admin Token', detail: err.message });
     }
 };
 
