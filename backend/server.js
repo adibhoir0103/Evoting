@@ -91,12 +91,12 @@ app.use(helmet({
     },
     crossOriginEmbedderPolicy: false
 }));
-const allowedOrigins = process.env.CORS_ORIGIN 
-    ? process.env.CORS_ORIGIN.split(',') 
+const allowedOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',')
     : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5173', 'http://127.0.0.1:5173'];
 
 app.use(cors({
-    origin: function(origin, callback) {
+    origin: function (origin, callback) {
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
@@ -230,11 +230,11 @@ const authenticateToken = [
                 return res.status(401).json({ error: 'Unauthorized: Invalid authentication session' });
             }
             const localUser = await prisma.user.findUnique({ where: { auth_id } });
-            
+
             if (!localUser) {
                 return res.status(403).json({ error: 'User demographic data not found. Please complete onboarding.' });
             }
-            
+
             req.user = {
                 id: localUser.id,
                 voterId: localUser.voter_id,
@@ -256,7 +256,7 @@ app.put('/api/v1/user/profile', authenticateToken, async (req, res) => {
     try {
         const { fatherName, gender, dob, address } = req.body;
         const updates = {};
-        
+
         if (fatherName !== undefined) updates.father_name = sanitize(fatherName);
         if (gender !== undefined) updates.gender = sanitize(gender);
         if (dob !== undefined) updates.dob = sanitize(dob);
@@ -282,7 +282,7 @@ app.put('/api/v1/user/profile', authenticateToken, async (req, res) => {
 app.post('/api/v1/auth/register-clerk', requireAuth(), async (req, res) => {
     try {
         const { fullname, voterId, aadhaarNumber, mobileNumber, stateCode, constituencyCode, email } = req.body;
-        
+
         const authPayload = typeof req.auth === 'function' ? req.auth() : req.auth;
         const auth_id = authPayload?.userId || authPayload?.claims?.sub;
 
@@ -486,7 +486,7 @@ app.post('/api/v1/vote/record', requireAuth(), verifyTurnstile, async (req, res)
             await deleteVoteToken(auth_id);
             return res.status(403).json({ error: 'Pre-flight token invalid or expired. Access Denied.' });
         }
-        
+
         // Burn the token instantly to prevent race conditions
         await deleteVoteToken(auth_id);
 
@@ -520,10 +520,10 @@ app.post('/api/v1/vote/record', requireAuth(), verifyTurnstile, async (req, res)
 
         // Dispatch Enterprise Transactional Resend Receipt (QStash Decoupled Flow)
         if (user.email && user.fullname) {
-            qStashWorker.publish('send_vote_receipt', { 
-                email: user.email, 
-                fullname: user.fullname, 
-                txHash: txHash 
+            qStashWorker.publish('send_vote_receipt', {
+                email: user.email,
+                fullname: user.fullname,
+                txHash: txHash
             });
         }
 
@@ -541,7 +541,7 @@ app.post('/api/v1/vote/record', requireAuth(), verifyTurnstile, async (req, res)
             console.warn('IPFS pinning failed (non-blocking):', ipfsErr.message);
         }
 
-        res.json({ 
+        res.json({
             message: 'Zero-Knowledge Vote securely recorded & QStash receipt enqueued',
             ipfsHash: ipfsHash || null
         });
@@ -602,7 +602,7 @@ app.post('/api/v1/auth/send-otp', otpLimiter, otpLimiterUpstash, verifyTurnstile
         }
 
         const result = await otpService.sendOTP(cleanEmail, cleanEmail, 'email');
-        
+
         // Log delivery
         await prisma.otpDeliveryLog.create({
             data: {
@@ -610,9 +610,9 @@ app.post('/api/v1/auth/send-otp', otpLimiter, otpLimiterUpstash, verifyTurnstile
                 purpose: purpose || 'login-2fa',
                 success: result.success
             }
-        }).catch(() => {}); // Non-blocking
+        }).catch(() => { }); // Non-blocking
 
-        res.json({ 
+        res.json({
             message: result.message,
             ...(result.demoOTP && { otp: result.demoOTP }) // Only in dev mode
         });
@@ -642,7 +642,7 @@ app.post('/api/v1/auth/verify-otp', otpLimiter, otpLimiterUpstash, verifyTurnsti
                 purpose: `${purpose || 'login-2fa'}-verified`,
                 success: true
             }
-        }).catch(() => {});
+        }).catch(() => { });
 
         res.json({ message: result.message, verified: true });
     } catch (error) {
@@ -676,11 +676,11 @@ app.post('/api/v1/auth/reset-password', authLimiter, async (req, res) => {
                 purpose: 'password-reset-verified',
                 success: true
             }
-        }).catch(() => {});
+        }).catch(() => { });
 
         // Signal frontend to proceed with Clerk's password reset
         // The actual password change happens via Clerk SDK on the frontend
-        res.json({ 
+        res.json({
             message: 'OTP verified. You may now reset your password.',
             verified: true,
             // Frontend will use signIn.resetPassword() with Clerk
@@ -707,9 +707,9 @@ app.post('/api/v1/auth/login-2fa', otpLimiter, otpLimiterUpstash, async (req, re
                 purpose: 'login-2fa',
                 success: result.success
             }
-        }).catch(() => {});
+        }).catch(() => { });
 
-        res.json({ 
+        res.json({
             message: 'Security verification code sent to your email.',
             ...(result.demoOTP && { otp: result.demoOTP })
         });
@@ -752,7 +752,7 @@ app.post('/api/v1/keystroke/process', apiLimiter, async (req, res) => {
         }
 
         const result = await keystrokeService.processKeystroke(email.trim().toLowerCase(), timingData);
-        
+
         res.json({
             enrolled: result.enrolled,
             suspicious: result.suspicious,
@@ -1026,11 +1026,11 @@ app.post('/api/v1/ipfs/pin-candidate', ipfsLimiter, requireAuth(), authenticateA
         const { id, name, partyName, partySymbol, stateCode, constituencyCode } = req.body;
 
         const result = await ipfsService.pinCandidateMetadata({
-            id, 
-            name: sanitize(name), 
-            partyName: sanitize(partyName), 
-            partySymbol: sanitize(partySymbol), 
-            stateCode, 
+            id,
+            name: sanitize(name),
+            partyName: sanitize(partyName),
+            partySymbol: sanitize(partySymbol),
+            stateCode,
             constituencyCode
         });
 
@@ -1051,7 +1051,7 @@ app.get('/api/v1/ipfs/:hash', apiLimiter, async (req, res) => {
         if (!isValidIPFSHash(hash)) {
             return res.status(400).json({ error: 'Invalid IPFS hash format' });
         }
-        
+
         const data = await ipfsService.getFromIPFS(hash);
         res.json({ data });
     } catch (error) {
