@@ -12,7 +12,8 @@ const ElectionWizard = () => {
 
     const fetchElections = async () => {
         try {
-            const token = await getToken();
+            // Use Admin JWT instead of Clerk voter token
+            const token = localStorage.getItem('adminToken');
             const res = await fetch(`${API_URL}/admin/elections`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -34,7 +35,7 @@ const ElectionWizard = () => {
     const handleCreate = async (e) => {
         e.preventDefault();
         try {
-            const token = await getToken();
+            const token = localStorage.getItem('adminToken');
             const res = await fetch(`${API_URL}/admin/elections`, {
                 method: 'POST',
                 headers: {
@@ -56,7 +57,7 @@ const ElectionWizard = () => {
 
     const updateStatus = async (id, status, reason = '') => {
         try {
-            const token = await getToken();
+            const token = localStorage.getItem('adminToken');
             const res = await fetch(`${API_URL}/admin/elections/${id}/status`, {
                 method: 'PATCH',
                 headers: {
