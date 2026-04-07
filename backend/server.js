@@ -17,11 +17,10 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('./lib/prisma');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { clerkMiddleware, requireAuth } = require('@clerk/express');
-const prisma = new PrismaClient();
 const otpService = require('./services/otpService');
 const { otpLimiterUpstash, authLimiterUpstash, zkpLimiterUpstash } = require('./services/rateLimiter');
 

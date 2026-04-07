@@ -32,8 +32,7 @@
  * - Combined with Turnstile + 2FA OTP = defense-in-depth
  */
 
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 
 const MIN_SAMPLES = 5;          // Minimum samples before enforcement
 const SUSPICIOUS_THRESHOLD = 2.5; // Euclidean distance threshold (tuned for passwords)

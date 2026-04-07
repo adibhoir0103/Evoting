@@ -189,12 +189,7 @@ function Navbar({ user, onLogout, isAdmin }) {
                                 </>
                             )}
 
-                            {/* Admin-specific links */}
-                            {isAdminUser && (
-                                <Link to="/admin-panel" className={`text-sm font-semibold hover:text-red-600 transition-colors flex items-center gap-1.5 ${location.pathname === '/admin-panel' ? 'text-red-600 border-b-2 border-red-500 pb-1' : 'text-gray-600'}`}>
-                                    <i className="fa-solid fa-user-shield text-red-500"></i>{t('nav.admin')}
-                                </Link>
-                            )}
+
 
                             <form role="search" onSubmit={(e) => { e.preventDefault(); navigate('/search-roll'); }} className="flex items-center">
                                 <button type="submit" aria-label="Submit Search" className="text-gray-500 hover:text-primary transition-colors px-2 relative group focus:outline-none focus:ring-2 focus:ring-primary rounded">
@@ -259,9 +254,7 @@ function Navbar({ user, onLogout, isAdmin }) {
                                 </>
                             )}
 
-                            {isAdminUser && (
-                                <Link to="/admin-panel" className="block px-3 py-2 rounded text-sm font-semibold text-red-600 hover:bg-red-50"><i className="fa-solid fa-user-shield mr-2"></i>{t('nav.admin')}</Link>
-                            )}
+
 
                             <div className="border-t border-gray-200 pt-3 mt-3">
                                 {isLoggedIn && user ? (
