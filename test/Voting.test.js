@@ -307,6 +307,37 @@ describe("Voting Contract", function () {
             expect(timeline._timelineEnabled).to.equal(true);
             expect(timeline._startTime).to.equal(now);
         });
+
+        it("Should block voting before timeline start", async function () {
+            const latestBlock = await ethers.provider.getBlock("latest");
+            const start = Number(latestBlock.timestamp) + 3600;
+            const end = start + 3600;
+
+            await voting.authorizeVoterSimple(voter1.address);
+            await voting.setVotingTimeline(start, end);
+            await voting.startVoting();
+
+            await expect(
+                voting.connect(voter1).vote(1)
+            ).to.be.revertedWith("Voting has not started yet");
+        });
+
+        it("Should block voting after timeline end", async function () {
+            const latestBlock = await ethers.provider.getBlock("latest");
+            const start = Number(latestBlock.timestamp) + 10;
+            const end = start + 20;
+
+            await voting.authorizeVoterSimple(voter1.address);
+            await voting.setVotingTimeline(start, end);
+            await voting.startVoting();
+
+            await ethers.provider.send("evm_setNextBlockTimestamp", [end + 1]);
+            await ethers.provider.send("evm_mine", []);
+
+            await expect(
+                voting.connect(voter1).vote(1)
+            ).to.be.revertedWith("Voting period has ended");
+        });
     });
 
     describe("Voting Status Control", function () {
@@ -332,6 +363,18 @@ describe("Voting Contract", function () {
         it("Should fail if non-admin tries to start voting", async function () {
             await expect(
                 voting.connect(voter1).startVoting()
+            ).to.be.revertedWith("Only admin can perform this action");
+        });
+
+        it("Should fail if non-admin tries to set trusted forwarder", async function () {
+            await expect(
+                voting.connect(voter1).setTrustedForwarder(voter2.address)
+            ).to.be.revertedWith("Only admin can perform this action");
+        });
+
+        it("Should fail if non-admin tries to toggle ZKP mode", async function () {
+            await expect(
+                voting.connect(voter1).setZKPMode(true)
             ).to.be.revertedWith("Only admin can perform this action");
         });
     });
