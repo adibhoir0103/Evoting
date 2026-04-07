@@ -108,7 +108,7 @@ app.use(cors({
         }
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed methods
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], // Allowed methods
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json({ limit: '10kb' })); // Limit payload size
@@ -349,24 +349,32 @@ app.post('/api/v1/auth/register-clerk', requireAuth(), async (req, res) => {
             return res.status(400).json({ error: 'Required identity fields missing' });
         }
 
-        // Sanitize inputs
+        // Clean inputs (don't HTML-encode IDs — they are alphanumeric only)
         const cleanName = sanitize(fullname);
-        const cleanVoterId = sanitize(voterId);
+        const cleanVoterId = voterId.trim().toUpperCase();
         const cleanEmail = email.trim().toLowerCase();
+        const cleanAadhaar = aadhaarNumber ? aadhaarNumber.trim() : null;
 
-        // Check if user exists using Prisma
+        // PRIORITY CHECK: If this Clerk user already has a local account, return immediately
+        const existingByAuth = await prisma.user.findUnique({ where: { auth_id } });
+        if (existingByAuth) {
+            return res.json({ message: 'User already synced' });
+        }
+
+        // Check if another user exists with these identifiers
+        const orConditions = [
+            { email: cleanEmail },
+            { voter_id: cleanVoterId }
+        ];
+        if (cleanAadhaar) {
+            orConditions.push({ aadhaar_number: cleanAadhaar });
+        }
+
         const existingUser = await prisma.user.findFirst({
-            where: {
-                OR: [
-                    { email: cleanEmail },
-                    { voter_id: cleanVoterId },
-                    { aadhaar_number: aadhaarNumber ? aadhaarNumber : undefined }
-                ]
-            }
+            where: { OR: orConditions }
         });
 
         if (existingUser) {
-            if (existingUser.auth_id === auth_id) return res.json({ message: 'User already synced' });
             return res.status(400).json({ error: 'User with this email, voter ID, or Aadhaar number already exists' });
         }
 
@@ -378,8 +386,8 @@ app.post('/api/v1/auth/register-clerk', requireAuth(), async (req, res) => {
                 voter_id: cleanVoterId,
                 email: cleanEmail,
                 password: null, // Password completely delegated to Clerk
-                aadhaar_number: aadhaarNumber || null,
-                mobile_number: mobileNumber || null,
+                aadhaar_number: cleanAadhaar,
+                mobile_number: mobileNumber ? mobileNumber.trim() : null,
                 state_code: stateCode || 0,
                 constituency_code: constituencyCode || 0
             }
@@ -388,6 +396,17 @@ app.post('/api/v1/auth/register-clerk', requireAuth(), async (req, res) => {
         res.status(201).json({ message: 'Voter demographic sync successful' });
     } catch (error) {
         console.error('Registration/Sync error:', error);
+
+        // Handle Prisma unique constraint errors gracefully
+        if (error.code === 'P2002') {
+            const field = error.meta?.target?.[0] || 'field';
+            // If it's the auth_id constraint, the user was created between our check and insert (race condition)
+            if (field === 'auth_id') {
+                return res.json({ message: 'User already synced' });
+            }
+            return res.status(400).json({ error: `A user with this ${field} already exists. Please verify your details.` });
+        }
+
         res.status(500).json({ error: 'Server error during sync' });
     }
 });

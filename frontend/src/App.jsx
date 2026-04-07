@@ -10,7 +10,7 @@ import toast, { Toaster } from 'react-hot-toast';
 // Components
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import AdminDashboard from './components/AdminDashboard';
+
 import ActivityMonitor from './components/ActivityMonitor';
 
 // Pages
@@ -200,7 +200,6 @@ function App() {
                         <Route
                             path="/"
                             element={
-                                isAdmin ? <Navigate to="/admin" replace /> :
                                 (isSignedIn && user) ? <Navigate to="/dashboard" replace /> :
                                 <LandingPage user={user} />
                             }
@@ -279,19 +278,7 @@ function App() {
                         {/* Election Results — Public */}
                         <Route path="/results" element={<ResultsPage />} />
 
-                        {/* Admin Dashboard */}
-                        <Route
-                            path="/admin"
-                            element={
-                                (isAdmin || localStorage.getItem('adminToken')) ? (
-                                    <div style={{ padding: '2rem 5%', background: '#F5F7FA', minHeight: '100vh' }}>
-                                        <AdminDashboard />
-                                    </div>
-                                ) : (
-                                    <Navigate to="/" replace />
-                                )
-                            }
-                        />
+
 
                         {/* Admin Login Page */}
                         <Route path="/admin-login" element={<AdminLoginPage onAdminLogin={(adminAddress) => { setIsAdmin(true); checkAdminStatus(adminAddress); }} />} />

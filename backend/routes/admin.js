@@ -479,7 +479,7 @@ router.post('/approved-voters', async (req, res) => {
         res.status(201).json(voter);
     } catch (err) {
         console.error('Add approved voter error:', err);
-        res.status(500).json({ error: 'Failed to add voter' });
+        res.status(500).json({ error: 'Failed to add voter: ' + (err.message || 'Unknown error') });
     }
 });
 

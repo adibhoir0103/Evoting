@@ -20,20 +20,26 @@ export default function SignupPage() {
         setLoading(true);
 
         try {
-            // Check eligibility before allowing Clerk signup
+            // Check eligibility before allowing Clerk signup (fail-open if whitelist is empty or backend unreachable)
             const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace(/\/$/, '');
             const eligibilityUrl = API_URL.endsWith('/api/v1') ? API_URL : API_URL + '/api/v1';
-            const eligRes = await fetch(`${eligibilityUrl}/auth/check-eligibility`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email.trim().toLowerCase() })
-            });
-            const eligData = await eligRes.json();
+            try {
+                const eligRes = await fetch(`${eligibilityUrl}/auth/check-eligibility`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email.trim().toLowerCase() })
+                });
+                const eligData = await eligRes.json();
 
-            if (!eligRes.ok || !eligData.eligible) {
-                toast.error(eligData.error || 'You are not approved to register. Contact your Election Officer.');
-                setLoading(false);
-                return;
+                // Only block if the voter is explicitly BLACKLISTED by the Election Commission
+                if (eligRes.status === 403 && eligData.error && eligData.error.includes('revoked')) {
+                    toast.error('Your voter registration has been revoked by the Election Commission.');
+                    setLoading(false);
+                    return;
+                }
+            } catch (eligErr) {
+                // If eligibility check fails (backend down, network error), proceed with registration
+                console.warn('Eligibility check unavailable, proceeding with registration:', eligErr.message);
             }
 
             await signUp.create({

@@ -54,7 +54,11 @@ const VoterRolls = () => {
                 setMessage(`❌ ${data.error}`);
             }
         } catch (err) {
-            setMessage('❌ Failed to add voter');
+            if (err.name === 'TypeError' && err.message.includes('fetch')) {
+                setMessage('❌ Cannot reach backend server. Make sure it is running on the correct port.');
+            } else {
+                setMessage('❌ Failed to add voter: ' + (err.message || 'Network error'));
+            }
         }
     };
 
