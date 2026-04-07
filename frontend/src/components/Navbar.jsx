@@ -233,6 +233,13 @@ function Navbar({ user, onLogout, isAdmin }) {
                                             >
                                                 <i className="fa-solid fa-user text-primary w-5"></i> Voter Login
                                             </Link>
+                                            <Link
+                                                to="/admin-login"
+                                                className="block px-4 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 font-medium transition-colors border-t border-gray-100"
+                                                onClick={() => setShowLoginDropdown(false)}
+                                            >
+                                                <i className="fa-solid fa-user-shield text-red-500 w-5"></i> Admin Login
+                                            </Link>
                                         </div>
                                     )}
                                 </div>
@@ -264,6 +271,7 @@ function Navbar({ user, onLogout, isAdmin }) {
                                 ) : (
                                     <>
                                         <Link to="/login" className="block px-3 py-2 rounded text-sm font-semibold text-primary hover:bg-blue-50"><i className="fa-solid fa-user mr-2"></i>Voter Login</Link>
+                                        <Link to="/admin-login" className="block px-3 py-2 rounded text-sm font-semibold text-red-600 hover:bg-red-50"><i className="fa-solid fa-user-shield mr-2"></i>Admin Login</Link>
                                     </>
                                 )}
                             </div>
