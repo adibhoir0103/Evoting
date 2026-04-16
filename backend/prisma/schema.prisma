@@ -11,6 +11,9 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// Connection pool note: On Supabase free tier, keep connection_limit low.
+// Append ?pgbouncer=true&connection_limit=3 to DATABASE_URL in production.
+
 enum Role {
   VOTER
   SUPER_ADMIN
