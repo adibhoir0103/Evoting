@@ -1311,6 +1311,26 @@ app.use((err, req, res, next) => {
     res.status(err.status || 500).json({ error: err.message || 'Internal Server Crash' });
 });
 
+// ===================== HEALTH CHECK (Keep-alive for Render free tier) =====================
+
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        status: 'ok',
+        service: 'bharat-evote-api',
+        timestamp: new Date().toISOString(),
+        uptime: Math.floor(process.uptime()) + 's'
+    });
+});
+
+app.get('/api/v1/health', (req, res) => {
+    res.status(200).json({
+        status: 'ok',
+        service: 'bharat-evote-api',
+        timestamp: new Date().toISOString(),
+        uptime: Math.floor(process.uptime()) + 's'
+    });
+});
+
 // ===================== START SERVER =====================
 
 app.listen(PORT, () => {
