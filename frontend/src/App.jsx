@@ -29,6 +29,9 @@ const VerifyVotePage = lazy(() => import('./pages/VerifyVotePage'));
 import { authService } from './services/authService';
 import { BlockchainService } from './services/blockchainService';
 
+// Hooks
+import useInactivityTimer from './hooks/useInactivityTimer';
+
 /** Skeleton loading fallback — shown while lazy chunks load */
 function PageSkeleton() {
     return (
@@ -203,8 +206,59 @@ function AppLayout({ user, isAdmin, setIsAdmin, handleLogin, handleLogout, handl
     const isAdminPanel = location.pathname === '/admin-panel';
     const isAuthPage = ['/login', '/signup'].includes(location.pathname);
 
+    // Inactivity auto-logout (10 min idle = security standard for govt apps)
+    const isAuthenticated = !!(user || localStorage.getItem('adminToken'));
+    const { showWarning, remainingSeconds, stayLoggedIn } = useInactivityTimer(
+        handleLogout,
+        isAuthenticated ? 10 * 60 * 1000 : Infinity // Only active when logged in
+    );
+
     return (
         <div className="flex flex-col min-h-screen bg-watermark">
+            {/* Session Timeout Warning Modal */}
+            {showWarning && isAuthenticated && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999]" role="alertdialog" aria-modal="true" aria-label="Session timeout warning">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-fade-in">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-red-600 to-red-700 p-6 text-center">
+                            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <i className="fa-solid fa-clock text-white text-3xl"></i>
+                            </div>
+                            <h2 className="text-xl font-bold text-white">Session Expiring</h2>
+                            <p className="text-red-100 text-sm mt-1">Due to inactivity, your session will end soon</p>
+                        </div>
+                        {/* Body */}
+                        <div className="p-6 text-center">
+                            <div className="w-24 h-24 rounded-full border-4 border-red-500 flex items-center justify-center mx-auto mb-4">
+                                <span className="text-4xl font-bold text-red-600">{remainingSeconds}</span>
+                            </div>
+                            <p className="text-gray-600 text-sm mb-6">seconds remaining before automatic logout</p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={stayLoggedIn}
+                                    className="flex-1 bg-primary hover:bg-primary-800 text-white py-3 px-6 rounded-lg font-bold transition-colors shadow-md"
+                                    autoFocus
+                                >
+                                    <i className="fa-solid fa-rotate-right mr-2"></i> Stay Logged In
+                                </button>
+                                <button
+                                    onClick={handleLogout}
+                                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-6 rounded-lg font-medium transition-colors border border-gray-300"
+                                >
+                                    <i className="fa-solid fa-right-from-bracket mr-2"></i> Logout Now
+                                </button>
+                            </div>
+                        </div>
+                        {/* Footer */}
+                        <div className="bg-gray-50 px-6 py-3 border-t border-gray-100">
+                            <p className="text-xs text-gray-500 text-center">
+                                <i className="fa-solid fa-shield-halved mr-1"></i>
+                                Session timeout is a security feature mandated by GIGW 3.0 compliance standards.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* Offline Banner */}
             {isOffline && (
                 <div className="bg-red-600 text-white text-center py-2 px-4 text-sm font-medium flex items-center justify-center gap-2 z-50" role="alert" aria-live="assertive">

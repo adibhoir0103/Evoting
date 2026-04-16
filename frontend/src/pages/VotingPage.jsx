@@ -9,6 +9,7 @@ import QRVoteTicket from '../components/QRVoteTicket';
 import { indianStates, getStateName } from '../utils/indianStates';
 import { Helmet } from 'react-helmet-async';
 import { jsPDF } from 'jspdf';
+import useElectionTimer from '../hooks/useElectionTimer';
 
 function VotingPage({ user, onUserUpdate }) {
     const navigate = useNavigate();
@@ -39,6 +40,9 @@ function VotingPage({ user, onUserUpdate }) {
     // QR Voting Ticket State
     const [showQRTicket, setShowQRTicket] = useState(false);
     const [qrTicketValidated, setQrTicketValidated] = useState(false);
+
+    // Blockchain-synced election timer
+    const { hours, minutes, seconds, electionState: timerState } = useElectionTimer();
 
     useEffect(() => {
         if (!user) {
@@ -626,7 +630,12 @@ function VotingPage({ user, onUserUpdate }) {
                     {!votingActive && isAuthorized && (
                         <div className="max-w-3xl mx-auto mb-4">
                             <div className="bg-yellow-50 border border-yellow-300 text-yellow-800 p-4 rounded text-sm font-medium">
-                                <i className="fa-solid fa-clock mr-2"></i> Voting is not currently active. Polling hours: 7:00 AM - 6:00 PM.
+                                <i className="fa-solid fa-clock mr-2"></i> 
+                                {timerState === 'NOT_STARTED' 
+                                    ? `Voting has not started yet. Begins in: ${hours}h ${minutes}m ${seconds}s`
+                                    : timerState === 'ENDED'
+                                    ? 'Voting period has ended. Results will be announced soon.'
+                                    : 'Voting is not currently active. Please wait for the admin to start the election.'}
                             </div>
                         </div>
                     )}

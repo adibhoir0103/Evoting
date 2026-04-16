@@ -305,7 +305,7 @@ app.post('/api/v1/auth/register', authLimiter, async (req, res) => {
         const token = jwt.sign(
             { id: user.id, email: user.email, voterId: user.voter_id, role: 'VOTER' },
             EFFECTIVE_JWT_SECRET,
-            { expiresIn: '24h' }
+            { expiresIn: '30m' }
         );
 
         // Log registration
@@ -509,7 +509,7 @@ app.post('/api/v1/auth/mfa/verify-otp', authLimiter, async (req, res) => {
         const token = jwt.sign(
             { id: user.id, email: user.email, voterId: user.voter_id, voter_id: user.voter_id, role: user.role, mfa: true },
             EFFECTIVE_JWT_SECRET,
-            { expiresIn: '24h' }
+            { expiresIn: '30m' }
         );
 
         // Log full login success

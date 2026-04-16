@@ -5,6 +5,7 @@ import { authService } from '../services/authService';
 import { Helmet } from 'react-helmet-async';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
+import useElectionTimer from '../hooks/useElectionTimer';
 
 const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 const API_URL = rawUrl.startsWith('http') ? (rawUrl.endsWith('/api/v1') ? rawUrl : rawUrl.replace(/\/$/, '') + '/api/v1') : 'https://' + rawUrl.replace(/\/$/, '') + (rawUrl.endsWith('/api/v1') ? '' : '/api/v1');
@@ -16,27 +17,13 @@ function DashboardPage({ user, onUserUpdate }) {
     const [voteReceipt, setVoteReceipt] = useState(null);
     const [hasVoted, setHasVoted] = useState(false);
     const [error, setError] = useState('');
-    const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+    // Blockchain-synced election timer — single source of truth
+    const { days, hours, minutes, seconds, electionState } = useElectionTimer();
+    const timeLeft = { days, hours, minutes, seconds };
 
     useEffect(() => {
         loadDashboardData();
-
-        // Countdown Timer Logic — TODO: Fetch target date from backend API
-        const targetDate = new Date('2026-05-15T08:00:00');
-        const timer = setInterval(() => {
-            const now = new Date();
-            const difference = targetDate - now;
-
-            if (difference > 0) {
-                setTimeLeft({
-                    days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-                    hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
-                    minutes: Math.floor((difference / 1000 / 60) % 60),
-                    seconds: Math.floor((difference / 1000) % 60)
-                });
-            }
-        }, 1000);
-        return () => clearInterval(timer);
         // eslint-disable-next-line
     }, []);
 
@@ -212,27 +199,40 @@ function DashboardPage({ user, onUserUpdate }) {
                         </div>
                     </div>
                     
-                    {/* Countdown Banner inside Header */}
+                    {/* Countdown Banner inside Header — Synced with Blockchain */}
                     <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-4 flex items-center gap-6">
                         <div>
                             <h2 className="text-sm font-bold uppercase tracking-wider text-accent-saffron">General Election 2026</h2>
-                            <span className="text-xs text-blue-100">Live Polling Closes In:</span>
+                            <span className="text-xs text-blue-100">
+                                {electionState === 'ACTIVE' && 'Live Polling Closes In:'}
+                                {electionState === 'NOT_STARTED' && 'Voting Begins In:'}
+                                {electionState === 'ENDED' && 'Voting Has Concluded'}
+                                {(electionState === 'NOT_CONFIGURED' || electionState === 'LOADING') && 'Awaiting Election Schedule'}
+                            </span>
                         </div>
-                        <div className="flex gap-3">
-                            {[ 
-                                { label: 'Days', val: timeLeft.days },
-                                { label: 'Hours', val: timeLeft.hours },
-                                { label: 'Mins', val: timeLeft.minutes },
-                                { label: 'Secs', val: timeLeft.seconds }
-                            ].map((unit, idx) => (
-                                <div key={idx} className="flex flex-col items-center">
-                                    <div className="bg-white text-primary font-bold text-xl w-10 h-10 flex flex-col justify-center items-center rounded shadow-sm">
-                                        {unit.val}
+                        {(electionState === 'ACTIVE' || electionState === 'NOT_STARTED') && (
+                            <div className="flex gap-3">
+                                {[ 
+                                    { label: 'Days', val: timeLeft.days },
+                                    { label: 'Hours', val: timeLeft.hours },
+                                    { label: 'Mins', val: timeLeft.minutes },
+                                    { label: 'Secs', val: timeLeft.seconds }
+                                ].map((unit, idx) => (
+                                    <div key={idx} className="flex flex-col items-center">
+                                        <div className="bg-white text-primary font-bold text-xl w-10 h-10 flex flex-col justify-center items-center rounded shadow-sm">
+                                            {unit.val}
+                                        </div>
+                                        <span className="text-[10px] uppercase font-semibold mt-1 opacity-80">{unit.label}</span>
                                     </div>
-                                    <span className="text-[10px] uppercase font-semibold mt-1 opacity-80">{unit.label}</span>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
+                        {electionState === 'ENDED' && (
+                            <div className="bg-white/20 rounded-lg px-4 py-2">
+                                <i className="fa-solid fa-check-circle text-green-300 mr-2"></i>
+                                <span className="font-bold">Final Results Available</span>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
