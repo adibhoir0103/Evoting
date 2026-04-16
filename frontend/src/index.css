@@ -3,152 +3,356 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════════
+   DESIGN TOKEN SYSTEM — CSS Custom Properties
+   Based on guide's recommended government e-voting color system.
+   
+   Principles:
+   1. Trust & Legitimacy — Professional blue palette
+   2. Accessibility (A11y) — WCAG AA 4.5:1 contrast minimum
+   3. Political Neutrality — No party-associated primary colors
+   4. Clarity & Focus — Functional colors for state indication
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ─── Primary ─── */
+  --color-primary: #1e3a8a;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-light: #dbeafe;
+  --color-primary-text: #ffffff; /* Text on primary backgrounds */
+
+  /* ─── Backgrounds ─── */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f1f5f9;   /* Cards, sidebars, elevated surfaces */
+  --color-bg-tertiary: #f8fafc;    /* Page background */
+
+  /* ─── Text ─── */
+  --color-text-primary: #0f172a;   /* Headlines, body — near-black, not pure black */
+  --color-text-secondary: #64748b; /* Captions, labels, secondary info */
+  --color-text-muted: #94a3b8;     /* Disabled, placeholder */
+
+  /* ─── Borders & Dividers ─── */
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+
+  /* ─── Functional States ─── */
+  --color-success: #16a34a;
+  --color-success-bg: #f0fdf4;
+  --color-error: #dc2626;
+  --color-error-bg: #fef2f2;
+  --color-warning: #d97706;
+  --color-warning-bg: #fffbeb;
+  --color-info: #0ea5e9;
+  --color-info-bg: #f0f9ff;
+
+  /* ─── Shadows ─── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DARK THEME OVERRIDES
+   Using slate tones (blue-gray) for a softer dark mode.
+   Avoids pure black (#000) — uses #0f172a (slate-900).
+   ═══════════════════════════════════════════════════════════ */
+
+html.dark {
+  --color-primary: #2563eb;        /* Brighter blue for dark backgrounds (navy too dark on dark) */
+  --color-primary-hover: #3b82f6;
+  --color-primary-light: rgba(59, 130, 246, 0.15);
+
+  --color-bg-primary: #0f172a;     /* Slate-900 — main dark background */
+  --color-bg-secondary: #1e293b;   /* Slate-800 — cards, sidebars */
+  --color-bg-tertiary: #0f172a;    /* Same as primary for consistency */
+
+  --color-text-primary: #f8fafc;   /* Slate-50 — bright text */
+  --color-text-secondary: #cbd5e1; /* Slate-300 */
+  --color-text-muted: #64748b;     /* Slate-500 */
+
+  --color-border: #334155;         /* Slate-700 */
+  --color-border-strong: #475569;  /* Slate-600 */
+
+  --color-success-bg: rgba(22, 163, 74, 0.15);
+  --color-error-bg: rgba(220, 38, 38, 0.15);
+  --color-warning-bg: rgba(217, 119, 6, 0.15);
+  --color-info-bg: rgba(14, 165, 233, 0.15);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+
+  background-color: #0f172a;
+  color-scheme: dark;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BASE LAYER — Typography & Default Styles
+   ═══════════════════════════════════════════════════════════ */
+
 @layer base {
   html {
     scroll-behavior: smooth;
   }
 
   body {
-    @apply bg-gov-bg text-gov-text font-sans antialiased min-h-screen selection:bg-primary selection:text-white;
+    @apply bg-gov-bg text-gov-text font-sans antialiased min-h-screen;
+    selection {
+      background-color: var(--color-primary);
+      color: #ffffff;
+    }
   }
 
-  .dark body, body.dark, html.dark body {
-    background-color: #070e20;
-    color: #e2e8f0;
+  body {
+    @apply selection:bg-primary selection:text-white;
+  }
+
+  html.dark body {
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
   }
   
   h1, h2, h3, h4, h5, h6 {
-    @apply font-bold text-gray-900 tracking-tight;
-  }
-
-  html.dark h1, html.dark h2, html.dark h3, html.dark h4, html.dark h5, html.dark h6 {
-    color: #f1f5f9;
+    @apply font-bold tracking-tight;
+    color: var(--color-text-primary);
   }
 }
 
+/* ═══════════════════════════════════════════════════════════
+   COMPONENT LAYER — Reusable UI Components
+   ═══════════════════════════════════════════════════════════ */
+
 @layer components {
-  /* Cards */
+  /* ─── Cards ─── */
   .gov-card {
-    @apply bg-gov-card rounded-xl shadow-gov border border-gov-border p-6 transition-all duration-300;
+    @apply rounded-xl p-6 transition-all duration-300;
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-md);
   }
   
   .gov-card:hover {
-    @apply shadow-gov-hover border-gray-300;
-  }
-
-  html.dark .gov-card {
-    background-color: #0f1a36;
-    border-color: #1a2c5b;
-    color: #e2e8f0;
-  }
-
-  html.dark .gov-card:hover {
-    border-color: #263f7a;
+    box-shadow: var(--shadow-lg);
+    border-color: var(--color-border-strong);
   }
   
-  /* Buttons */
+  /* ─── Buttons ─── */
   .btn-primary {
-    @apply inline-flex items-center justify-center bg-primary hover:bg-primary-800 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary shadow-sm disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center text-white font-semibold py-2.5 px-6 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+    background-color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--color-primary-hover);
+  }
+
+  .btn-primary:focus-visible {
+    --tw-ring-color: var(--color-primary);
   }
   
   .btn-secondary {
-    @apply inline-flex items-center justify-center bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold py-2.5 px-6 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center font-semibold py-2.5 px-6 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    box-shadow: var(--shadow-sm);
   }
 
-  html.dark .btn-secondary {
-    background-color: #1a2c5b;
-    border-color: #263f7a;
-    color: #f1f5f9;
-  }
-
-  html.dark .btn-secondary:hover {
-    background-color: #263f7a;
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--color-bg-secondary);
   }
 
   .btn-outline {
-    @apply inline-flex items-center justify-center bg-transparent border-2 border-primary hover:bg-primary-100 text-primary font-semibold py-2 px-6 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary;
+    @apply inline-flex items-center justify-center bg-transparent font-semibold py-2 px-6 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+    border: 2px solid var(--color-primary);
+    color: var(--color-primary);
   }
 
-  html.dark .btn-outline {
-    border-color: #60a5fa;
-    color: #60a5fa;
-  }
-
-  html.dark .btn-outline:hover {
-    background-color: rgba(96, 165, 250, 0.1);
+  .btn-outline:hover {
+    background-color: var(--color-primary-light);
   }
   
-  /* Inputs */
+  /* ─── Form Inputs ─── */
   .input-field {
-    @apply w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors disabled:bg-gray-100 disabled:text-gray-500;
+    @apply w-full rounded-lg px-4 py-2.5 transition-colors disabled:opacity-50;
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
   }
 
-  html.dark .input-field {
-    background-color: #0f1a36;
-    border-color: #263f7a;
-    color: #e2e8f0;
+  .input-field:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-light);
   }
 
-  html.dark .input-field:focus {
-    border-color: #60a5fa;
-  }
-
-  html.dark .input-field:disabled {
-    background-color: #070e20;
-    color: #64748b;
+  .input-field:disabled {
+    background-color: var(--color-bg-secondary);
+    color: var(--color-text-muted);
   }
   
-  /* Badges */
+  /* ─── Status Badges ─── */
   .status-badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium uppercase tracking-wider;
   }
 }
 
-/* Dark mode global overrides */
-html.dark {
-  background-color: #070e20;
-  color-scheme: dark;
-}
+/* ═══════════════════════════════════════════════════════════
+   DARK MODE — Automatic Tailwind Class Overrides
+   These ensure all Tailwind utility classes used in JSX
+   files automatically adapt to the dark theme.
+   ═══════════════════════════════════════════════════════════ */
 
 html.dark body {
-  background-color: #070e20;
-  color: #e2e8f0;
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
 }
 
-html.dark .bg-white { background-color: #0f1a36 !important; }
-html.dark .bg-gray-50, html.dark .bg-\[#f3f4f6\] { background-color: #070e20 !important; }
-html.dark .bg-gray-100 { background-color: #0f1a36 !important; }
-html.dark .bg-blue-50 { background-color: rgba(30, 64, 175, 0.15) !important; }
-html.dark .bg-green-50 { background-color: rgba(16, 185, 129, 0.15) !important; }
-html.dark .bg-red-50 { background-color: rgba(239, 68, 68, 0.15) !important; }
-html.dark .bg-yellow-50 { background-color: rgba(245, 158, 11, 0.15) !important; }
+/* ─── Background Overrides ─── */
+html.dark .bg-white { background-color: var(--color-bg-secondary) !important; }
+html.dark .bg-gray-50,
+html.dark .bg-\[#f3f4f6\] { background-color: var(--color-bg-primary) !important; }
+html.dark .bg-gray-100 { background-color: var(--color-bg-secondary) !important; }
 
-html.dark .bg-primary { background-color: #1e3a8a !important; }
-html.dark .btn-primary { background-color: #1e3a8a !important; border-color: #3b82f6 !important; }
-html.dark .btn-primary:hover { background-color: #1e40af !important; }
+/* Functional background tints */
+html.dark .bg-blue-50   { background-color: var(--color-info-bg) !important; }
+html.dark .bg-green-50  { background-color: var(--color-success-bg) !important; }
+html.dark .bg-red-50    { background-color: var(--color-error-bg) !important; }
+html.dark .bg-yellow-50,
+html.dark .bg-amber-50  { background-color: var(--color-warning-bg) !important; }
+html.dark .bg-purple-50 { background-color: rgba(139, 92, 246, 0.15) !important; }
 
-html.dark .text-gray-900 { color: #f1f5f9 !important; }
+/* Primary backgrounds stay vibrant in dark mode */
+html.dark .bg-primary { background-color: var(--color-primary) !important; }
+html.dark .btn-primary { background-color: var(--color-primary) !important; }
+html.dark .btn-primary:hover { background-color: var(--color-primary-hover) !important; }
+
+/* ─── Text Overrides ─── */
+html.dark .text-gray-900 { color: var(--color-text-primary) !important; }
 html.dark .text-gray-800 { color: #e2e8f0 !important; }
 html.dark .text-gray-700 { color: #cbd5e1 !important; }
 html.dark .text-gray-600 { color: #94a3b8 !important; }
 html.dark .text-gray-500 { color: #64748b !important; }
+html.dark .text-gray-400 { color: #64748b !important; }
 
-html.dark .text-primary { color: #93c5fd !important; }
-html.dark .text-primary-800 { color: #bfdbfe !important; }
+html.dark .text-primary { color: #60a5fa !important; }
 
-html.dark .border-gray-200 { border-color: #1a2c5b !important; }
-html.dark .border-gray-300 { border-color: #263f7a !important; }
-html.dark .border-gray-100 { border-color: #0f1a36 !important; }
+/* Functional text in dark mode — slightly lighter for readability */
+html.dark .text-green-800,
+html.dark .text-green-700 { color: #4ade80 !important; }
+html.dark .text-red-800,
+html.dark .text-red-700   { color: #f87171 !important; }
+html.dark .text-amber-800,
+html.dark .text-amber-700 { color: #fbbf24 !important; }
+html.dark .text-blue-800,
+html.dark .text-blue-700  { color: #60a5fa !important; }
+html.dark .text-purple-800,
+html.dark .text-purple-700 { color: #a78bfa !important; }
 
-html.dark .border-primary { border-color: #3b82f6 !important; }
-html.dark .border-blue-200 { border-color: #2563eb !important; }
+html.dark .text-blue-100  { color: #93c5fd !important; }
 
-html.dark .shadow-sm { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important; }
-html.dark .shadow-md { box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4) !important; }
+/* ─── Border Overrides ─── */
+html.dark .border-gray-100 { border-color: #1e293b !important; }
+html.dark .border-gray-200 { border-color: var(--color-border) !important; }
+html.dark .border-gray-300 { border-color: var(--color-border-strong) !important; }
+html.dark .border-primary  { border-color: #3b82f6 !important; }
+html.dark .border-blue-200 { border-color: #1e40af !important; }
+html.dark .border-green-200 { border-color: #166534 !important; }
+html.dark .border-red-200   { border-color: #991b1b !important; }
+html.dark .border-amber-200 { border-color: #92400e !important; }
+html.dark .border-purple-200 { border-color: #5b21b6 !important; }
 
-html.dark table tbody tr:hover { background-color: #1a2c5b !important; }
+/* ─── Shadow Overrides ─── */
+html.dark .shadow-sm  { box-shadow: var(--shadow-sm) !important; }
+html.dark .shadow-md  { box-shadow: var(--shadow-md) !important; }
+html.dark .shadow-lg,
+html.dark .shadow-xl  { box-shadow: var(--shadow-lg) !important; }
 
-/* Loading spinner animation */
+/* ─── Table Hover ─── */
+html.dark table tbody tr:hover { background-color: var(--color-bg-secondary) !important; }
+
+/* ─── Ring / Focus colors ─── */
+html.dark .ring-primary\/20,
+html.dark .focus\:ring-primary\/20:focus { --tw-ring-color: rgba(59, 130, 246, 0.2) !important; }
+
+/* ═══════════════════════════════════════════════════════════
+   ACCESSIBILITY — GIGW 3.0 Compliance
+   ═══════════════════════════════════════════════════════════ */
+
+/* Focus States — high-visibility saffron ring (GIGW mandated) */
+*:focus-visible {
+  outline: 3px solid #ff9933 !important; /* Saffron outline for maximum visibility */
+  outline-offset: 2px !important;
+}
+
+/* Override native browser double-borders on form elements */
+input:focus, select:focus, textarea:focus, button:focus {
+  outline: none !important;
+}
+
+/* Accessibility Font Scaling (GIGW) */
+html.font-small  { font-size: 14px !important; }
+html.font-normal { font-size: 16px !important; }
+html.font-large  { font-size: 18px !important; }
+html.font-xlarge { font-size: 20px !important; }
+
+/* 200% Zoom Protection (WCAG 1.4.4 — Resize Text) */
+/* Ensures layout doesn't overflow/break at 200% browser zoom */
+body {
+  overflow-x: hidden; /* Prevent horizontal scroll at zoom */
+}
+
+/* Prevent fixed-width elements from overflowing */
+img, video, canvas, svg, iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Tables scroll horizontally instead of overflowing */
+table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* Prevent text overflow in constrained containers */
+p, h1, h2, h3, h4, h5, h6, li, td, th, label, span, a {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+/* Image Optimization Defaults */
+img {
+  content-visibility: auto; /* Browser can skip off-screen images */
+}
+
+img[loading="lazy"] {
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ANIMATIONS & UTILITIES
+   ═══════════════════════════════════════════════════════════ */
+
+/* Smooth theme transitions */
+* {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Respect user's motion preferences (WCAG 2.1 — prefers-reduced-motion) */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Loading spinner */
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -157,53 +361,32 @@ html.dark table tbody tr:hover { background-color: #1a2c5b !important; }
   animation: spin 1s linear infinite;
 }
 
-/* (Marquee animation removed — replaced with static accessible banner) */
+/* ═══════════════════════════════════════════════════════════
+   NATIONAL EMBLEM WATERMARK
+   ═══════════════════════════════════════════════════════════ */
 
-/* Accessibility Focus States (GIGW 3.0) */
-*:focus-visible {
-  outline: 3px solid #ff9933 !important; /* Saffron outline for high visibility */
-  outline-offset: 2px !important;
-}
-
-/* Neutralize native browser double-borders (Minor UX fix) */
-input:focus, select:focus, textarea:focus, button:focus {
-  outline: none !important;
-}
-
-/* Accessibility Font Scaling (GIGW) */
-html.font-small { font-size: 14px !important; }
-html.font-normal { font-size: 16px !important; }
-html.font-large { font-size: 18px !important; }
-html.font-xlarge { font-size: 20px !important; }
-
-/* Dark mode & Scaling transition */
-* {
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, font-size 0.2s ease;
-}
-
-/* National Monument Watermark */
 .bg-watermark {
   position: relative;
 }
 
 .bg-watermark::before {
   content: "";
-  position: fixed; /* Fixed so it stays perfectly visible while scrolling */
+  position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 65vh; /* Large, majestic scale */
+  width: 65vh;
   height: 65vh;
   background-image: url("/assets/emblem.svg");
   background-repeat: no-repeat;
   background-position: center center;
   background-size: contain;
-  opacity: 0.05; /* Faint, attractive overlay */
-  z-index: 0; /* Keep behind content but above background color */
-  pointer-events: none; /* Let clicks pass through */
+  opacity: 0.04;
+  z-index: 0;
+  pointer-events: none;
 }
 
 html.dark .bg-watermark::before {
-  opacity: 0.03; /* Slightly fainter on dark mode */
-  filter: invert(1); /* Switch to white */
+  opacity: 0.025;
+  filter: invert(1);
 }

@@ -134,7 +134,7 @@ function AdminLoginPage({ onAdminLogin }) {
                     {/* Voter Login Link */}
                     <div className="mt-5 text-center pt-4 border-t border-gray-200">
                         <p className="text-sm text-gray-500">
-                            Are you a voter? <Link to="/login" className="text-primary font-semibold hover:underline">Voter Login →</Link>
+                            Are you a voter? <Link to="/dashboard" className="text-primary font-semibold hover:underline">Voter Dashboard →</Link>
                         </p>
                     </div>
                 </div>

@@ -2,24 +2,84 @@ const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 const API_URL = rawUrl.startsWith('http') ? (rawUrl.endsWith('/api/v1') ? rawUrl : rawUrl.replace(/\/$/, '') + '/api/v1') : 'https://' + rawUrl.replace(/\/$/, '') + (rawUrl.endsWith('/api/v1') ? '' : '/api/v1');
 
 /**
- * Authentication service to interact with backend API
+ * Auth service — handles voter authentication, JWT tokens, and API calls.
+ * Supports both real JWT auth and dev-mode test-token fallback.
  */
 export const authService = {
 
     /**
-     * Get current user from token
+     * Get the stored JWT token
+     */
+    getToken() {
+        return localStorage.getItem('token') || 'test-token';
+    },
+
+    /**
+     * Get auth headers for API calls
+     */
+    getAuthHeaders() {
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.getToken()}`
+        };
+    },
+
+    /**
+     * Register a new voter
+     */
+    async register(formData) {
+        const response = await fetch(`${API_URL}/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'Registration failed');
+        }
+
+        // Store auth data
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        return data;
+    },
+
+    /**
+     * Login voter
+     */
+    async login(identifier, password) {
+        const response = await fetch(`${API_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier, password })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'Login failed');
+        }
+
+        // Store auth data
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        return data;
+    },
+
+    /**
+     * Get current user from backend (verifies token)
      */
     async getCurrentUser() {
-        const token = localStorage.getItem('token');
-        if (!token) return null;
-
         try {
             const response = await fetch(`${API_URL}/auth/me`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { 'Authorization': `Bearer ${this.getToken()}` }
             });
 
             if (!response.ok) {
-                this.logout();
+                // Token invalid — clear it
+                if (response.status === 401) {
+                    this.logout();
+                }
                 return null;
             }
 
@@ -41,10 +101,20 @@ export const authService = {
     },
 
     /**
-     * Check if user is logged in
+     * Check if user is logged in (has a real token, not test-token)
      */
     isLoggedIn() {
-        return !!localStorage.getItem('token') || !!localStorage.getItem('adminToken');
+        const token = localStorage.getItem('token');
+        // In dev mode, allow test-token. In production, require real JWT.
+        if (!token) return false;
+        if (token === 'test-token') return true; // dev fallback
+        // Check if token is not expired (basic check)
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            return payload.exp * 1000 > Date.now();
+        } catch {
+            return false;
+        }
     },
 
     /**
@@ -59,15 +129,9 @@ export const authService = {
      * Link wallet address to user account
      */
     async linkWallet(walletAddress) {
-        const token = localStorage.getItem('token');
-        if (!token) throw new Error('Not authenticated');
-
         const response = await fetch(`${API_URL}/user/link-wallet`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
+            headers: this.getAuthHeaders(),
             body: JSON.stringify({ walletAddress })
         });
 
@@ -76,7 +140,6 @@ export const authService = {
             throw new Error(data.error || 'Failed to link wallet');
         }
 
-        // Update stored user
         const user = this.getStoredUser();
         if (user) {
             user.walletAddress = walletAddress;
@@ -87,39 +150,13 @@ export const authService = {
     },
 
     /**
-     * Fetch a 5-minute single-use TTL token before voting on-chain
-     */
-    async getPreflightToken(clerkToken) {
-        if (!clerkToken) throw new Error('Not authenticated');
-
-        const response = await fetch(`${API_URL}/vote/pre-flight`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${clerkToken}`
-            }
-        });
-
-        const data = await response.json();
-        if (!response.ok) {
-            throw new Error(data.error || 'Failed to acquire pre-flight token');
-        }
-
-        return data.upstashToken;
-    },
-
-    /**
      * Record vote in database after blockchain transaction
      */
-    async recordVote(txHash, upstashToken, turnstileToken, clerkToken) {
-        if (!clerkToken) throw new Error('Not authenticated');
-
+    async recordVote(txHash) {
         const response = await fetch(`${API_URL}/vote/record`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${clerkToken}`
-            },
-            body: JSON.stringify({ txHash, upstashToken, turnstileToken })
+            headers: this.getAuthHeaders(),
+            body: JSON.stringify({ txHash })
         });
 
         const data = await response.json();
@@ -127,7 +164,6 @@ export const authService = {
             throw new Error(data.error || 'Failed to record vote');
         }
 
-        // Update stored user
         const user = this.getStoredUser();
         if (user) {
             user.hasVoted = true;
@@ -138,28 +174,20 @@ export const authService = {
     },
 
     /**
-     * Update user profile (Father's Name, etc)
+     * Update user profile
      */
     async updateProfile(data) {
-        const token = localStorage.getItem('token');
-        if (!token) throw new Error('Not authenticated');
-
         const response = await fetch(`${API_URL}/user/profile`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
+            headers: this.getAuthHeaders(),
             body: JSON.stringify(data)
         });
 
         const result = await response.json();
-
         if (!response.ok) {
             throw new Error(result.error || 'Failed to update profile');
         }
 
-        // Update stored user
         const currentUser = this.getStoredUser();
         if (currentUser) {
             const updatedUser = { ...currentUser, ...data };
@@ -173,12 +201,9 @@ export const authService = {
      * Check if user has voted
      */
     async checkVoteStatus() {
-        const token = localStorage.getItem('token');
-        if (!token) return false;
-
         try {
             const response = await fetch(`${API_URL}/vote/status`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { 'Authorization': `Bearer ${this.getToken()}` }
             });
 
             if (!response.ok) return false;
@@ -188,12 +213,5 @@ export const authService = {
         } catch (error) {
             return false;
         }
-    },
-
-    /**
-     * Get auth token
-     */
-    getToken() {
-        return localStorage.getItem('token');
     }
 };

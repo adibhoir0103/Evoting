@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { authService } from '../services/authService';
+import { Helmet } from 'react-helmet-async';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 
@@ -45,11 +46,8 @@ function DashboardPage({ user, onUserUpdate }) {
             setError('');
 
             const userData = await authService.getCurrentUser();
-            if (!userData) {
-                navigate('/login');
-                return;
-            }
-            setProfile(userData);
+            // Use backend data if available, otherwise fall back to props
+            setProfile(userData || user || { fullname: 'Voter', voterId: 'N/A', email: 'voter@evote.gov' });
             if (onUserUpdate) onUserUpdate(userData);
 
             const voted = await authService.checkVoteStatus();
@@ -128,10 +126,67 @@ function DashboardPage({ user, onUserUpdate }) {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-                <i className="fa-solid fa-circle-notch fa-spin text-primary text-4xl mb-4"></i>
-                <p className="text-gray-600 font-medium">Loading your voter dashboard...</p>
-            </div>
+            <main id="main-content" className="min-h-screen bg-gray-50" aria-label="Loading voter dashboard" aria-busy="true">
+                {/* Skeleton: Header */}
+                <div className="bg-primary animate-pulse">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex items-center gap-4">
+                        <div className="w-16 h-16 rounded-full bg-white/20"></div>
+                        <div>
+                            <div className="h-8 bg-white/20 rounded w-56 mb-2"></div>
+                            <div className="h-4 bg-white/10 rounded w-40"></div>
+                        </div>
+                    </div>
+                </div>
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 animate-pulse">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        {/* Left: EPIC card skeleton */}
+                        <div className="lg:col-span-7 space-y-6">
+                            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden border-t-4 border-t-primary">
+                                <div className="bg-blue-50/50 p-4 border-b border-blue-100">
+                                    <div className="h-5 bg-gray-200 rounded w-48 mb-1"></div>
+                                    <div className="h-3 bg-gray-100 rounded w-64"></div>
+                                </div>
+                                <div className="p-6 flex gap-6">
+                                    <div className="w-28 h-32 bg-gray-200 rounded shrink-0"></div>
+                                    <div className="flex-grow space-y-4">
+                                        <div><div className="h-3 bg-gray-100 rounded w-16 mb-1"></div><div className="h-5 bg-gray-200 rounded w-48"></div></div>
+                                        <div><div className="h-3 bg-gray-100 rounded w-24 mb-1"></div><div className="h-4 bg-gray-200 rounded w-40"></div></div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div><div className="h-3 bg-gray-100 rounded w-14 mb-1"></div><div className="h-4 bg-gray-200 rounded w-20"></div></div>
+                                            <div><div className="h-3 bg-gray-100 rounded w-20 mb-1"></div><div className="h-4 bg-gray-200 rounded w-28"></div></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {/* Wallet card skeleton */}
+                            <div className="bg-white rounded-xl border border-gray-200 p-6 flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-full bg-gray-200"></div>
+                                    <div><div className="h-4 bg-gray-200 rounded w-36 mb-1"></div><div className="h-3 bg-gray-100 rounded w-28"></div></div>
+                                </div>
+                                <div className="h-8 bg-gray-200 rounded-full w-20"></div>
+                            </div>
+                        </div>
+                        {/* Right: Voting journey skeleton */}
+                        <div className="lg:col-span-5">
+                            <div className="bg-white rounded-xl border border-gray-200 p-6">
+                                <div className="h-5 bg-gray-200 rounded w-40 mb-6"></div>
+                                <div className="space-y-6">
+                                    {[1, 2, 3].map(i => (
+                                        <div key={i} className="flex items-start">
+                                            <div className="w-8 h-8 rounded-full bg-gray-200 shrink-0"></div>
+                                            <div className="ml-4 flex-grow">
+                                                <div className="h-4 bg-gray-200 rounded w-36 mb-1"></div>
+                                                <div className="h-3 bg-gray-100 rounded w-52"></div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
         );
     }
 
@@ -140,6 +195,10 @@ function DashboardPage({ user, onUserUpdate }) {
 
     return (
         <main id="main-content" className="min-h-screen bg-[#f3f4f6] pb-12">
+            <Helmet>
+                <title>Voter Dashboard | Bharat E-Vote Portal</title>
+                <meta name="description" content="Access your voter dashboard, view EPIC card details, connect your Web3 wallet, and track your voting status on the Bharat E-Vote Portal." />
+            </Helmet>
             {/* Header Banner */}
             <div className="bg-primary text-white shadow-md">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col md:flex-row justify-between items-center gap-6">
@@ -401,7 +460,7 @@ function DashboardPage({ user, onUserUpdate }) {
                                         <span className="font-mono text-xs text-gray-900 break-all">{voteReceipt.tx_hash}</span>
                                     </div>
                                     <div className="flex flex-col sm:flex-row gap-2 mt-3">
-                                        <a href={`https://etherscan.io/tx/${voteReceipt.tx_hash}`} target="_blank" rel="noreferrer" className="text-xs text-primary font-bold hover:underline flex items-center">
+                                        <a href={`https://sepolia.etherscan.io/tx/${voteReceipt.tx_hash}`} target="_blank" rel="noreferrer" className="text-xs text-primary font-bold hover:underline flex items-center">
                                             Verify on Explorer <i className="fa-solid fa-arrow-up-right-from-square ml-1"></i>
                                         </a>
                                         <button
@@ -470,7 +529,7 @@ function DashboardPage({ user, onUserUpdate }) {
                                                     doc.setFont('helvetica', 'normal');
                                                     doc.setFontSize(9);
                                                     doc.setTextColor(0, 0, 128);
-                                                    doc.text('Verify: https://etherscan.io/tx/' + voteReceipt.tx_hash.slice(0, 20) + '...', 20, y);
+                                                    doc.text('Verify: https://sepolia.etherscan.io/tx/' + voteReceipt.tx_hash.slice(0, 20) + '...', 20, y);
                                                     y += 15;
 
                                                     // QR Code

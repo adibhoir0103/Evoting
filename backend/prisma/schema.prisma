@@ -188,3 +188,27 @@ model ApprovedVoter {
   added_by    String   // admin email who added this
   created_at  DateTime @default(now())
 }
+
+model MfaToken {
+  id          Int      @id @default(autoincrement())
+  user_email  String
+  otp_hash    String          // bcrypt hash of the 6-digit OTP
+  purpose     String   @default("LOGIN")  // LOGIN, VOTE_TICKET, etc.
+  expires_at  DateTime        // OTP expiry (5 minutes from creation)
+  verified    Boolean  @default(false)
+  attempts    Int      @default(0)  // Track failed verification attempts
+  created_at  DateTime @default(now())
+
+  @@index([user_email, purpose])
+}
+
+model QrVoteTicket {
+  id            Int      @id @default(autoincrement())
+  user_email    String
+  ticket_token  String   @unique  // JWT token embedded in QR
+  expires_at    DateTime          // 5-minute validity
+  used          Boolean  @default(false)
+  created_at    DateTime @default(now())
+
+  @@index([user_email])
+}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { BlockchainService } from '../../services/blockchainService';
 
 const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 const API_URL = rawUrl.startsWith('http') ? (rawUrl.endsWith('/api/v1') ? rawUrl : rawUrl.replace(/\/$/, '') + '/api/v1') : 'https://' + rawUrl.replace(/\/$/, '') + (rawUrl.endsWith('/api/v1') ? '' : '/api/v1');
@@ -13,6 +14,8 @@ const VoterRolls = () => {
     const [uploading, setUploading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+    const [blockchainAddress, setBlockchainAddress] = useState('');
+    const [authLoading, setAuthLoading] = useState(false);
 
     const getToken = () => localStorage.getItem('adminToken');
 
@@ -149,6 +152,36 @@ const VoterRolls = () => {
                     <p className="text-xs font-bold text-red-600 uppercase tracking-wider">Blacklisted</p>
                     <p className="text-3xl font-black text-red-700 mt-1">{blacklistCount}</p>
                 </div>
+            </div>
+
+            {/* Direct Blockchain Authorization */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border-2 border-indigo-200">
+                <h3 className="text-lg font-bold text-gray-900 mb-2">
+                    <i className="fa-brands fa-ethereum text-indigo-600 mr-2"></i>Direct Smart Contract Authorization
+                </h3>
+                <p className="text-xs text-gray-500 mb-4">You must explicitly authorize public wallet addresses on the blockchain for testing.</p>
+                <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!blockchainAddress.trim()) return;
+                    setAuthLoading(true);
+                    try {
+                        const service = BlockchainService.getInstance();
+                        const id = toast.loading('Waiting for MetaMask signature...');
+                        await service.authorizeVoter(blockchainAddress);
+                        toast.success('Address authorized on the Blockchain!', { id });
+                        setBlockchainAddress('');
+                    } catch (err) {
+                        toast.error(err.message || 'Failed to authorize transaction');
+                    } finally {
+                        setAuthLoading(false);
+                    }
+                }} className="flex items-center gap-3">
+                    <input type="text" className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 font-mono" 
+                        value={blockchainAddress} onChange={(e) => setBlockchainAddress(e.target.value)} required placeholder="0x... (Public Wallet Address)" />
+                    <button type="submit" disabled={authLoading || !blockchainAddress} className="px-6 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 transition shadow-sm disabled:opacity-50">
+                        {authLoading ? <><i className="fa-solid fa-spinner fa-spin mr-2"></i> Authorizing...</> : <><i className="fa-solid fa-link mr-2"></i> Authorize Wallet</>}
+                    </button>
+                </form>
             </div>
 
             {/* Manual Entry Form */}

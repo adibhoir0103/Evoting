@@ -1,18 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@clerk/clerk-react';
 
 const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 const API_URL = rawUrl.startsWith('http') ? (rawUrl.endsWith('/api/v1') ? rawUrl : rawUrl.replace(/\/$/, '') + '/api/v1') : 'https://' + rawUrl.replace(/\/$/, '') + (rawUrl.endsWith('/api/v1') ? '' : '/api/v1');
 
 const AuditLogs = () => {
-    const { getToken } = useAuth();
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchLogs = async () => {
             try {
-                const token = await getToken();
+                const token = localStorage.getItem('adminToken');
                 const res = await fetch(`${API_URL}/admin/audit`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -29,10 +27,49 @@ const AuditLogs = () => {
 
     if (loading) return <div className="p-8 text-center"><i className="fa-solid fa-spinner fa-spin text-3xl"></i></div>;
 
+    const exportCSV = () => {
+        if (logs.length === 0) return;
+        const headers = ['Timestamp', 'Admin', 'Action', 'Details', 'IP Address'];
+        const rows = logs.map(l => [
+            new Date(l.created_at).toISOString(),
+            l.admin_email,
+            l.action,
+            `"${(l.details || '').replace(/"/g, '""')}"`,
+            l.ip_address
+        ]);
+        const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `audit_trail_${Date.now()}.csv`; a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const exportJSON = () => {
+        if (logs.length === 0) return;
+        const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `audit_trail_${Date.now()}.json`; a.click();
+        URL.revokeObjectURL(url);
+    };
+
     return (
         <div className="gov-card p-6">
-            <h3 className="text-xl font-bold mb-4">Immutable Audit Trail</h3>
-            <p className="text-gray-500 mb-6 text-sm">All administrative lifecycle actions, overrides, and role configurations are permanently logged here to guarantee institutional transparency.</p>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+                <div>
+                    <h3 className="text-xl font-bold">Immutable Audit Trail</h3>
+                    <p className="text-gray-500 text-sm mt-1">All administrative lifecycle actions, overrides, and role configurations are permanently logged here to guarantee institutional transparency.</p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                    <button onClick={exportCSV} disabled={logs.length === 0} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition disabled:opacity-40" aria-label="Export audit logs as CSV">
+                        <i className="fa-solid fa-file-csv"></i> Export CSV
+                    </button>
+                    <button onClick={exportJSON} disabled={logs.length === 0} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition disabled:opacity-40" aria-label="Export audit logs as JSON">
+                        <i className="fa-solid fa-file-code"></i> Export JSON
+                    </button>
+                </div>
+            </div>
             
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -69,7 +106,17 @@ const AuditLogs = () => {
                         ))}
                     </tbody>
                 </table>
-                {logs.length === 0 && <p className="text-center p-6 text-gray-500">No audit logs available.</p>}
+                {logs.length === 0 && (
+                    <div className="text-center py-12 px-6">
+                        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                            <i className="fa-solid fa-shield-halved text-gray-400 text-2xl"></i>
+                        </div>
+                        <h4 className="text-gray-700 font-bold text-lg mb-1">No Audit Logs Yet</h4>
+                        <p className="text-gray-500 text-sm max-w-md mx-auto">
+                            Administrative actions like creating elections, managing voters, and status changes will be automatically recorded here for transparency and compliance.
+                        </p>
+                    </div>
+                )}
             </div>
         </div>
     );

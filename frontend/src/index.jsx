@@ -3,13 +3,9 @@ import ReactDOM from 'react-dom/client';
 import * as Sentry from '@sentry/react';
 import posthog from 'posthog-js';
 import { HelmetProvider } from 'react-helmet-async';
-import { ClerkProvider } from '@clerk/clerk-react';
 import './index.css';
-import './i18n'; // Global i18n initialization
+import './i18n';
 import App from './App';
-
-// Import your publishable key
-const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 // Initialize PostHog Analytics & Session Replay
 if (import.meta.env.VITE_POSTHOG_KEY) {
@@ -22,7 +18,7 @@ if (import.meta.env.VITE_POSTHOG_KEY) {
     });
 }
 
-// Initialize Sentry — must be before ReactDOM.createRoot()
+// Initialize Sentry
 if (import.meta.env.VITE_SENTRY_DSN) {
     Sentry.init({
         dsn: import.meta.env.VITE_SENTRY_DSN,
@@ -30,7 +26,7 @@ if (import.meta.env.VITE_SENTRY_DSN) {
             Sentry.browserTracingIntegration(),
             Sentry.replayIntegration(),
         ],
-        environment: import.meta.env.MODE, // 'development' or 'production'
+        environment: import.meta.env.MODE,
         tracesSampleRate: 1.0,
         replaysSessionSampleRate: 0.1,
         replaysOnErrorSampleRate: 1.0,
@@ -52,22 +48,7 @@ root.render(
             )}
         >
             <HelmetProvider>
-                {PUBLISHABLE_KEY ? (
-                    <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
-                        <App />
-                    </ClerkProvider>
-                ) : (
-                    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-                        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-                            <div className="bg-white py-8 px-4 shadow rounded-lg sm:px-10 text-center border-t-4 border-primary">
-                                <h2 className="text-2xl font-bold text-gray-900 mb-4">Clerk API Keys Required</h2>
-                                <p className="text-gray-600 mb-6 font-medium">Authentication has been upgraded! Please add <code className="bg-gray-100 text-primary px-2 py-1 rounded">VITE_CLERK_PUBLISHABLE_KEY</code> to your <code className="bg-gray-100 px-2 py-1 rounded border border-gray-200">frontend/.env.local</code> file to proceed.</p>
-                                <hr className="mb-6"/>
-                                <p className="text-sm text-gray-500">You can obtain this from your <a href="https://dashboard.clerk.com" className="text-accent-saffron hover:underline" target="_blank" rel="noreferrer">Clerk Dashboard</a>.</p>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                <App />
             </HelmetProvider>
         </Sentry.ErrorBoundary>
     </React.StrictMode>

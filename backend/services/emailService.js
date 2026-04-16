@@ -1,24 +1,53 @@
-// Email service for sending OTP via Resend
-// Replaces nodemailer with Resend for reliable, production-grade email delivery
-const { Resend } = require('resend');
+// Email service for sending OTP via Brevo (formerly Sendinblue)
+// Switched from Resend to Brevo for better free tier (300 emails/day, no domain verification needed)
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+const BREVO_API_KEY = process.env.BREVO_API_KEY || '';
+const FROM_EMAIL = process.env.BREVO_FROM_EMAIL || process.env.RESEND_FROM_EMAIL || 'bharat-evote@gmail.com';
+const FROM_NAME = process.env.BREVO_FROM_NAME || 'Bharat E-Vote';
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
 class EmailService {
     constructor() {
         this.isReady = false;
 
-        if (RESEND_API_KEY) {
-            this.resend = new Resend(RESEND_API_KEY);
+        if (BREVO_API_KEY && BREVO_API_KEY.startsWith('xkeysib-')) {
             this.isReady = true;
-        } else {
-            this.resend = null;
+            console.log(`📧 Brevo initialized | From: ${FROM_NAME} <${FROM_EMAIL}> | Key: xkeysib-****${BREVO_API_KEY.slice(-4)}`);
+        } else if (BREVO_API_KEY) {
+            console.error('❌ BREVO_API_KEY is set but does not start with "xkeysib-". Check your .env file.');
         }
     }
 
     /**
-     * Send OTP via email using Resend
+     * Internal: Send email via Brevo REST API
+     */
+    async _sendBrevo({ to, toName, subject, htmlContent }) {
+        const response = await fetch(BREVO_API_URL, {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json',
+                'api-key': BREVO_API_KEY,
+                'content-type': 'application/json'
+            },
+            body: JSON.stringify({
+                sender: { name: FROM_NAME, email: FROM_EMAIL },
+                to: [{ email: to, name: toName || to }],
+                subject,
+                htmlContent
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || `Brevo API error: ${response.status}`);
+        }
+
+        return data; // { messageId: "..." }
+    }
+
+    /**
+     * Send OTP via email using Brevo
      * @param {string} email - Recipient email
      * @param {string} otp - 6-digit OTP
      * @param {string} userName - User's name for personalization
@@ -131,43 +160,39 @@ class EmailService {
                     
                     <div class="footer">
                         <p style="margin: 0;">\u00a9 2026 Bharat E-Vote | Blockchain-Based E-Voting System</p>
-                        <p style="margin: 5px 0 0 0;">Powered by Resend</p>
+                        <p style="margin: 5px 0 0 0;">Powered by Brevo Transactional Email</p>
                     </div>
                 </div>
             </body>
             </html>
         `;
 
-        // Try sending real email via Resend
-        if (this.isReady && this.resend) {
+        // Try sending real email via Brevo
+        if (this.isReady) {
             try {
-                const { data, error } = await this.resend.emails.send({
-                    from: `Bharat E-Vote <${FROM_EMAIL}>`,
-                    to: [email],
+                console.log(`📧 Attempting Brevo email: from=${FROM_EMAIL} to=${email}`);
+                const data = await this._sendBrevo({
+                    to: email,
+                    toName: userName,
                     subject: 'Your Bharat E-Vote OTP - Secure Login',
-                    html: htmlContent,
+                    htmlContent
                 });
 
-                if (error) {
-                    console.error('\ud83d\udce7 Resend email error:', error);
-                    // Fall through to demo mode
-                } else {
-                    console.log('\ud83d\udce7 Email OTP sent via Resend to:', email);
-                    return {
-                        success: true,
-                        messageId: data.id,
-                        email: email
-                    };
-                }
+                console.log(`📧 ✅ OTP email sent via Brevo to: ${email} (ID: ${data.messageId})`);
+                return {
+                    success: true,
+                    messageId: data.messageId,
+                    email: email
+                };
             } catch (error) {
-                console.error('\ud83d\udce7 Resend send failed, falling back to demo mode:', error.message);
+                console.error('📧 Brevo send failed, falling back to demo mode:', error.message);
                 // Fall through to demo mode below
             }
         }
 
         // Demo mode — log and return
         if (process.env.NODE_ENV !== 'production') {
-            console.log(`\ud83d\udce7 [DEMO] OTP for ${email.slice(0, 3)}***: Resend not configured, using demo mode`);
+            console.log(`📧 [DEMO] OTP for ${email.slice(0, 3)}***: Brevo not configured, using demo mode`);
         }
         return {
             success: true,
@@ -181,20 +206,22 @@ class EmailService {
      * Verify email configuration
      */
     async verifyConnection() {
-        if (!this.resend) {
-            console.warn('\u26a0\ufe0f  Email service (Resend) not configured. Using demo mode.');
-            console.warn('To enable real emails, set RESEND_API_KEY environment variable');
-            this.isReady = false;
+        if (!this.isReady) {
+            console.warn('⚠️  Email service (Brevo) not configured. Using demo mode.');
+            console.warn('   To enable real emails:');
+            console.warn('   1. Sign up at https://app.brevo.com/');
+            console.warn('   2. Go to https://app.brevo.com/settings/keys/api');
+            console.warn('   3. Create an API key and set BREVO_API_KEY in your .env');
+            console.warn('   4. Set BREVO_FROM_EMAIL to your verified sender email');
             return false;
         }
         
-        console.log('\u2705 Email service (Resend) is ready to send emails');
-        this.isReady = true;
+        console.log('✅ Email service (Brevo) is ready — 300 free emails/day');
         return true;
     }
 
     /**
-     * Send Vote Receipt via email using Resend
+     * Send Vote Receipt via email using Brevo
      * @param {string} email - Recipient email
      * @param {string} userName - User's name
      * @param {string} txHash - Blockchain transaction hash
@@ -226,7 +253,7 @@ class EmailService {
                         <div class="hash-box">${shortHash}</div>
                         <p style="color: #94a3b8; font-size: 14px;">You can verify this transaction hash on the local block explorer to mathematically prove your vote was cast without revealing your candidate choice.</p>
                     </div>
-                    <div class="footer">© 2026 Bharat E-Vote | Powered by Resend</div>
+                    <div class="footer">© 2026 Bharat E-Vote | Powered by Brevo</div>
                 </div>
             </body>
             </html>
@@ -238,15 +265,15 @@ class EmailService {
         }
 
         try {
-            const data = await this.resend.emails.send({
-                from: `Bharat E-Vote <${FROM_EMAIL}>`,
+            const data = await this._sendBrevo({
                 to: email,
+                toName: userName,
                 subject: '🔒 Secure Vote Cast Receipt',
-                html: htmlContent
+                htmlContent
             });
-            return { success: true, messageId: data.id, email };
+            return { success: true, messageId: data.messageId, email };
         } catch (error) {
-            console.error('Resend receipt error:', error);
+            console.error('Brevo receipt error:', error);
             return { success: false, error: error.message };
         }
     }
@@ -258,11 +285,11 @@ class EmailService {
         }
 
         try {
-            const data = await this.resend.emails.send({
-                from: `Bharat E-Vote <${FROM_EMAIL}>`,
+            const data = await this._sendBrevo({
                 to: email,
+                toName: userName,
                 subject: subject,
-                html: `
+                htmlContent: `
                     <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
                         <h2>Namaste, ${userName}</h2>
                         <p>${body}</p>
@@ -271,7 +298,7 @@ class EmailService {
                     </div>
                 `
             });
-            return { success: true, messageId: data.id };
+            return { success: true, messageId: data.messageId };
         } catch (error) {
             console.error('Broadcast email error:', error);
             return { success: false, error: error.message };

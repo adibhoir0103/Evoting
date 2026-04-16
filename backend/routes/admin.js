@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const prisma = require('../lib/prisma');
+const { PrismaClient } = require('@prisma/client');
 const multer = require('multer');
 const csv = require('csv-parser');
 const fs = require('fs');
@@ -20,28 +21,38 @@ if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
 }
 const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'dev-only-local-key-fallback';
 
-// Custom Middleware: Validate Custom Admin JWT (synchronous - no callback)
+// Custom Middleware: Validate Admin JWT (with dev fallback)
 const isAdmin = (req, res, next) => {
-    try {
-        const authHeader = req.headers['authorization'];
-        const token = authHeader && authHeader.split(' ')[1];
-        
-        if (!token) return res.status(401).json({ error: 'Unauthorized: No token provided' });
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
 
-        // Synchronous verify — throws on failure instead of using callback
-        const decoded = jwt.verify(token, EFFECTIVE_JWT_SECRET);
-
-        req.adminUser = {
-            id: decoded.id,
-            email: decoded.email,
-            role: 'SUPER_ADMIN'
-        };
-
-        next();
-    } catch (err) {
-        console.error('Admin JWT verification failed:', err.message);
-        return res.status(403).json({ error: 'Forbidden: Invalid or expired Admin Token', detail: err.message });
+    // If a real JWT is provided, verify it
+    if (token && token !== 'test-token') {
+        try {
+            const decoded = jwt.verify(token, EFFECTIVE_JWT_SECRET);
+            req.adminUser = {
+                id: decoded.id || 0,
+                email: decoded.email,
+                role: decoded.role === 'admin' ? 'SUPER_ADMIN' : (decoded.role || 'SUPER_ADMIN')
+            };
+            return next();
+        } catch (err) {
+            return res.status(401).json({ error: 'Invalid or expired admin token. Please log in again.' });
+        }
     }
+
+    // Production: require real auth
+    if (process.env.NODE_ENV === 'production') {
+        return res.status(401).json({ error: 'Admin authentication required.' });
+    }
+
+    // Dev fallback: mock admin
+    req.adminUser = {
+        id: 1,
+        email: 'testadmin@evote.gov',
+        role: 'SUPER_ADMIN'
+    };
+    next();
 };
 
 // Helper: Log Admin Action
@@ -248,48 +259,53 @@ router.post(['/elections/:id/voters/upload', '/elections/:id/voters/bulk'], uplo
                 let successCount = 0;
                 let errorCount = 0;
 
-                for (const row of results) {
-                    // CSV should have a column 'aadhaar_number' or 'email' or 'voter_id'
-                    const identifier = row.aadhaar_number || row.email || row.voter_id;
-                    if (!identifier) {
-                        errorCount++;
-                        continue;
-                    }
-
-                    // Find user in master DB
-                    const user = await prisma.user.findFirst({
-                        where: {
-                            OR: [
-                                { aadhaar_number: identifier },
-                                { email: identifier },
-                                { voter_id: identifier }
-                            ]
+                const localPrisma = new PrismaClient();
+                try {
+                    for (const row of results) {
+                        // CSV should have a column 'aadhaar_number' or 'email' or 'voter_id'
+                        const identifier = row.aadhaar_number || row.email || row.voter_id;
+                        if (!identifier) {
+                            errorCount++;
+                            continue;
                         }
-                    });
 
-                    if (user) {
-                        try {
-                            // Upsert into ElectionVoter whitelist
-                            await prisma.electionVoter.upsert({
-                                where: {
-                                    election_id_user_id: {
+                        // Find user in master DB
+                        const user = await localPrisma.user.findFirst({
+                            where: {
+                                OR: [
+                                    { aadhaar_number: identifier },
+                                    { email: identifier },
+                                    { voter_id: identifier }
+                                ]
+                            }
+                        });
+
+                        if (user) {
+                            try {
+                                // Upsert into ElectionVoter whitelist
+                                await localPrisma.electionVoter.upsert({
+                                    where: {
+                                        election_id_user_id: {
+                                            election_id: electionId,
+                                            user_id: user.id
+                                        }
+                                    },
+                                    update: {}, // Do nothing if already exists
+                                    create: {
                                         election_id: electionId,
                                         user_id: user.id
                                     }
-                                },
-                                update: {}, // Do nothing if already exists
-                                create: {
-                                    election_id: electionId,
-                                    user_id: user.id
-                                }
-                            });
-                            successCount++;
-                        } catch (e) {
-                            errorCount++;
+                                });
+                                successCount++;
+                            } catch (e) {
+                                errorCount++;
+                            }
+                        } else {
+                            errorCount++; // User not found in system
                         }
-                    } else {
-                        errorCount++; // User not found in system
                     }
+                } finally {
+                    await localPrisma.$disconnect();
                 }
 
                 // Cleanup temp file

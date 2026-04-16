@@ -5,8 +5,9 @@ import { authService } from '../services/authService';
 import { zkpClientService } from '../services/zkpService';
 import ZKPVerificationPanel from '../components/ZKPVerificationPanel';
 import ProctorGuard from '../components/ProctorGuard';
-import Turnstile from 'react-turnstile'; // Changed to react-turnstile library
+import QRVoteTicket from '../components/QRVoteTicket';
 import { indianStates, getStateName } from '../utils/indianStates';
+import { Helmet } from 'react-helmet-async';
 import { jsPDF } from 'jspdf';
 
 function VotingPage({ user, onUserUpdate }) {
@@ -16,15 +17,13 @@ function VotingPage({ user, onUserUpdate }) {
     const [hasVoted, setHasVoted] = useState(false);
     const [isAuthorized, setIsAuthorized] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [voteState, setVoteState] = useState('idle'); // idle | checking | selecting | reviewing | signing | pending | confirming | confirmed | failed | recovered
+    const [voteState, setVoteState] = useState('idle');
     const [txHash, setTxHash] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [walletConnected, setWalletConnected] = useState(false);
     const [walletAddress, setWalletAddress] = useState('');
     const [selectedCandidate, setSelectedCandidate] = useState(null);
-    const [accessTurnstileToken, setAccessTurnstileToken] = useState(''); // Gate 1: Ballot Access
-    const [turnstileToken, setTurnstileToken] = useState(''); // Gate 2: Vote Submission
     const [voterConstituencyInfo, setVoterConstituencyInfo] = useState(null);
 
     // Proctored Voting Window State
@@ -37,9 +36,13 @@ function VotingPage({ user, onUserUpdate }) {
     const [showVerification, setShowVerification] = useState(false);
     const [voterSecret, setVoterSecret] = useState('');
 
+    // QR Voting Ticket State
+    const [showQRTicket, setShowQRTicket] = useState(false);
+    const [qrTicketValidated, setQrTicketValidated] = useState(false);
+
     useEffect(() => {
         if (!user) {
-            navigate('/login');
+            navigate('/dashboard');
             return;
         }
 
@@ -47,11 +50,12 @@ function VotingPage({ user, onUserUpdate }) {
             setWalletAddress(user.walletAddress);
             initializeBlockchain(user.walletAddress);
         } else {
-            setLoading(false);
+            // Auto prompt MetaMask connection if not linked yet
+            connectWallet();
         }
     }, [user, navigate]);
 
-    // BUG-023: Modal scroll lock
+    // Modal scroll lock
     useEffect(() => {
         if (selectedCandidate || showVerification || ['checking', 'signing', 'pending', 'confirming'].includes(voteState)) {
             document.body.style.overflow = 'hidden';
@@ -61,13 +65,13 @@ function VotingPage({ user, onUserUpdate }) {
         return () => { document.body.style.overflow = ''; };
     }, [selectedCandidate, showVerification, voteState]);
 
-    const connectWallet = async () => {
+    const connectWallet = async (forceSelect = false) => {
         try {
             setLoading(true);
             setError('');
 
             const service = BlockchainService.getInstance();
-            const account = await service.connectWallet();
+            const account = await service.connectWallet(forceSelect);
 
             await authService.linkWallet(account);
 
@@ -80,7 +84,7 @@ function VotingPage({ user, onUserUpdate }) {
 
             await loadBlockchainData(service, account);
         } catch (err) {
-            setError(err.message || 'Failed to connect cryptographic vault');
+            setError(err.message || 'Failed to connect wallet');
         } finally {
             setLoading(false);
         }
@@ -137,8 +141,35 @@ function VotingPage({ user, onUserUpdate }) {
         setSelectedCandidate(null);
     };
 
+    // ===== QR TICKET HANDLER =====
+    const requestQRTicket = () => {
+        setShowQRTicket(true);
+        setError('');
+        setSuccess('');
+    };
+
+    const handleQRTicketValidated = (ticketToken) => {
+        setShowQRTicket(false);
+        setQrTicketValidated(true);
+        // After QR validated, go straight to proctor mode
+        setProctorActive(true);
+        setProctorCandidate(null);
+        setVoteState('selecting');
+        setError('');
+        setSuccess('');
+    };
+
+    const handleQRCancel = () => {
+        setShowQRTicket(false);
+    };
+
     // ===== PROCTOR GUARD HANDLERS =====
     const enterProctorMode = () => {
+        // If QR ticket hasn't been validated yet, show QR first
+        if (!qrTicketValidated) {
+            requestQRTicket();
+            return;
+        }
         setProctorActive(true);
         setProctorCandidate(null);
         setVoteState('selecting');
@@ -154,7 +185,6 @@ function VotingPage({ user, onUserUpdate }) {
     const handleProctorConfirmVote = async (candidate) => {
         if (!candidate) return;
         setSelectedCandidate(candidate);
-        // Trigger the existing submitVote flow
         await submitVoteFromProctor(candidate);
     };
 
@@ -165,7 +195,7 @@ function VotingPage({ user, onUserUpdate }) {
         setVoteState('idle');
     };
 
-    // Dedicated submit handler for proctor mode (uses the same logic as submitVote)
+    // Submit vote from proctor mode
     const submitVoteFromProctor = async (candidate) => {
         if (!candidate) return;
 
@@ -173,11 +203,6 @@ function VotingPage({ user, onUserUpdate }) {
             setVoteState('checking');
             setTxHash('');
             setError('');
-
-            const clerkToken = localStorage.getItem('token');
-            if (!clerkToken) throw new Error("Clerk Authentication Missing");
-
-            const upstashToken = await authService.getPreflightToken(clerkToken);
 
             const service = BlockchainService.getInstance();
             let isZKP = false;
@@ -211,7 +236,7 @@ function VotingPage({ user, onUserUpdate }) {
                 setVoteState('confirming');
                 setTxHash(receipt.hash);
 
-                await authService.recordVote(receipt.hash, upstashToken, turnstileToken || 'turnstile-not-configured', clerkToken);
+                await authService.recordVote(receipt.hash);
                 setVoteState('confirmed');
 
                 setZkpVoteData({
@@ -228,7 +253,7 @@ function VotingPage({ user, onUserUpdate }) {
                 setVoteState('confirming');
                 setTxHash(receipt.hash);
 
-                await authService.recordVote(receipt.hash, upstashToken, turnstileToken || 'turnstile-not-configured', clerkToken);
+                await authService.recordVote(receipt.hash);
                 setVoteState('confirmed');
 
                 setSuccess(`Vote cast successfully! Tx: ${receipt.hash.slice(0, 10)}...`);
@@ -243,9 +268,6 @@ function VotingPage({ user, onUserUpdate }) {
             } else {
                 setError(msg);
                 setVoteState('failed');
-                if (window.Sentry) {
-                    window.Sentry.captureMessage(`Vote Cast Failure: ${msg}`, { level: 'error', tags: { module: 'vote_submission', error_type: 'rpc_revert' } });
-                }
             }
         }
     };
@@ -258,18 +280,11 @@ function VotingPage({ user, onUserUpdate }) {
             setTxHash('');
             setError('');
 
-            // Acquire Clerk Token for API Calls
-            const clerkToken = localStorage.getItem('token'); // Use standard token cache for authService calls
-            if (!clerkToken) throw new Error("Clerk Authentication Missing");
-
-            // 1. Pre-Flight Server Checks (Upstash Token Acquisition)
-            const upstashToken = await authService.getPreflightToken(clerkToken);
-
             const service = BlockchainService.getInstance();
             let isZKP = false;
             try { isZKP = await service.isZKPEnabled(); } catch (e) { /* legacy */ }
 
-            setVoteState('signing'); // Prompting Wallet
+            setVoteState('signing');
             
             if (isZKP && voterSecret) {
                 const votePackage = await zkpClientService.generateVotePackage(
@@ -297,7 +312,7 @@ function VotingPage({ user, onUserUpdate }) {
                 setVoteState('confirming');
                 setTxHash(receipt.hash);
                 
-                await authService.recordVote(receipt.hash, upstashToken, turnstileToken, clerkToken);
+                await authService.recordVote(receipt.hash);
                 setVoteState('confirmed');
 
                 setZkpVoteData({
@@ -314,7 +329,7 @@ function VotingPage({ user, onUserUpdate }) {
                 setVoteState('confirming');
                 setTxHash(receipt.hash);
 
-                await authService.recordVote(receipt.hash, upstashToken, turnstileToken, clerkToken);
+                await authService.recordVote(receipt.hash);
                 setVoteState('confirmed');
 
                 setSuccess(`Vote cast successfully! Tx: ${receipt.hash.slice(0, 10)}...`);
@@ -332,11 +347,6 @@ function VotingPage({ user, onUserUpdate }) {
             } else {
                 setError(msg);
                 setVoteState('failed');
-                
-                // Fire Sentry Alarm for vote-drop threshold tracking > 5%
-                if (window.Sentry) {
-                    window.Sentry.captureMessage(`Vote Cast Failure: ${msg}`, { level: 'error', tags: { module: 'vote_submission', error_type: 'rpc_revert' } });
-                }
             }
         }
     };
@@ -356,7 +366,6 @@ function VotingPage({ user, onUserUpdate }) {
             const doc = new jsPDF();
             const pageWidth = doc.internal.pageSize.getWidth();
             
-            // Header
             doc.setFillColor(0, 51, 102);
             doc.rect(0, 0, pageWidth, 40, 'F');
             doc.setTextColor(255, 255, 255);
@@ -368,7 +377,6 @@ function VotingPage({ user, onUserUpdate }) {
             doc.text('Official Digital Vote Receipt — Election Commission of India', pageWidth / 2, 28, { align: 'center' });
             doc.text('Secured by Zero-Knowledge Blockchain Cryptography', pageWidth / 2, 35, { align: 'center' });
 
-            // Body
             doc.setTextColor(0, 0, 0);
             let y = 55;
 
@@ -406,7 +414,6 @@ function VotingPage({ user, onUserUpdate }) {
             doc.setDrawColor(0, 51, 102);
             doc.line(20, y, pageWidth - 20, y); y += 10;
 
-            // Security Notice
             doc.setFillColor(240, 249, 255);
             doc.roundedRect(20, y, pageWidth - 40, 30, 3, 3, 'F');
             doc.setFontSize(9);
@@ -416,9 +423,8 @@ function VotingPage({ user, onUserUpdate }) {
             doc.setFontSize(8);
             doc.text('This receipt proves your participation without revealing your vote choice.', 25, y + 15);
             doc.text('Your vote is encrypted on the Ethereum blockchain and cannot be altered or deleted.', 25, y + 21);
-            doc.text('Verify this transaction at: https://etherscan.io/tx/' + (txHash || ''), 25, y + 27);
+            doc.text('Verify this transaction at: https://sepolia.etherscan.io/tx/' + (txHash || ''), 25, y + 27);
 
-            // Footer
             const footerY = doc.internal.pageSize.getHeight() - 20;
             doc.setFontSize(8);
             doc.setTextColor(150, 150, 150);
@@ -431,7 +437,7 @@ function VotingPage({ user, onUserUpdate }) {
         }
     };
 
-    // ===== ZKP COMPULSORY VERIFICATION SCREEN =====
+    // ZKP Verification Screen
     if (showVerification && zkpVoteData) {
         return (
             <section className="min-h-[60vh] max-w-4xl mx-auto px-4 py-8">
@@ -501,13 +507,17 @@ function VotingPage({ user, onUserUpdate }) {
     // Main voting interface
     return (
         <section className="max-w-5xl mx-auto px-4 py-8">
+            <Helmet>
+                <title>Cast Your Vote | Bharat E-Vote Portal</title>
+                <meta name="description" content="Securely cast your vote in the General Election 2026 using blockchain-verified zero-knowledge cryptography on the Bharat E-Vote Portal." />
+            </Helmet>
             {/* Header */}
             <div className="text-center mb-8">
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900">General Election 2026 — Voting Terminal</h1>
                 <p className="text-gray-500 mt-1">Select your candidate and confirm your choice</p>
             </div>
 
-            {/* BREADCRUMB - RPwD Act / GIGW 3.0 Compliance */}
+            {/* Breadcrumb */}
             <nav aria-label="Breadcrumb" className="max-w-4xl mx-auto mb-6 px-4 md:px-0">
               <ol className="flex text-sm text-gray-500 font-medium">
                 <li><Link to="/" className="hover:text-primary transition-colors focus-visible">Home</Link><span className="mx-2">/</span></li>
@@ -516,7 +526,7 @@ function VotingPage({ user, onUserUpdate }) {
               </ol>
             </nav>
 
-            {/* ERROR / SUCCESS ALERTS */}
+            {/* Alerts */}
             {error && (
                 <div className="max-w-4xl mx-auto bg-red-50 text-red-700 p-4 mb-6 rounded-lg text-sm border-l-4 border-l-red-500 flex items-center shadow-sm" role="alert" aria-live="assertive">
                     <i className="fa-solid fa-circle-exclamation mr-2"></i>{error}
@@ -528,7 +538,7 @@ function VotingPage({ user, onUserUpdate }) {
                 </div>
             )}
 
-            {/* Render wallet connection screen */}
+            {/* Wallet connection or voting interface */}
             {!walletConnected && !loading ? (
                 <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center">
                     <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-200">
@@ -571,8 +581,11 @@ function VotingPage({ user, onUserUpdate }) {
                             Status: {isAuthorized ? 'Authorized' : 'Not Authorized'}
                         </span>
                         <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border border-gray-200 bg-gray-50 text-gray-600">
-                            <i className="fa-solid fa-wallet"></i>
+                            <i className="fa-solid fa-wallet text-indigo-500"></i>
                             {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                            <button onClick={() => connectWallet(true)} className="ml-2 text-xs text-indigo-600 hover:text-indigo-800 font-bold underline" aria-label="Switch MetaMask Wallet">
+                                Switch
+                            </button>
                         </span>
                     </div>
 
@@ -601,21 +614,6 @@ function VotingPage({ user, onUserUpdate }) {
                         </div>
                     </div>
 
-                    {/* BALLOT ACCESS TURNSTILE */}
-                    {!accessTurnstileToken && !hasVoted && (
-                        <div className="max-w-4xl mx-auto bg-white p-8 border border-gray-200 rounded-xl shadow-sm text-center mb-8">
-                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-200">
-                                <i className="fa-solid fa-shield-halved text-2xl text-blue-600"></i>
-                            </div>
-                            <h2 className="text-xl font-bold text-gray-900 mb-2">Verify Human Access</h2>
-                            <p className="text-gray-500 text-sm mb-6 max-w-sm mx-auto">Please complete the security challenge below to unlock the secure digital ballot payload.</p>
-                            
-                            <div className="inline-block border border-gray-200 p-2 rounded-lg bg-gray-50">
-                                <Turnstile onVerify={setAccessTurnstileToken} onError={() => setError('Bot check failed. Please refresh.')} action="ballot_access" />
-                            </div>
-                        </div>
-                    )}
-
                     {/* Warnings */}
                     {!isAuthorized && (
                         <div className="max-w-3xl mx-auto mb-4">
@@ -643,8 +641,8 @@ function VotingPage({ user, onUserUpdate }) {
                         </div>
                     )}
 
-                    {/* ENTER SECURE VOTING WINDOW CTA */}
-                    <div className={`max-w-4xl mx-auto transition-all duration-500 ${!accessTurnstileToken && !hasVoted ? 'opacity-30 pointer-events-none filter blur-sm' : ''}`}>
+                    {/* ENTER SECURE VOTING WINDOW — No Turnstile gate, directly available */}
+                    <div className="max-w-4xl mx-auto">
                         {!votingActive ? (
                             <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center">
                                 <i className="fa-solid fa-lock text-4xl text-gray-400 mb-3"></i>
@@ -664,19 +662,38 @@ function VotingPage({ user, onUserUpdate }) {
                                     You will enter a <strong>secure proctored window</strong> with a <strong>60-second timer</strong>. 
                                     Tab switching, screenshots, and keyboard shortcuts will be blocked.
                                 </p>
-                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 text-sm text-amber-800 max-w-md mx-auto">
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-sm text-amber-800 max-w-md mx-auto">
                                     <i className="fa-solid fa-triangle-exclamation mr-1"></i>
                                     <strong>Important:</strong> Complete your vote within the timer. The window will auto-close on expiry.
                                 </div>
+
+                                {/* Authentication steps progress */}
+                                <div className="flex items-center justify-center gap-2 mb-6">
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-200">
+                                        <i className="fa-solid fa-check-circle"></i> MFA Login
+                                    </span>
+                                    <i className="fa-solid fa-arrow-right text-gray-300 text-xs"></i>
+                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${
+                                        qrTicketValidated ? 'bg-green-50 text-green-700 border-green-200' : 'bg-blue-50 text-blue-700 border-blue-200'
+                                    }`}>
+                                        <i className={`fa-solid ${qrTicketValidated ? 'fa-check-circle' : 'fa-qrcode'}`}></i>
+                                        QR Ticket {qrTicketValidated ? '✓' : ''}
+                                    </span>
+                                    <i className="fa-solid fa-arrow-right text-gray-300 text-xs"></i>
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-gray-50 text-gray-500 border border-gray-200">
+                                        <i className="fa-solid fa-lock"></i> Proctored Vote
+                                    </span>
+                                </div>
+
                                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                                     <button 
                                         className="btn-primary px-8 py-3 text-base font-bold shadow-lg hover:shadow-xl transition-all"
                                         onClick={enterProctorMode}
                                         disabled={!votingActive || !isAuthorized}
-                                        aria-label="Enter secure proctored voting window"
+                                        aria-label="Generate QR ticket and enter secure voting window"
                                     >
-                                        <i className="fa-solid fa-lock mr-2"></i>
-                                        Enter Secure Voting Window
+                                        <i className={`fa-solid ${qrTicketValidated ? 'fa-lock' : 'fa-qrcode'} mr-2`}></i>
+                                        {qrTicketValidated ? 'Enter Secure Voting Window' : 'Generate QR Ticket & Vote'}
                                     </button>
                                 </div>
                                 <p className="text-gray-400 text-xs mt-4">
@@ -687,6 +704,15 @@ function VotingPage({ user, onUserUpdate }) {
                         )}
                     </div>
                 </>
+            )}
+
+            {/* QR VOTING TICKET MODAL */}
+            {showQRTicket && (
+                <QRVoteTicket
+                    user={user}
+                    onTicketValidated={handleQRTicketValidated}
+                    onCancel={handleQRCancel}
+                />
             )}
 
             {/* PROCTORED VOTING WINDOW */}

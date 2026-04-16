@@ -1,262 +1,430 @@
-import React, { useState } from 'react';
-import { useSignIn } from '@clerk/clerk-react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
-import Turnstile from '../components/Turnstile';
-import KeystrokeCaptureInput from '../components/KeystrokeCaptureInput';
+import { useKeystrokeDynamics, KeystrokeIndicator } from '../components/KeystrokeDynamics';
+import { isValidEmail, isValidVoterId } from '../utils/validators';
 
-const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
-const API_URL = rawUrl.startsWith('http') ? (rawUrl.endsWith('/api/v1') ? rawUrl : rawUrl.replace(/\/$/, '') + '/api/v1') : 'https://' + rawUrl.replace(/\/$/, '') + (rawUrl.endsWith('/api/v1') ? '' : '/api/v1');
+const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace(/\/$/, '');
 
-export default function LoginPage() {
-    const { isLoaded, signIn, setActive } = useSignIn();
+function LoginPage({ onLogin }) {
     const navigate = useNavigate();
+    const { getKeystrokeProps, getKeystrokeData, resetKeystroke } = useKeystrokeDynamics();
 
-    const [loginMethod, setLoginMethod] = useState('otp'); // 'otp' or 'password'
-    
-    const [otpEmail, setOtpEmail] = useState('');
-    const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
-    const [otpCode, setOtpCode] = useState('');
-
-    const [pwEmail, setPwEmail] = useState('');
+    const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
-
-    // 2FA State
-    const [needs2FA, setNeeds2FA] = useState(false);
-    const [twoFACode, setTwoFACode] = useState('');
-    const [pendingSession, setPendingSession] = useState(null);
-    const [twoFAEmail, setTwoFAEmail] = useState('');
-
     const [loading, setLoading] = useState(false);
-    const [turnstileToken, setTurnstileToken] = useState(null);
-    const [keystrokeData, setKeystrokeData] = useState(null);
+    const [error, setError] = useState('');
+    const [passwordFocused, setPasswordFocused] = useState(false);
+    const [keystrokeResult, setKeystrokeResult] = useState(null);
 
-    // ==================== OTP LOGIN ====================
-    const handleSendOTP = async (e) => {
-        e.preventDefault();
-        if (!isLoaded) return;
-        if (!otpEmail) return toast.error('Please enter E-mail/Mobile');
+    // MFA State
+    const [mfaStep, setMfaStep] = useState(false);
+    const [preAuthToken, setPreAuthToken] = useState('');
+    const [maskedEmail, setMaskedEmail] = useState('');
+    const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
+    const [otpLoading, setOtpLoading] = useState(false);
+    const [otpError, setOtpError] = useState('');
+    const [otpCountdown, setOtpCountdown] = useState(300); // 5 minutes
+    const [resendCooldown, setResendCooldown] = useState(0);
+    const [pendingUser, setPendingUser] = useState(null);
+    const [demoOtp, setDemoOtp] = useState('');
 
-        setLoading(true);
-        try {
-            await signIn.create({
-                identifier: otpEmail,
-                strategy: 'email_code',
-            });
-            setIsVerifyingOtp(true);
-            toast.success('Secure OTP sent successfully!');
-        } catch (err) {
-            toast.error(err.errors?.[0]?.message || 'Error executing OTP algorithm');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const otpRefs = useRef([]);
 
-    const handleVerifyOTP = async (e) => {
-        e.preventDefault();
-        if (!isLoaded) return;
-
-        setLoading(true);
-        try {
-            const attempt = await signIn.attemptFirstFactor({
-                strategy: 'email_code',
-                code: otpCode,
-            });
-
-            if (attempt.status === 'complete') {
-                await setActive({ session: attempt.createdSessionId });
-                navigate('/dashboard');
-            } else {
-                toast.error('Cryptographic verification failed.');
-            }
-        } catch (err) {
-            toast.error(err.errors?.[0]?.message || 'Invalid or Expired OTP Token');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // ==================== PASSWORD LOGIN + 2FA ====================
-    const handlePasswordLogin = async (e) => {
-        e.preventDefault();
-        if (!isLoaded) return;
-
-        setLoading(true);
-        try {
-            const attempt = await signIn.create({
-                identifier: pwEmail,
-                strategy: 'password',
-                password,
-            });
-
-            if (attempt.status === 'complete') {
-                // Password verified by Clerk — now trigger our custom 2FA OTP
-                toast.success('Password verified. Sending 2FA security code...');
-                
-                // Store the pending session — don't activate it yet
-                setPendingSession(attempt);
-                setTwoFAEmail(pwEmail);
-
-                // Send 2FA OTP via our backend (Resend + Upstash Redis)
-                try {
-                    const res = await fetch(`${API_URL}/auth/login-2fa`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            email: pwEmail,
-                            turnstileToken: turnstileToken || 'turnstile-not-configured'
-                        })
-                    });
-                    const data = await res.json();
-                    
-                    if (!res.ok) throw new Error(data.error);
-                    
-                    setNeeds2FA(true);
-                    toast.success('6-digit security code sent to your email!');
-                    
-                    // Show demo OTP in development
-                    if (data.otp) {
-                        toast(`Dev OTP: ${data.otp}`, { icon: '🔑', duration: 10000 });
-                    }
-                } catch (err) {
-                    // If 2FA send fails, still allow login (fail-open for availability)
-                    console.error('2FA send failed, proceeding with login:', err);
-                    await setActive({ session: attempt.createdSessionId });
-                    navigate('/dashboard');
+    // OTP Countdown Timer
+    useEffect(() => {
+        if (!mfaStep || otpCountdown <= 0) return;
+        const interval = setInterval(() => {
+            setOtpCountdown(prev => {
+                if (prev <= 1) {
+                    clearInterval(interval);
+                    return 0;
                 }
-            } else {
-                toast.error('Elevated MFA intercept required.');
-            }
-        } catch (err) {
-            if (err.errors?.[0]?.code === "form_password_incorrect") {
-                toast.error("Cryptographic hash mismatch (Invalid password).");
-            } else {
-                toast.error(err.errors?.[0]?.message || 'Invalid Credentials');
-            }
-        } finally {
-            setLoading(false);
-        }
+                return prev - 1;
+            });
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [mfaStep, otpCountdown]);
+
+    // Resend Cooldown Timer
+    useEffect(() => {
+        if (resendCooldown <= 0) return;
+        const interval = setInterval(() => {
+            setResendCooldown(prev => {
+                if (prev <= 1) { clearInterval(interval); return 0; }
+                return prev - 1;
+            });
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [resendCooldown]);
+
+    const formatTime = (seconds) => {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m}:${s.toString().padStart(2, '0')}`;
     };
 
-    // ==================== 2FA VERIFICATION ====================
-    const handleVerify2FA = async (e) => {
+    // Step 1: Submit password
+    const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!identifier.trim() || !password) {
+            setError('Email/Voter ID and password are required');
+            return;
+        }
+
+        // Frontend validation — instant feedback before network call
+        const id = identifier.trim();
+        const isEmail = id.includes('@');
+        if (isEmail && !isValidEmail(id)) {
+            setError('Please enter a valid email address (e.g., voter@example.com)');
+            return;
+        }
+        if (!isEmail && !isValidVoterId(id)) {
+            setError('Voter ID must be 3 letters followed by 7 digits (e.g., ABC1234567)');
+            return;
+        }
+        if (password.length < 6) {
+            setError('Password must be at least 6 characters');
+            return;
+        }
+
         setLoading(true);
-        
+        setError('');
+        setKeystrokeResult(null);
+
         try {
-            const res = await fetch(`${API_URL}/auth/verify-login-2fa`, {
+            const keystrokeData = getKeystrokeData();
+
+            const res = await fetch(`${API_URL}/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: twoFAEmail, otp: twoFACode })
+                body: JSON.stringify({ identifier: identifier.trim(), password })
             });
+
             const data = await res.json();
 
             if (!res.ok) {
-                toast.error(data.error || 'Invalid 2FA code');
-                setLoading(false);
-                return;
+                throw new Error(data.error || 'Login failed');
             }
 
-            // 2FA passed — now activate the Clerk session
-            if (pendingSession) {
-                await setActive({ session: pendingSession.createdSessionId });
-                
-                // Send keystroke timing data for enrollment/verification (non-blocking)
-                if (keystrokeData) {
-                    fetch(`${API_URL}/keystroke/process`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email: twoFAEmail, timingData: keystrokeData })
-                    }).then(r => r.json()).then(result => {
-                        if (result.suspicious) {
-                            toast('⚠️ Unusual typing pattern detected', { icon: '🔍', duration: 5000 });
-                        } else if (result.message) {
-                            console.log('[Keystroke Dynamics]', result.message);
+            // MFA flow: password verified, now need OTP
+            if (data.mfaRequired) {
+                setPreAuthToken(data.preAuthToken);
+                setMaskedEmail(data.email);
+                setPendingUser(data.user);
+                setMfaStep(true);
+                setOtpCountdown(300);
+                setOtpDigits(['', '', '', '', '', '']);
+                setDemoOtp(data.otpDemo || '');
+
+                // Keystroke verification (non-blocking, during MFA wait)
+                if (keystrokeData.keyCount >= 4) {
+                    try {
+                        const ksRes = await fetch(`${API_URL}/auth/keystroke/verify`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                email: data.user.email,
+                                holdTimes: keystrokeData.holdTimes,
+                                flightTimes: keystrokeData.flightTimes,
+                                meanSpeed: keystrokeData.meanSpeed
+                            })
+                        });
+                        const ksData = await ksRes.json();
+                        setKeystrokeResult(ksData);
+
+                        if (ksData.enrolled && !ksData.verified) {
+                            toast('⚠️ Keystroke pattern differs from your profile. Logged for security.', {
+                                duration: 5000, icon: '🔒',
+                                style: { background: '#fef3c7', color: '#92400e', fontWeight: 600 }
+                            });
                         }
-                    }).catch(() => {}); // Fail silently
+                    } catch (ksErr) {
+                        console.warn('Keystroke verification skipped:', ksErr.message);
+                    }
                 }
-                
-                toast.success('Multi-factor authentication complete!');
-                navigate('/dashboard');
+
+                toast.success('OTP sent to your email!', { icon: '📧' });
+                // Focus first OTP input
+                setTimeout(() => otpRefs.current[0]?.focus(), 100);
             }
         } catch (err) {
-            toast.error('2FA verification failed. Please try again.');
+            setError(err.message);
+            resetKeystroke();
         } finally {
             setLoading(false);
         }
     };
 
-    // ==================== PASSKEY LOGIN ====================
-    const handlePasskeyLogin = async () => {
-        if (!isLoaded) return;
-        try {
-            const attempt = await signIn.authenticateWithWebAuthn();
-            if (attempt.status === 'complete') {
-                await setActive({ session: attempt.createdSessionId });
-                toast.success('Biometric Handshake Successful!');
-                navigate('/dashboard');
-            }
-        } catch (err) {
-            console.error(err);
-            toast.error("Local hardware passkey interface cancelled.");
+    // Handle OTP digit input
+    const handleOtpChange = (index, value) => {
+        if (!/^\d*$/.test(value)) return; // Only digits
+
+        const newDigits = [...otpDigits];
+        newDigits[index] = value.slice(-1); // Single digit
+        setOtpDigits(newDigits);
+        setOtpError('');
+
+        // Auto-focus next input
+        if (value && index < 5) {
+            otpRefs.current[index + 1]?.focus();
+        }
+
+        // Auto-submit when all 6 digits entered
+        if (newDigits.every(d => d !== '') && newDigits.join('').length === 6) {
+            setTimeout(() => verifyOtp(newDigits.join('')), 150);
         }
     };
 
-    // ==================== SOCIAL AUTH ====================
-    const handleSocialAuth = async (strategy) => {
-        if (!isLoaded) return;
+    const handleOtpKeyDown = (index, e) => {
+        if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
+            otpRefs.current[index - 1]?.focus();
+        }
+    };
+
+    const handleOtpPaste = (e) => {
+        e.preventDefault();
+        const pasteData = e.clipboardData.getData('text').trim().slice(0, 6);
+        if (/^\d{6}$/.test(pasteData)) {
+            const digits = pasteData.split('');
+            setOtpDigits(digits);
+            otpRefs.current[5]?.focus();
+            setTimeout(() => verifyOtp(pasteData), 150);
+        }
+    };
+
+    // Step 2: Verify OTP
+    const verifyOtp = async (otpCode) => {
+        const otp = otpCode || otpDigits.join('');
+        if (otp.length !== 6) {
+            setOtpError('Please enter all 6 digits');
+            return;
+        }
+
+        setOtpLoading(true);
+        setOtpError('');
+
         try {
-            await signIn.authenticateWithRedirect({
-                strategy,
-                redirectUrl: '/sso-callback',
-                redirectUrlComplete: '/onboarding',
+            const res = await fetch(`${API_URL}/auth/mfa/verify-otp`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ preAuthToken, otp })
             });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'OTP verification failed');
+            }
+
+            // MFA complete — store final JWT and proceed
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+
+            // Enroll keystroke if needed
+            const keystrokeData = getKeystrokeData();
+            if (keystrokeData.keyCount >= 4) {
+                try {
+                    const ksRes = await fetch(`${API_URL}/auth/keystroke/verify`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: data.user.email, holdTimes: keystrokeData.holdTimes, flightTimes: keystrokeData.flightTimes, meanSpeed: keystrokeData.meanSpeed })
+                    });
+                    const ksData = await ksRes.json();
+                    if (!ksData.enrolled) {
+                        await fetch(`${API_URL}/auth/keystroke/enroll`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${data.token}` },
+                            body: JSON.stringify(keystrokeData)
+                        }).catch(() => {});
+                    }
+                } catch (e) {}
+            }
+
+            if (onLogin) onLogin(data.user, data.token);
+            toast.success(`Welcome back, ${data.user.fullname || 'Voter'}! MFA verified ✓`, { icon: '🛡️' });
+            navigate('/dashboard');
+
         } catch (err) {
-            toast.error('Identity provider handshake initializing...');
+            setOtpError(err.message);
+            setOtpDigits(['', '', '', '', '', '']);
+            otpRefs.current[0]?.focus();
+        } finally {
+            setOtpLoading(false);
         }
     };
 
-    // ==================== 2FA VERIFICATION SCREEN ====================
-    if (needs2FA) {
+    // Resend OTP
+    const resendOtp = async () => {
+        if (resendCooldown > 0) return;
+
+        try {
+            const res = await fetch(`${API_URL}/auth/mfa/resend-otp`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ preAuthToken })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to resend OTP');
+            }
+
+            setOtpCountdown(300);
+            setResendCooldown(30);
+            setOtpDigits(['', '', '', '', '', '']);
+            setDemoOtp(data.otpDemo || '');
+            toast.success('New OTP sent!', { icon: '📧' });
+            otpRefs.current[0]?.focus();
+        } catch (err) {
+            setOtpError(err.message);
+        }
+    };
+
+    // Back to password step
+    const backToPassword = () => {
+        setMfaStep(false);
+        setPreAuthToken('');
+        setOtpDigits(['', '', '', '', '', '']);
+        setOtpError('');
+        setDemoOtp('');
+        setPassword('');
+        resetKeystroke();
+    };
+
+    // ======= MFA OTP VERIFICATION SCREEN =======
+    if (mfaStep) {
         return (
-            <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans relative overflow-hidden bg-gray-50 dark:bg-[#070e20] transition-colors duration-500">
-                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-amber-400/20 dark:bg-amber-600/30 rounded-full blur-[120px] pointer-events-none"></div>
-                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-400/20 dark:bg-blue-500/20 rounded-full blur-[120px] pointer-events-none"></div>
-                
-                <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 transition-all duration-500">
-                    <div className="bg-white/80 dark:bg-white/[0.04] backdrop-blur-2xl border border-gray-200 dark:border-white/10 p-10 shadow-2xl rounded-3xl">
-                        <div className="mx-auto w-16 h-16 bg-amber-100 dark:bg-white/10 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-amber-300/40 dark:border-white/20">
-                            <i className="fa-solid fa-shield-check text-3xl text-amber-600 dark:text-amber-400"></i>
+            <div className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-gray-50 flex flex-col">
+                <Helmet>
+                    <title>Verify OTP | Bharat E-Vote Portal</title>
+                    <meta name="description" content="Enter the one-time password sent to your registered email to complete multi-factor authentication." />
+                </Helmet>
+
+                <div className="h-1.5 bg-gradient-to-r from-accent-saffron via-white to-accent-green"></div>
+
+                <div className="flex-grow flex items-center justify-center px-4 py-12">
+                    <div className="w-full max-w-md">
+                        {/* Header */}
+                        <div className="text-center mb-8">
+                            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-50 mb-5 shadow-lg shadow-green-100 border-2 border-green-200">
+                                <i className="fa-solid fa-shield-halved text-green-600 text-3xl"></i>
+                            </div>
+                            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Multi-Factor Authentication</h1>
+                            <p className="text-gray-500 mt-2">Enter the 6-digit OTP sent to <strong className="text-primary">{maskedEmail}</strong></p>
                         </div>
-                        <h2 className="text-2xl font-black text-gray-900 dark:text-white text-center mb-2 tracking-tight">Two-Factor Authentication</h2>
-                        <p className="text-sm text-gray-500 dark:text-amber-200/60 text-center mb-2">Enter the 6-digit code sent to</p>
-                        <p className="text-sm text-blue-600 dark:text-blue-400 text-center mb-8 font-semibold">{twoFAEmail}</p>
-                        
-                        <form onSubmit={handleVerify2FA} className="space-y-6">
-                            <input 
-                                type="text" 
-                                className="w-full px-4 py-4 bg-gray-50 dark:bg-black/20 border border-gray-300 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none text-center text-2xl tracking-[0.75em] font-mono text-gray-900 dark:text-white transition-all shadow-inner" 
-                                value={twoFACode} 
-                                onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                required 
-                                placeholder="●●●●●●"
-                                autoFocus
-                            />
-                            
-                            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/30 rounded-xl p-3 text-xs text-amber-700 dark:text-amber-300/80">
-                                <i className="fa-solid fa-info-circle mr-1.5"></i>
-                                This code expires in 5 minutes. Check your email inbox and spam folder.
+
+                        {/* MFA Badge */}
+                        <div className="flex justify-center gap-3 mb-6">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-200">
+                                <i className="fa-solid fa-check-circle"></i> Password Verified
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 animate-pulse">
+                                <i className="fa-solid fa-envelope"></i> OTP Pending
+                            </span>
+                            {keystrokeResult?.enrolled && (
+                                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${
+                                    keystrokeResult.verified ? 'bg-green-50 text-green-700 border-green-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                                }`}>
+                                    <i className="fa-solid fa-fingerprint"></i> {keystrokeResult.verified ? 'Biometric ✓' : 'Anomaly'}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Error */}
+                        {otpError && (
+                            <div className="mb-5 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 animate-shake">
+                                <i className="fa-solid fa-circle-exclamation text-red-500 mt-0.5"></i>
+                                <p className="text-sm text-red-700 font-medium">{otpError}</p>
+                            </div>
+                        )}
+
+                        {/* OTP Card */}
+                        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+                            <div className="p-6 sm:p-8">
+                                {/* Timer */}
+                                <div className="text-center mb-6">
+                                    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border ${
+                                        otpCountdown > 60 ? 'bg-green-50 text-green-700 border-green-200' :
+                                        otpCountdown > 0 ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                        'bg-red-50 text-red-700 border-red-200'
+                                    }`}>
+                                        <i className="fa-solid fa-clock"></i>
+                                        {otpCountdown > 0 ? `Expires in ${formatTime(otpCountdown)}` : 'OTP Expired'}
+                                    </div>
+                                </div>
+
+                                {/* Demo OTP hint */}
+                                {demoOtp && (
+                                    <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-3 text-center text-sm text-amber-800">
+                                        <i className="fa-solid fa-flask mr-1"></i>
+                                        <strong>Demo Mode OTP:</strong> <span className="font-mono text-lg font-bold tracking-widest">{demoOtp}</span>
+                                    </div>
+                                )}
+
+                                {/* 6-Digit OTP Input */}
+                                <div className="flex justify-center gap-3 mb-6" onPaste={handleOtpPaste}>
+                                    {otpDigits.map((digit, i) => (
+                                        <input
+                                            key={i}
+                                            ref={el => otpRefs.current[i] = el}
+                                            type="text"
+                                            inputMode="numeric"
+                                            maxLength={1}
+                                            value={digit}
+                                            onChange={(e) => handleOtpChange(i, e.target.value)}
+                                            onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                                            className={`w-12 h-14 text-center text-2xl font-bold rounded-xl border-2 outline-none transition-all duration-200 ${
+                                                digit ? 'border-primary bg-blue-50 text-primary' : 'border-gray-200 text-gray-900'
+                                            } focus:border-primary focus:ring-2 focus:ring-primary/20 focus:scale-105`}
+                                            disabled={otpCountdown === 0 || otpLoading}
+                                            autoComplete="one-time-code"
+                                        />
+                                    ))}
+                                </div>
+
+                                {/* Verify Button */}
+                                <button
+                                    onClick={() => verifyOtp()}
+                                    disabled={otpLoading || otpDigits.some(d => !d) || otpCountdown === 0}
+                                    className="w-full py-3.5 rounded-xl text-sm font-bold text-white bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    {otpLoading ? (
+                                        <><i className="fa-solid fa-spinner fa-spin"></i> Verifying OTP...</>
+                                    ) : (
+                                        <><i className="fa-solid fa-shield-halved"></i> Verify & Complete Login</>
+                                    )}
+                                </button>
+
+                                {/* Resend */}
+                                <div className="mt-4 text-center">
+                                    <p className="text-sm text-gray-500">Didn't receive the code?</p>
+                                    <button
+                                        onClick={resendOtp}
+                                        disabled={resendCooldown > 0}
+                                        className="mt-1 text-sm font-bold text-primary hover:underline disabled:text-gray-400 disabled:no-underline"
+                                    >
+                                        {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend OTP'}
+                                    </button>
+                                </div>
                             </div>
 
-                            <button type="submit" disabled={loading || twoFACode.length !== 6} className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white py-4 rounded-xl font-bold shadow-[0_0_20px_rgba(245,158,11,0.4)] hover:shadow-[0_0_30px_rgba(245,158,11,0.6)] transition-all disabled:opacity-50">
-                                {loading ? <i className="fa-solid fa-spinner fa-spin"></i> : 'Complete Secure Login'}
-                            </button>
-                        </form>
-                        
-                        <div className="mt-8 text-center text-sm">
-                            <button onClick={() => { setNeeds2FA(false); setPendingSession(null); setTwoFACode(''); }} className="text-blue-600 dark:text-blue-400 font-semibold hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
-                                <i className="fa-solid fa-arrow-left mr-2"></i>Back to Login
-                            </button>
+                            {/* Back */}
+                            <div className="px-6 sm:px-8 py-4 bg-gray-50 border-t border-gray-100 text-center">
+                                <button onClick={backToPassword} className="text-sm text-gray-500 hover:text-primary font-semibold">
+                                    <i className="fa-solid fa-arrow-left mr-1"></i> Back to Password
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Security info */}
+                        <div className="mt-6 flex flex-wrap justify-center gap-4 text-xs text-gray-400">
+                            <span className="flex items-center gap-1"><i className="fa-solid fa-lock text-green-500"></i>Password ✓</span>
+                            <span className="flex items-center gap-1"><i className="fa-solid fa-envelope text-blue-500"></i>Email OTP</span>
+                            <span className="flex items-center gap-1"><i className="fa-solid fa-fingerprint text-purple-500"></i>Keystroke Bio</span>
+                            <span className="flex items-center gap-1"><i className="fa-solid fa-shield-halved text-primary"></i>3-Factor MFA</span>
                         </div>
                     </div>
                 </div>
@@ -264,213 +432,122 @@ export default function LoginPage() {
         );
     }
 
-    // ==================== CLERK OTP VERIFICATION SCREEN ====================
-    if (isVerifyingOtp) {
-        return (
-            <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans relative overflow-hidden bg-gray-50 dark:bg-[#070e20] transition-colors duration-500">
-                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-400/20 dark:bg-blue-600/30 rounded-full blur-[120px] pointer-events-none"></div>
-                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-orange-400/20 dark:bg-orange-500/20 rounded-full blur-[120px] pointer-events-none"></div>
-                
-                <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 transition-all duration-500">
-                    <div className="bg-white/80 dark:bg-white/[0.04] backdrop-blur-2xl border border-gray-200 dark:border-white/10 p-10 shadow-2xl rounded-3xl">
-                        <div className="mx-auto w-16 h-16 bg-blue-100 dark:bg-white/10 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-white/20">
-                            <i className="fa-solid fa-shield-halved text-3xl text-blue-600 dark:text-blue-400"></i>
-                        </div>
-                        <h2 className="text-2xl font-black text-gray-900 dark:text-white text-center mb-2 tracking-tight">Security Verification</h2>
-                        <p className="text-sm text-gray-500 dark:text-blue-200/60 text-center mb-8">Enter the 6-digit cryptographic token sent to your device.</p>
-                        
-                        <form onSubmit={handleVerifyOTP} className="space-y-6">
-                            <input 
-                                type="text" 
-                                className="w-full px-4 py-4 bg-gray-50 dark:bg-black/20 border border-gray-300 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-center text-2xl tracking-[0.75em] font-mono text-gray-900 dark:text-white transition-all shadow-inner" 
-                                value={otpCode} 
-                                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                required 
-                                placeholder="●●●●●●"
-                            />
-                            <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-4 rounded-xl font-bold shadow-[0_0_20px_rgba(59,130,246,0.4)] hover:shadow-[0_0_30px_rgba(59,130,246,0.6)] transition-all">
-                                {loading ? <i className="fa-solid fa-spinner fa-spin"></i> : 'Authenticate Token'}
-                            </button>
-                        </form>
-                        
-                        <div className="mt-8 text-center text-sm">
-                            <button onClick={() => setIsVerifyingOtp(false)} className="text-blue-600 dark:text-blue-400 font-semibold hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
-                                <i className="fa-solid fa-arrow-left mr-2"></i>Return to Matrix
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    // ==================== MAIN LOGIN SCREEN ====================
+    // ======= PASSWORD LOGIN SCREEN (Step 1) =======
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center py-12 px-4 relative overflow-hidden bg-gray-50 dark:bg-[#070e20] transition-colors duration-500 font-sans">
-            {/* Ambient Background Glows */}
-            <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-500/20 dark:bg-blue-600/20 rounded-full blur-[150px] pointer-events-none animate-pulse"></div>
-            <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-orange-500/20 dark:bg-orange-600/10 rounded-full blur-[150px] pointer-events-none"></div>
+        <div className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-gray-50 flex flex-col">
+            <Helmet>
+                <title>Login | Bharat E-Vote Portal</title>
+                <meta name="description" content="Login to the Bharat E-Vote Portal with your Voter ID or email. Secured with multi-factor authentication and keystroke biometric verification." />
+            </Helmet>
 
-            {/* Invisible Turnstile Bot Protection */}
-            <Turnstile onVerify={setTurnstileToken} action="login" />
+            {/* Top tricolour band */}
+            <div className="h-1.5 bg-gradient-to-r from-accent-saffron via-white to-accent-green"></div>
 
-            <div className="w-full max-w-md relative z-10 transition-all duration-500">
-                
-                {/* Main Glassmorphic Card */}
-                <div className="bg-white/70 dark:bg-white/[0.03] backdrop-blur-2xl border border-gray-200 dark:border-white/10 p-8 shadow-2xl dark:shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-3xl relative overflow-hidden">
-                    
+            <div className="flex-grow flex items-center justify-center px-4 py-12">
+                <div className="w-full max-w-md">
                     {/* Header */}
-                    <div className="text-center mb-8 relative z-20">
-                        <div className="inline-flex justify-center items-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 dark:from-white/5 dark:to-white/10 text-blue-600 dark:text-blue-400 mb-5 border border-blue-500/30 dark:border-white/10 shadow-[0_0_20px_rgba(59,130,246,0.15)] backdrop-blur-md">
-                            <i className="fa-solid fa-fingerprint text-3xl"></i>
+                    <div className="text-center mb-8">
+                        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-5 shadow-lg shadow-primary/10">
+                            <i className="fa-solid fa-landmark text-primary text-3xl"></i>
                         </div>
-                        <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">Bharat E-Vote</h2>
-                        <p className="text-sm text-gray-500 dark:text-blue-200/60 mt-2 font-medium tracking-wide">Decentralized Identity Gateway</p>
+                        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Voter Login</h1>
+                        <p className="text-gray-500 mt-2">Bharat E-Vote — Secure Electoral Portal</p>
                     </div>
 
-                    {/* Security Badge */}
-                    <div className="flex items-center justify-center gap-2 mb-6 relative z-20">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/30 text-xs font-bold text-green-700 dark:text-green-400">
-                            <i className="fa-solid fa-lock text-[10px]"></i>
-                            Turnstile Protected
-                        </span>
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/30 text-xs font-bold text-amber-700 dark:text-amber-400">
-                            <i className="fa-solid fa-shield-check text-[10px]"></i>
-                            2FA Enforced
-                        </span>
+                    {/* MFA Info */}
+                    <div className="mb-5 bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-3">
+                        <i className="fa-solid fa-shield-halved text-blue-500 mt-0.5"></i>
+                        <p className="text-xs text-blue-700 font-medium">
+                            <strong>3-Factor Authentication:</strong> Password → Email OTP → Keystroke Biometrics.
+                            An OTP will be sent to your registered email after password verification.
+                        </p>
                     </div>
 
-                    {/* Toggle Switch */}
-                    <div className="flex bg-gray-200/50 dark:bg-black/30 p-1.5 rounded-2xl mb-8 relative z-20 shadow-inner border border-gray-300/50 dark:border-white/5">
-                        <button 
-                            onClick={() => setLoginMethod('otp')} 
-                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold tracking-wide transition-all duration-300 ${loginMethod === 'otp' ? 'bg-white dark:bg-white/10 text-blue-600 dark:text-white shadow-md border border-gray-200 dark:border-white/10' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}
-                        >
-                            <i className="fa-solid fa-bolt mr-2"></i>Quick OTP
-                        </button>
-                        <button 
-                            onClick={() => setLoginMethod('password')} 
-                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold tracking-wide transition-all duration-300 ${loginMethod === 'password' ? 'bg-white dark:bg-white/10 text-blue-600 dark:text-white shadow-md border border-gray-200 dark:border-white/10' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}
-                        >
-                            <i className="fa-solid fa-key mr-2"></i>Password
-                        </button>
-                    </div>
+                    {/* Error */}
+                    {error && (
+                        <div className="mb-5 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 animate-shake">
+                            <i className="fa-solid fa-circle-exclamation text-red-500 mt-0.5"></i>
+                            <p className="text-sm text-red-700 font-medium">{error}</p>
+                        </div>
+                    )}
 
-                    {/* Dynamic Forms */}
-                    <div className="relative z-20">
-                        {loginMethod === 'otp' ? (
-                            <form onSubmit={handleSendOTP} className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider ml-1">Digital Identifier</label>
-                                    <div className="relative group">
-                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                                            <i className="fa-regular fa-envelope"></i>
-                                        </div>
-                                        <input 
-                                            type="text" 
-                                            className="w-full pl-11 pr-4 py-3.5 bg-gray-50 dark:bg-black/20 border border-gray-300 dark:border-white/10 rounded-xl text-gray-900 dark:text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium placeholder-gray-400" 
-                                            placeholder="Email or Mobile"
-                                            value={otpEmail}
-                                            onChange={(e) => setOtpEmail(e.target.value)}
-                                        />
-                                    </div>
+                    {/* Form Card */}
+                    <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+                        <div className="p-6 sm:p-8 space-y-5">
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Email or Voter ID</label>
+                                <div className="relative">
+                                    <i className="fa-solid fa-user absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                                    <input
+                                        type="text"
+                                        value={identifier}
+                                        onChange={(e) => { setIdentifier(e.target.value); setError(''); }}
+                                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm"
+                                        placeholder="voter@example.com or ABC1234567"
+                                        autoFocus
+                                        autoComplete="username"
+                                    />
                                 </div>
-                                <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3.5 rounded-xl font-bold tracking-wide shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] transition-all">
-                                    Request OTP Link
-                                </button>
-                            </form>
-                        ) : (
-                            <form onSubmit={handlePasswordLogin} className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider ml-1">Digital Identifier</label>
-                                    <div className="relative group">
-                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                                            <i className="fa-regular fa-user"></i>
-                                        </div>
-                                        <input 
-                                            type="text" 
-                                            className="w-full pl-11 pr-4 py-3.5 bg-gray-50 dark:bg-black/20 border border-gray-300 dark:border-white/10 rounded-xl text-gray-900 dark:text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium placeholder-gray-400" 
-                                            placeholder="Email or Username"
-                                            value={pwEmail}
-                                            onChange={(e) => setPwEmail(e.target.value)}
-                                        />
-                                    </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Password</label>
+                                <div className="relative">
+                                    <i className="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                                    <input
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                                        onFocus={() => { setPasswordFocused(true); resetKeystroke(); }}
+                                        onBlur={() => setPasswordFocused(false)}
+                                        {...getKeystrokeProps()}
+                                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm"
+                                        placeholder="Enter your password"
+                                        autoComplete="current-password"
+                                    />
                                 </div>
-                                <div className="space-y-1">
-                                    <div className="flex justify-between items-center ml-1">
-                                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Access Token</label>
-                                        <Link to="/forgot-password" className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-500 transition-colors">Recover</Link>
-                                    </div>
-                                    <div className="relative group">
-                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                                            <i className="fa-solid fa-asterisk text-xs"></i>
-                                        </div>
-                                        <KeystrokeCaptureInput 
-                                            className="w-full pl-11 pr-4 py-3.5 bg-gray-50 dark:bg-black/20 border border-gray-300 dark:border-white/10 rounded-xl text-gray-900 dark:text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium placeholder-gray-400 tracking-widest" 
-                                            placeholder="••••••••"
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            onTimingCapture={setKeystrokeData}
-                                        />
-                                    </div>
-                                </div>
-                                <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3.5 rounded-xl font-bold tracking-wide shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] transition-all">
-                                    Initialize Handshake
-                                </button>
-                            </form>
-                        )}
-                        
-                        {/* Native WebAuthn Passkeys Component */}
-                        <div className="mt-5">
-                            <button onClick={handlePasskeyLogin} disabled={loading} className="w-full relative overflow-hidden group bg-gray-900 dark:bg-white text-white dark:text-black py-3.5 rounded-xl font-bold tracking-wide shadow-lg transition-all hover:scale-[1.02]">
-                                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 dark:from-emerald-500/40 dark:to-teal-500/40 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                <span className="relative z-10 flex items-center justify-center gap-3">
-                                    <i className="fa-solid fa-fingerprint text-emerald-400 dark:text-emerald-600 text-lg"></i>
-                                    Authenticate via Hardware Passkey
-                                </span>
+                                <KeystrokeIndicator isCapturing={passwordFocused} />
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full py-3.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {loading ? (
+                                    <><i className="fa-solid fa-spinner fa-spin"></i> Verifying Password...</>
+                                ) : (
+                                    <><i className="fa-solid fa-right-to-bracket"></i> Continue with MFA</>
+                                )}
                             </button>
                         </div>
+
+                        <div className="px-6 sm:px-8 py-4 bg-gray-50 border-t border-gray-100 text-center">
+                            <p className="text-sm text-gray-500">
+                                Don't have an account?{' '}
+                                <Link to="/signup" className="text-primary font-bold hover:underline">Register Now</Link>
+                            </p>
+                        </div>
+                    </form>
+
+                    {/* Security badges */}
+                    <div className="mt-6 flex flex-wrap justify-center gap-4 text-xs text-gray-400">
+                        <span className="flex items-center gap-1"><i className="fa-solid fa-lock text-green-500"></i>TLS Encrypted</span>
+                        <span className="flex items-center gap-1"><i className="fa-solid fa-envelope text-blue-500"></i>Email OTP</span>
+                        <span className="flex items-center gap-1"><i className="fa-solid fa-fingerprint text-purple-500"></i>Keystroke Bio</span>
+                        <span className="flex items-center gap-1"><i className="fa-solid fa-shield-halved text-primary"></i>Rate Limited</span>
                     </div>
 
-                    {/* Divider */}
-                    <div className="relative flex items-center py-6 z-20">
-                        <div className="flex-grow border-t border-gray-300 dark:border-white/10"></div>
-                        <span className="flex-shrink-0 mx-4 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Federated Access</span>
-                        <div className="flex-grow border-t border-gray-300 dark:border-white/10"></div>
+                    {/* Admin link */}
+                    <div className="mt-6 text-center">
+                        <Link to="/admin-login" className="text-xs text-gray-400 hover:text-red-500 transition font-semibold">
+                            <i className="fa-solid fa-user-shield mr-1"></i>Election Officer Login
+                        </Link>
                     </div>
-
-                    {/* Social Buttons Stack */}
-                    <div className="grid grid-cols-2 gap-3 relative z-20">
-                        <button onClick={() => handleSocialAuth('oauth_google')} className="flex items-center justify-center gap-3 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-semibold transition-all shadow-sm">
-                            <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5 pointer-events-none" alt="Google" />
-                            <span>Google</span>
-                        </button>
-                        <button onClick={() => handleSocialAuth('oauth_github')} className="flex items-center justify-center gap-3 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-semibold transition-all shadow-sm">
-                            <i className="fa-brands fa-github text-xl text-gray-900 dark:text-white"></i>
-                            <span>GitHub</span>
-                        </button>
-                    </div>
-
-                    {/* Secondary Socials */}
-                    <div className="mt-4 flex justify-center gap-4 relative z-20">
-                        <button onClick={() => handleSocialAuth('oauth_twitter')} className="w-12 h-12 rounded-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 flex items-center justify-center transition-all hover:scale-110 shadow-sm">
-                            <i className="fa-brands fa-x-twitter text-lg"></i>
-                        </button>
-                        <button onClick={() => handleSocialAuth('oauth_linkedin')} className="w-12 h-12 rounded-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 text-[#0A66C2] dark:text-blue-400 flex items-center justify-center transition-all hover:scale-110 shadow-sm">
-                            <i className="fa-brands fa-linkedin-in text-lg"></i>
-                        </button>
-                    </div>
-
                 </div>
-
-                {/* Footer Switcher */}
-                <div className="mt-8 text-center relative z-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <p className="text-gray-600 dark:text-gray-400 font-medium">
-                        Unregistered Node? <Link to="/signup" className="text-blue-600 dark:text-blue-400 font-extrabold hover:text-blue-800 dark:hover:text-blue-300 transition-colors">Establish Identity</Link>
-                    </p>
-                </div>
-
             </div>
         </div>
     );
 }
+
+export default LoginPage;

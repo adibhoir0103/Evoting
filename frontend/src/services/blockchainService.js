@@ -2,6 +2,14 @@ import { ethers } from 'ethers';
 import VotingArtifact from '../contracts/Voting.json';
 import contractAddress from '../contracts/contract-address.json';
 
+// Environment detection: if VITE_API_URL points to localhost, we use local Hardhat node
+const _apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+const IS_LOCAL = _apiUrl.includes('localhost') || _apiUrl.includes('127.0.0.1');
+const LOCAL_RPC = 'http://127.0.0.1:8545';
+const SEPOLIA_RPC = 'https://eth-sepolia.g.alchemy.com/v2/XbNu_qjjYV_V-FGBmkc3K';
+const LOCAL_CHAIN_ID = '0x539';   // 1337
+const SEPOLIA_CHAIN_ID = '0xaa36a7'; // 11155111
+
 /**
  * Blockchain service to interact with the Voting smart contract
  * Enhanced with constituency, party, timeline, and vote receipt support
@@ -21,29 +29,46 @@ export class BlockchainService {
         return BlockchainService.instance;
     }
 
+    async getReadOnlyContract() {
+        if (this.contract) return this.contract;
+        const rpcUrl = IS_LOCAL ? LOCAL_RPC : SEPOLIA_RPC;
+        const fallbackProvider = new ethers.JsonRpcProvider(rpcUrl);
+        return new ethers.Contract(this.contractAddress, VotingArtifact.abi, fallbackProvider);
+    }
+
     /**
-     * Switch MetaMask to the Sepolia testnet (via Alchemy)
+     * Switch MetaMask to the correct network based on environment.
+     * - Local dev: Hardhat localhost (chainId 1337 / 0x539)
+     * - Production: Sepolia Testnet (chainId 11155111 / 0xaa36a7)
      */
-    async switchToSepoliaNetwork() {
-        const SEPOLIA_CHAIN_ID = '0xaa36a7'; // 11155111 in hex
+    async switchToCorrectNetwork() {
+        const targetChainId = IS_LOCAL ? LOCAL_CHAIN_ID : SEPOLIA_CHAIN_ID;
 
         try {
             await window.ethereum.request({
                 method: 'wallet_switchEthereumChain',
-                params: [{ chainId: SEPOLIA_CHAIN_ID }],
+                params: [{ chainId: targetChainId }],
             });
         } catch (switchError) {
             // Chain not added yet — add it
             if (switchError.code === 4902) {
-                await window.ethereum.request({
-                    method: 'wallet_addEthereumChain',
-                    params: [{
+                const chainParams = IS_LOCAL
+                    ? {
+                        chainId: LOCAL_CHAIN_ID,
+                        chainName: 'Localhost 8545 (Hardhat)',
+                        rpcUrls: [LOCAL_RPC],
+                        nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                    }
+                    : {
                         chainId: SEPOLIA_CHAIN_ID,
                         chainName: 'Sepolia Testnet',
-                        rpcUrls: ['https://eth-sepolia.g.alchemy.com/v2/XbNu_qjjYV_V-FGBmkc3K'],
+                        rpcUrls: [SEPOLIA_RPC],
                         nativeCurrency: { name: 'SepoliaETH', symbol: 'ETH', decimals: 18 },
                         blockExplorerUrls: ['https://sepolia.etherscan.io'],
-                    }],
+                    };
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [chainParams],
                 });
             } else {
                 throw switchError;
@@ -53,16 +78,24 @@ export class BlockchainService {
 
     /**
      * Connect to MetaMask wallet
+     * @param {boolean} forceSelect - If true, forces MetaMask to ask user to select an account
      * @returns {Promise<string>} Connected wallet address
      */
-    async connectWallet() {
+    async connectWallet(forceSelect = false) {
         try {
             if (!window.ethereum) {
                 throw new Error('MetaMask is not installed. Please install MetaMask to use this application.');
             }
 
-            // Switch to Sepolia network first
-            await this.switchToSepoliaNetwork();
+            // Switch to correct network (localhost or Sepolia) first
+            await this.switchToCorrectNetwork();
+
+            if (forceSelect) {
+                await window.ethereum.request({
+                    method: 'wallet_requestPermissions',
+                    params: [{ eth_accounts: {} }]
+                });
+            }
 
             // Request account access
             const accounts = await window.ethereum.request({
@@ -118,6 +151,15 @@ export class BlockchainService {
         }
     }
 
+    /**
+     * Ensure MetaMask is connected before performing write operations
+     */
+    async ensureConnection() {
+        if (!this.contract) {
+            await this.connectWallet();
+        }
+    }
+
     // ============ Admin Functions ============
 
     /**
@@ -125,6 +167,7 @@ export class BlockchainService {
      */
     async addCandidate(candidateName, partyName = '', partySymbol = '', stateCode = 0, constituencyCode = 0) {
         try {
+            await this.ensureConnection();
             const tx = await this.contract.addCandidate(candidateName, partyName, partySymbol, stateCode, constituencyCode);
             console.log('⏳ Transaction sent:', tx.hash);
             const receipt = await tx.wait();
@@ -141,6 +184,7 @@ export class BlockchainService {
      */
     async addCandidateSimple(candidateName) {
         try {
+            await this.ensureConnection();
             const tx = await this.contract.addCandidateSimple(candidateName);
             console.log('⏳ Transaction sent:', tx.hash);
             const receipt = await tx.wait();
@@ -157,6 +201,7 @@ export class BlockchainService {
      */
     async authorizeVoter(voterAddress, stateCode = 0, constituencyCode = 0) {
         try {
+            await this.ensureConnection();
             let tx;
             if (stateCode === 0 && constituencyCode === 0) {
                 tx = await this.contract.authorizeVoterSimple(voterAddress);
@@ -178,6 +223,7 @@ export class BlockchainService {
      */
     async authorizeVotersBatch(voterAddresses) {
         try {
+            await this.ensureConnection();
             const tx = await this.contract.authorizeVotersBatch(voterAddresses);
             console.log('⏳ Transaction sent:', tx.hash);
             const receipt = await tx.wait();
@@ -194,6 +240,7 @@ export class BlockchainService {
      */
     async setVotingTimeline(startTime, endTime) {
         try {
+            await this.ensureConnection();
             const tx = await this.contract.setVotingTimeline(startTime, endTime);
             console.log('⏳ Transaction sent:', tx.hash);
             const receipt = await tx.wait();
@@ -210,6 +257,7 @@ export class BlockchainService {
      */
     async disableTimeline() {
         try {
+            await this.ensureConnection();
             const tx = await this.contract.disableTimeline();
             console.log('⏳ Transaction sent:', tx.hash);
             const receipt = await tx.wait();
@@ -226,6 +274,7 @@ export class BlockchainService {
      */
     async startVoting() {
         try {
+            await this.ensureConnection();
             const tx = await this.contract.startVoting();
             console.log('⏳ Transaction sent:', tx.hash);
             const receipt = await tx.wait();
@@ -242,6 +291,7 @@ export class BlockchainService {
      */
     async endVoting() {
         try {
+            await this.ensureConnection();
             const tx = await this.contract.endVoting();
             console.log('⏳ Transaction sent:', tx.hash);
             const receipt = await tx.wait();
@@ -294,7 +344,8 @@ export class BlockchainService {
      */
     async getAllCandidates() {
         try {
-            const candidates = await this.contract.getAllCandidates();
+            const contract = await this.getReadOnlyContract();
+            const candidates = await contract.getAllCandidates();
             return candidates.map(c => ({
                 id: Number(c.id),
                 name: c.name,
@@ -341,7 +392,8 @@ export class BlockchainService {
      */
     async isVotingActive() {
         try {
-            return await this.contract.votingActive();
+            const contract = await this.getReadOnlyContract();
+            return await contract.votingActive();
         } catch (error) {
             console.error('Error getting voting status:', error);
             throw error;
@@ -395,7 +447,8 @@ export class BlockchainService {
      */
     async getTotalVotes() {
         try {
-            const total = await this.contract.getTotalVotes();
+            const contract = await this.getReadOnlyContract();
+            const total = await contract.getTotalVotes();
             return Number(total);
         } catch (error) {
             console.error('Error getting total votes:', error);
@@ -408,7 +461,8 @@ export class BlockchainService {
      */
     async getWinner() {
         try {
-            const winner = await this.contract.getWinner();
+            const contract = await this.getReadOnlyContract();
+            const winner = await contract.getWinner();
             return {
                 id: Number(winner.id),
                 name: winner.name,

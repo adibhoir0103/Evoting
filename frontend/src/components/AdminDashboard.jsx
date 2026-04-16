@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BlockchainService } from '../services/blockchainService';
 import { useDropzone } from 'react-dropzone';
-import { useAuth } from '@clerk/clerk-react';
 import LoadingSpinner from './LoadingSpinner';
 
 function AdminDashboard({ account, onError }) {
@@ -13,7 +12,7 @@ function AdminDashboard({ account, onError }) {
     const [batchVoters, setBatchVoters] = useState('');
     const [csvFile, setCsvFile] = useState(null);
     const [targetElectionId, setTargetElectionId] = useState(1);
-    const { getToken } = useAuth();
+
 
     const service = BlockchainService.getInstance();
 
@@ -127,7 +126,7 @@ function AdminDashboard({ account, onError }) {
             const formData = new FormData();
             formData.append('file', csvFile);
 
-            const token = await getToken();
+            const token = localStorage.getItem('adminToken');
             const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1'}/admin/elections/${targetElectionId}/voters/bulk`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },

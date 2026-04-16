@@ -1,0 +1,1051 @@
+{
+  "info": {
+    "name": "Bharat E-Vote API",
+    "_postman_id": "bharat-evote-2026",
+    "description": "Complete API collection for the Bharat E-Vote blockchain-based e-voting platform.\n\nIncludes: Auth, Voting, Admin, ZKP, IPFS, Keystroke Dynamics, and Meta-Tx endpoints.\n\n**Setup:**\n1. Import this collection\n2. Import the companion environment file OR create variables: `base_url`, `admin_token`\n3. Run 'Admin Login' first to auto-populate the admin JWT token",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "admin_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "election_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "candidate_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "vote_preflight_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "zkp_commitment",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "zkp_randomness",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "zkp_nullifier",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ipfs_hash",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🏥 Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            },
+            "description": "Returns server status, version, uptime, and available endpoint prefix."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Server is running', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('running');",
+                  "    pm.expect(json.service).to.include('Bharat E-Vote');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🔐 Authentication",
+      "item": [
+        {
+          "name": "Check Voter Eligibility",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"voter@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/check-eligibility",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "check-eligibility"]
+            },
+            "description": "Checks if an email is in the approved voter whitelist before allowing Clerk signup. Rate limited: 10 req/min."
+          },
+          "response": []
+        },
+        {
+          "name": "Register Clerk User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullname\": \"Aditya Bhoir\",\n  \"voterId\": \"MH-VOT-001\",\n  \"aadhaarNumber\": \"123456789012\",\n  \"mobileNumber\": \"9876543210\",\n  \"stateCode\": 27,\n  \"constituencyCode\": 1,\n  \"email\": \"voter@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/register-clerk",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "register-clerk"]
+            },
+            "description": "Syncs Clerk SSO user demographics to the local database. Links auth_id from Clerk token."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User (Me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "me"]
+            },
+            "description": "Returns the authenticated user's profile (uses test bypass in dev mode)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fatherName\": \"Rajesh Kumar\",\n  \"gender\": \"Male\",\n  \"dob\": \"1998-05-15\",\n  \"address\": \"42 MG Road, Mumbai, Maharashtra 400001\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/user/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "user", "profile"]
+            },
+            "description": "Updates the current user's father name, gender, DOB, and address."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📱 OTP & 2FA",
+      "item": [
+        {
+          "name": "Send OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"voter@example.com\",\n  \"purpose\": \"login-2fa\",\n  \"turnstileToken\": \"turnstile-not-configured\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/send-otp",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "send-otp"]
+            },
+            "description": "Sends OTP to email. In dev mode, returns the OTP in response for testing. Purpose: 'login-2fa' or 'password-reset'."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"voter@example.com\",\n  \"otp\": \"123456\",\n  \"purpose\": \"login-2fa\",\n  \"turnstileToken\": \"turnstile-not-configured\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/verify-otp",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "verify-otp"]
+            },
+            "description": "Verifies OTP code. Use the OTP returned from 'Send OTP' (dev mode only)."
+          },
+          "response": []
+        },
+        {
+          "name": "Send Login 2FA",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"voter@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login-2fa",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "login-2fa"]
+            },
+            "description": "Sends 2FA code after Clerk password auth succeeds."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Login 2FA",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"voter@example.com\",\n  \"otp\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/verify-login-2fa",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "verify-login-2fa"]
+            },
+            "description": "Verifies the login 2FA OTP."
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"voter@example.com\",\n  \"otp\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/reset-password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "reset-password"]
+            },
+            "description": "Verifies OTP then signals frontend to proceed with Clerk password reset."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "💼 Wallet",
+      "item": [
+        {
+          "name": "Link Wallet",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"walletAddress\": \"0x742d35Cc6634C0532925a3b844Bc9e7595f2bD05\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/user/link-wallet",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "user", "link-wallet"]
+            },
+            "description": "Links a MetaMask/Ethereum wallet address to the authenticated user."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🗳️ Voting",
+      "item": [
+        {
+          "name": "1. Pre-Flight Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/vote/pre-flight",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "vote", "pre-flight"]
+            },
+            "description": "Step 1: Generates a single-use 5-minute vote token stored in Upstash Redis. Must be called before casting a vote."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.upstashToken) {",
+                  "        pm.collectionVariables.set('vote_preflight_token', json.upstashToken);",
+                  "        console.log('✅ Pre-flight token saved: ' + json.upstashToken.substring(0, 12) + '...');",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Record Vote",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txHash\": \"0xabc123def456789...\",\n  \"upstashToken\": \"{{vote_preflight_token}}\",\n  \"turnstileToken\": \"turnstile-not-configured\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/vote/record",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "vote", "record"]
+            },
+            "description": "Step 2: Records the vote after blockchain transaction. Uses the pre-flight token from Step 1. The token is burned after use."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Vote Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/vote/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "vote", "status"]
+            },
+            "description": "Check if the current user has already voted."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Vote Receipt",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/vote/receipt",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "vote", "receipt"]
+            },
+            "description": "Retrieves the vote receipt (tx_hash and timestamp) for the dashboard."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🔑 Admin",
+      "item": [
+        {
+          "name": "Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@evote.com\",\n  \"password\": \"Admin@modern7\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "login"]
+            },
+            "description": "Authenticates admin and returns JWT. Token auto-saved to collection variable `admin_token`.\n\n⚠️ Rate limited: 5 attempts per 15 minutes."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Admin login successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.token).to.be.a('string');",
+                  "    pm.collectionVariables.set('admin_token', json.token);",
+                  "    console.log('✅ Admin JWT saved to {{admin_token}}');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Admin Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "stats"]
+            },
+            "description": "Dashboard overview: total users, votes, elections, turnout percentage, and last 10 audit log entries."
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Elections",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/elections",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "elections"]
+            },
+            "description": "Lists all elections with candidate/voter/vote counts."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (Array.isArray(json) && json.length > 0) {",
+                  "        pm.collectionVariables.set('election_id', json[0].id.toString());",
+                  "        console.log('✅ election_id set to: ' + json[0].id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Election",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Student Council Election 2026\",\n  \"description\": \"Annual student body president and council election\",\n  \"instructions\": \"Vote for one candidate per position. Verify your identity before voting.\",\n  \"start_time\": \"2026-04-15T09:00:00.000Z\",\n  \"end_time\": \"2026-04-15T17:00:00.000Z\",\n  \"rules\": {\n    \"maxVotesPerUser\": 1,\n    \"requireIdentityVerification\": true\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/elections",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "elections"]
+            },
+            "description": "Creates a new election in DRAFT status."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('election_id', json.id.toString());",
+                  "    console.log('✅ New election_id saved: ' + json.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Election Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"PUBLISHED\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/elections/{{election_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "elections", "{{election_id}}", "status"]
+            },
+            "description": "Transitions election through lifecycle: DRAFT → PUBLISHED → AWAITING_APPROVAL → ACTIVE → PAUSED/CLOSED → ARCHIVED.\n\nOnly SUPER_ADMIN can activate. PAUSED/CLOSED require override_reason."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Candidate to Election",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"candidate_name\": \"Rahul Sharma\",\n  \"party_name\": \"Student Progressive Alliance\",\n  \"party_symbol\": \"🌟\",\n  \"state_code\": 27,\n  \"constituency_code\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/elections/{{election_id}}/candidates",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "elections", "{{election_id}}", "candidates"]
+            },
+            "description": "Adds a candidate to a DRAFT election. Cannot modify ballot after draft phase (zero-trust guardrail)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('candidate_id', json.id.toString());",
+                  "    console.log('✅ candidate_id saved: ' + json.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Candidate from Election",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/elections/{{election_id}}/candidates/{{candidate_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "elections", "{{election_id}}", "candidates", "{{candidate_id}}"]
+            },
+            "description": "Removes a candidate from a DRAFT election. Forbidden after draft phase."
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Voters CSV",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "description": "CSV file with columns: aadhaar_number, email, or voter_id"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/elections/{{election_id}}/voters/upload",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "elections", "{{election_id}}", "voters", "upload"]
+            },
+            "description": "Uploads a CSV file to whitelist voters for a specific election. CSV columns: aadhaar_number, email, voter_id (any one)."
+          },
+          "response": []
+        },
+        {
+          "name": "Broadcast Email to Voters",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"Election Day Reminder\",\n  \"body\": \"Voting for Student Council Election 2026 opens tomorrow at 9:00 AM. Please have your Voter ID ready.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/elections/{{election_id}}/notify",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "elections", "{{election_id}}", "notify"]
+            },
+            "description": "Sends a broadcast notification email via QStash to all voters in an election."
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Admins",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/admins",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "admins"]
+            },
+            "description": "Lists all users with admin roles (SUPER_ADMIN, ELECTION_OFFICER, AUDITOR)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Role",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"ELECTION_OFFICER\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/users/1/role",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "users", "1", "role"]
+            },
+            "description": "Assigns a role to a user. Only SUPER_ADMIN can do this. Valid roles: VOTER, SUPER_ADMIN, ELECTION_OFFICER, AUDITOR."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/audit",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "audit"]
+            },
+            "description": "Returns the last 100 admin audit log entries (login, election changes, voter modifications, etc.)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📋 Voter Registry",
+      "item": [
+        {
+          "name": "List Approved Voters",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/approved-voters",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "approved-voters"]
+            },
+            "description": "Lists all approved/blacklisted voter entries in the registry."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Approved Voter",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newvoter@example.com\",\n  \"fullname\": \"Priya Patel\",\n  \"voter_id\": \"MH-VOT-042\",\n  \"status\": \"WHITELIST\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/approved-voters",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "approved-voters"]
+            },
+            "description": "Manually adds a single voter to the approved whitelist. Upserts if email already exists."
+          },
+          "response": []
+        },
+        {
+          "name": "Toggle Voter Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"BLACKLIST\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/approved-voters/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "approved-voters", "1"]
+            },
+            "description": "Toggles a voter between WHITELIST and BLACKLIST status."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Approved Voter",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/approved-voters/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "approved-voters", "1"]
+            },
+            "description": "Permanently removes a voter entry from the approved list."
+          },
+          "response": []
+        },
+        {
+          "name": "Bulk Upload Approved Voters CSV",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "description": "CSV with columns: email (required), fullname, voter_id, status (WHITELIST/BLACKLIST)"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/approved-voters/bulk",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "approved-voters", "bulk"]
+            },
+            "description": "Bulk upload approved voters from CSV. Required column: email. Optional: fullname, voter_id, status."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🔒 Zero-Knowledge Proofs",
+      "item": [
+        {
+          "name": "ZKP Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/zkp/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "zkp", "status"]
+            },
+            "description": "Returns ZKP system status and supported features (Pedersen, Schnorr, IPFS, ERC-2771)."
+          },
+          "response": []
+        },
+        {
+          "name": "1. Generate Commitment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"candidateId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/zkp/generate-commitment",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "zkp", "generate-commitment"]
+            },
+            "description": "Step 1 of ZKP flow: Generates a Pedersen commitment for a candidate vote. Returns commitment + randomness (keep secret!)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('zkp_commitment', json.commitment);",
+                  "    pm.collectionVariables.set('zkp_randomness', json.randomness);",
+                  "    console.log('✅ Commitment saved: ' + json.commitment.substring(0, 16) + '...');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Generate Nullifier",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"voterSecret\": \"my-secret-voter-key-12345\",\n  \"electionId\": \"bharat-evote-2026\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/zkp/generate-nullifier",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "zkp", "generate-nullifier"]
+            },
+            "description": "Step 2: Generates a nullifier hash and identity commitment from a voter secret. Prevents double-voting."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('zkp_nullifier', json.nullifierHash);",
+                  "    console.log('✅ Nullifier saved: ' + json.nullifierHash.substring(0, 16) + '...');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Generate Proof",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"candidateId\": 1,\n  \"randomness\": \"{{zkp_randomness}}\",\n  \"candidatesCount\": 5,\n  \"commitment\": \"{{zkp_commitment}}\",\n  \"nullifierHash\": \"{{zkp_nullifier}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/zkp/generate-proof",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "zkp", "generate-proof"]
+            },
+            "description": "Step 3: Generates a Schnorr zero-knowledge proof. Requires commitment, randomness, and nullifier from Steps 1-2."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Verify Proof",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"commitment\": \"{{zkp_commitment}}\",\n  \"nullifierHash\": \"{{zkp_nullifier}}\",\n  \"proof\": [\"0xabc\", \"0xdef\"],\n  \"candidatesCount\": 5\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/zkp/verify-proof",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "zkp", "verify-proof"]
+            },
+            "description": "Step 4: Verifies a ZK proof. Public endpoint (no auth required). Rate limited to prevent proof-grinding."
+          },
+          "response": []
+        },
+        {
+          "name": "Generate Complete Vote Package",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"candidateId\": 1,\n  \"voterSecret\": \"my-secret-voter-key-12345\",\n  \"candidatesCount\": 5,\n  \"electionId\": \"bharat-evote-2026\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/zkp/generate-vote-package",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "zkp", "generate-vote-package"]
+            },
+            "description": "Shortcut: Generates a complete ZKP vote package (commitment + nullifier + proof) in one call."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📌 IPFS",
+      "item": [
+        {
+          "name": "Pin Vote Metadata",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"commitment\": \"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef\",\n  \"nullifierHash\": \"0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890\",\n  \"timestamp\": \"2026-04-07T12:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/ipfs/pin-vote",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "ipfs", "pin-vote"]
+            },
+            "description": "Pins anonymized vote metadata to IPFS for tamper-proof receipts. Rate limited: 20 req/15min."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.ipfsHash) {",
+                  "        pm.collectionVariables.set('ipfs_hash', json.ipfsHash);",
+                  "        console.log('✅ IPFS hash saved: ' + json.ipfsHash);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Retrieve from IPFS",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/ipfs/{{ipfs_hash}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "ipfs", "{{ipfs_hash}}"]
+            },
+            "description": "Retrieves content from IPFS by hash (Qm... or bafy... format)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "⌨️ Keystroke Dynamics",
+      "item": [
+        {
+          "name": "Process Keystroke Pattern",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"voter@example.com\",\n  \"timingData\": {\n    \"keyDownTimes\": [100, 120, 95, 110, 105, 130, 90, 115],\n    \"keyUpTimes\": [150, 170, 145, 160, 155, 180, 140, 165],\n    \"flightTimes\": [50, 45, 55, 40, 60, 35, 70, 50],\n    \"totalTime\": 1250\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/keystroke/process",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "keystroke", "process"]
+            },
+            "description": "Enrolls or verifies a user's typing biometric pattern. Fails-open (never blocks login on service failure)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Keystroke Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/keystroke/status/voter@example.com",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "keystroke", "status", "voter@example.com"]
+            },
+            "description": "Returns keystroke enrollment status: whether enrolled, sample count, and flagged count."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "⛽ Meta-Transaction Relay",
+      "item": [
+        {
+          "name": "Relay Gasless Transaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request\": {\n    \"from\": \"0x742d35Cc6634C0532925a3b844Bc9e7595f2bD05\",\n    \"to\": \"0xContractAddress\",\n    \"value\": \"0\",\n    \"gas\": \"100000\",\n    \"nonce\": \"0\",\n    \"data\": \"0x...\"\n  },\n  \"signature\": \"0xSignatureHex...\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/meta-tx/relay",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "meta-tx", "relay"]
+            },
+            "description": "Relays a gasless ERC-2771 meta-transaction. The backend relayer pays gas on behalf of the voter. Rate limited: 10 req/10min."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

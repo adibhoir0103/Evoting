@@ -20,24 +20,17 @@ const jwt = require('jsonwebtoken');
 const prisma = require('./lib/prisma');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const { clerkMiddleware, requireAuth } = require('@clerk/express');
-const otpService = require('./services/otpService');
-const { otpLimiterUpstash, authLimiterUpstash, zkpLimiterUpstash } = require('./services/rateLimiter');
 
 const blockchainListener = require('./services/blockchainListener');
-const qStashWorker = require('./services/qStashWorker');
 const ipfsService = require('./services/ipfsService');
+const zkpService = require('./services/zkpService');
+const logger = require('./lib/logger');
 
-// Helper: Log Admin Action (used during admin login audit trail)
-async function logAdminAction(admin_email, action, details, ip_address) {
-    try {
-        await prisma.adminAuditLog.create({
-            data: { admin_email, action, details, ip_address }
-        });
-    } catch (err) {
-        console.error('Audit log write error:', err.message);
-    }
-}
+// Child loggers for specific contexts
+const serverLog = logger.child('server');
+const authLog = logger.child('auth');
+const voteLog = logger.child('vote');
+const adminLog = logger.child('admin');
 
 // Initialize Backend EVM WebSocket Listeners for real-time contract tracing
 blockchainListener.init();
@@ -45,10 +38,6 @@ blockchainListener.init();
 const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
-    console.error('FATAL: JWT_SECRET environment variable is required in production.');
-    process.exit(1);
-}
 const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'dev-only-local-key-' + require('crypto').randomBytes(16).toString('hex');
 
 // Helper: Basic input sanitization (XSS prevention)
@@ -75,9 +64,19 @@ function isValidIPFSHash(str) {
     return /^(Qm[a-zA-Z0-9]{44}|bafy[a-zA-Z0-9]{55,60})$/.test(str);
 }
 
-// Legacy SQLite functions removed
+// Helper: Log Admin Action
+async function logAdminAction(admin_email, action, details, ip_address) {
+    try {
+        await prisma.adminAuditLog.create({
+            data: { admin_email, action, details, ip_address }
+        });
+    } catch (err) {
+        console.error('Audit log write error:', err.message);
+    }
+}
 
-// Security Middleware
+// ===================== SECURITY MIDDLEWARE =====================
+
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -92,11 +91,10 @@ app.use(helmet({
     crossOriginEmbedderPolicy: false,
     hsts: { maxAge: 31536000, includeSubDomains: true }
 }));
+
 const allowedOrigins = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(',')
-    : (process.env.NODE_ENV === 'production'
-        ? [] // No default origins in production — must be explicitly configured
-        : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5173', 'http://127.0.0.1:5173']);
+    : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5173', 'http://127.0.0.1:5173'];
 
 app.use(cors({
     origin: function (origin, callback) {
@@ -107,69 +105,52 @@ app.use(cors({
         }
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], // Allowed methods
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json({ limit: '10kb' })); // Limit payload size
+app.use(express.json({ limit: '10kb' }));
 
-// Prevent Clerk from crashing or interfering when processing custom Admin JWTs
-app.use((req, res, next) => {
-    if (req.path.startsWith('/api/v1/admin')) {
-        return next();
+// ===================== USER AUTH MIDDLEWARE =====================
+// Verifies JWT if provided; falls back to mock user for local dev only
+const injectUser = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+
+    // If a real JWT token is provided (not the dev placeholder), verify it
+    if (token && token !== 'test-token') {
+        try {
+            const decoded = jwt.verify(token, EFFECTIVE_JWT_SECRET);
+            req.user = {
+                id: decoded.id,
+                voterId: decoded.voterId || decoded.voter_id,
+                email: decoded.email,
+                auth_id: decoded.auth_id || decoded.sub
+            };
+            req.auth = { userId: decoded.auth_id || decoded.sub };
+            return next();
+        } catch (err) {
+            return res.status(401).json({ error: 'Invalid or expired authentication token' });
+        }
     }
-    return clerkMiddleware()(req, res, next);
-});
 
-// ===================== HEALTH CHECK =====================
-app.get('/', (req, res) => {
-    res.json({
-        status: 'running',
-        service: 'Bharat E-Vote Backend API',
-        version: '2.0.0',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        endpoints: '/api/v1/*',
-        documentation: 'https://github.com/adibhoir0103/Evoting'
-    });
-});
+    // Dev fallback — only in non-production
+    if (process.env.NODE_ENV === 'production' && (!token || token === 'test-token')) {
+        return res.status(401).json({ error: 'Authentication required. Please log in.' });
+    }
 
-// Rate limiters
-const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Increased for dev/testing
-    message: { error: 'Too many attempts. Please try again after 15 minutes.' },
-    standardHeaders: true,
-    legacyHeaders: false
-});
+    // Local dev: inject test user
+    req.user = {
+        id: 1,
+        voterId: 'TEST-123',
+        email: 'testvoter@evote.gov',
+        auth_id: 'test-auth-id'
+    };
+    req.auth = { userId: 'test-auth-id' };
+    next();
+};
 
-// ZKP/Crypto endpoints — tighter limits to prevent proof-grinding and abuse
-const zkpLimiter = rateLimit({
-    windowMs: 10 * 60 * 1000, // 10 minutes
-    max: 30, // 30 requests per 10 min per IP
-    message: { error: 'Too many ZKP requests. Please try again later.' },
-    standardHeaders: true,
-    legacyHeaders: false
-});
+// ===================== RATE LIMITERS =====================
 
-// IPFS pinning — prevent storage abuse
-const ipfsLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 20,
-    message: { error: 'Too many IPFS requests. Please try again later.' },
-    standardHeaders: true,
-    legacyHeaders: false
-});
-
-// Meta-transaction relay — prevent gas-drain attacks on the relayer
-const metaTxLimiter = rateLimit({
-    windowMs: 10 * 60 * 1000,
-    max: 10,
-    message: { error: 'Too many meta-transaction requests. Please try again later.' },
-    standardHeaders: true,
-    legacyHeaders: false
-});
-
-// General API limiter for non-critical read endpoints
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 200,
@@ -178,240 +159,709 @@ const apiLimiter = rateLimit({
     legacyHeaders: false
 });
 
-const otpLimiter = rateLimit({
-    windowMs: 5 * 60 * 1000, // 5 minutes
-    max: 10, // Increased for dev/testing
-    message: { error: 'Too many OTP requests. Please try again later.' },
+const zkpLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 30,
+    message: { error: 'Too many ZKP requests. Please try again later.' },
     standardHeaders: true,
     legacyHeaders: false
 });
 
-// Cloudflare Turnstile verification middleware
-const verifyTurnstile = async (req, res, next) => {
-    const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
-    const token = req.body.turnstileToken;
-
-    // Skip verification if Turnstile is not configured or token is a dev passthrough
-    if (!turnstileSecret || token === 'turnstile-not-configured') {
-        return next();
-    }
-
-    if (!token) {
-        return res.status(400).json({ error: 'Bot verification failed. Please refresh and try again.' });
-    }
-
-    try {
-        const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                secret: turnstileSecret,
-                response: token,
-                remoteip: req.ip
-            })
-        });
-
-        const data = await response.json();
-
-        if (!data.success) {
-            console.warn('⚠️ Turnstile verification failed:', data);
-            return res.status(403).json({ error: 'Bot verification failed. Please refresh and try again.' });
-        }
-
-        next();
-    } catch (error) {
-        console.error('Turnstile verification error:', error);
-        // Fail-open in case of Cloudflare outage
-        next();
-    }
-};
-
-// Auth middleware using Clerk
-const authenticateToken = [
-    requireAuth(),
-    async (req, res, next) => {
-        try {
-            const authPayload = typeof req.auth === 'function' ? req.auth() : req.auth;
-            const auth_id = authPayload?.userId || authPayload?.claims?.sub;
-            if (!auth_id) {
-                console.error('Clerk Token Verification Failed. userId:', authPayload?.userId || 'none');
-                return res.status(401).json({ error: 'Unauthorized: Invalid authentication session' });
-            }
-            const localUser = await prisma.user.findUnique({ where: { auth_id } });
-
-            if (!localUser) {
-                return res.status(403).json({ error: 'User demographic data not found. Please complete onboarding.' });
-            }
-
-            req.user = {
-                id: localUser.id,
-                voterId: localUser.voter_id,
-                email: localUser.email,
-                auth_id: auth_id
-            };
-            next();
-        } catch (dbError) {
-            console.error('Session validation error:', dbError);
-            return res.status(500).json({ error: 'Database session validation error' });
-        }
-    }
-];
-
-// ===================== AUTH ROUTES =====================
-
-// Update User Profile (Father's Name, Gender, DOB, Address)
-app.put('/api/v1/user/profile', authenticateToken, async (req, res) => {
-    try {
-        const { fatherName, gender, dob, address } = req.body;
-        const updates = {};
-
-        if (fatherName !== undefined) updates.father_name = sanitize(fatherName);
-        if (gender !== undefined) updates.gender = sanitize(gender);
-        if (dob !== undefined) updates.dob = sanitize(dob);
-        if (address !== undefined) updates.address = sanitize(address);
-
-        if (Object.keys(updates).length === 0) {
-            return res.status(400).json({ error: 'No fields to update' });
-        }
-
-        await prisma.user.update({
-            where: { id: req.user.id },
-            data: updates
-        });
-
-        res.json({ message: 'Profile updated successfully' });
-    } catch (error) {
-        console.error('Update profile error:', error);
-        res.status(500).json({ error: 'Server error updating profile' });
-    }
+const ipfsLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    message: { error: 'Too many IPFS requests. Please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false
 });
 
-// ===================== VOTER ELIGIBILITY GATE =====================
-
-// Rate limiter to prevent email enumeration (10 checks per minute per IP)
-const eligibilityLimiter = rateLimit({
-    windowMs: 60 * 1000,
+const metaTxLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
     max: 10,
-    message: { error: 'Too many eligibility checks. Please try again later.' },
+    message: { error: 'Too many meta-transaction requests. Please try again later.' },
     standardHeaders: true,
     legacyHeaders: false
 });
 
-// Public endpoint: Check if an email is whitelisted before Clerk signup
-app.post('/api/v1/auth/check-eligibility', eligibilityLimiter, async (req, res) => {
+// ===================== HEALTH CHECK =====================
+
+app.get('/', (req, res) => {
+    res.json({
+        status: 'running',
+        service: 'Bharat E-Vote Backend API',
+        version: '2.0.0',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        endpoints: '/api/v1/*'
+    });
+});
+
+// ===================== VOTER REGISTRATION & LOGIN =====================
+
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    message: { error: 'Too many auth attempts. Please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+// Register a new voter
+app.post('/api/v1/auth/register', authLimiter, async (req, res) => {
     try {
-        const { email } = req.body;
-        if (!email) return res.status(400).json({ error: 'Email is required' });
+        const { fullname, email, password, voter_id, aadhaar_number, father_name, gender, dob, mobile_number, state_code, constituency_code, address } = req.body;
+
+        // Validate required fields
+        if (!fullname || !email || !password || !voter_id) {
+            return res.status(400).json({ error: 'Full name, email, password, and voter ID are required' });
+        }
 
         const cleanEmail = email.trim().toLowerCase();
+        const cleanVoterId = voter_id.trim().toUpperCase();
 
+        // Validate email format
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+            return res.status(400).json({ error: 'Invalid email format' });
+        }
+
+        // Validate password strength
+        if (password.length < 8) {
+            return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+        }
+
+        // Validate Aadhaar format (12 digits)
+        if (aadhaar_number && !/^\d{12}$/.test(aadhaar_number.replace(/\s/g, ''))) {
+            return res.status(400).json({ error: 'Aadhaar number must be exactly 12 digits' });
+        }
+
+        // Check eligibility: voter email must be in ApprovedVoter whitelist
         const approvedVoter = await prisma.approvedVoter.findUnique({
             where: { email: cleanEmail }
         });
 
         if (!approvedVoter) {
             return res.status(403).json({ 
-                eligible: false, 
-                error: 'You are not an approved voter. Contact your Election Officer to get whitelisted.' 
+                error: 'You are not in the approved voter list. Please contact your local Election Officer to get whitelisted.',
+                code: 'NOT_WHITELISTED'
             });
         }
 
         if (approvedVoter.status === 'BLACKLIST') {
             return res.status(403).json({ 
-                eligible: false, 
-                error: 'Your voter registration has been revoked by the Election Commission.' 
+                error: 'Your voter registration has been suspended. Please contact ECI helpline 1950.',
+                code: 'BLACKLISTED'
             });
         }
 
-        res.json({ eligible: true, message: 'Email is approved for registration' });
-    } catch (err) {
-        console.error('Eligibility check error:', err);
-        res.status(500).json({ error: 'Server error checking eligibility' });
-    }
-});
-
-// Register user metrics bridged from Clerk Web SSO (Onboarding)
-app.post('/api/v1/auth/register-clerk', requireAuth(), async (req, res) => {
-    try {
-        const { fullname, voterId, aadhaarNumber, mobileNumber, stateCode, constituencyCode, email } = req.body;
-
-        const authPayload = typeof req.auth === 'function' ? req.auth() : req.auth;
-        const auth_id = authPayload?.userId || authPayload?.claims?.sub;
-
-        if (!auth_id) {
-            console.error('Clerk Token Verification Failed in register. userId:', authPayload?.userId || 'none');
-            return res.status(401).json({ error: 'Unauthorized session' });
-        }
-
-        // Validation
-        if (!fullname || !voterId || !email) {
-            return res.status(400).json({ error: 'Required identity fields missing' });
-        }
-
-        // Clean inputs (don't HTML-encode IDs — they are alphanumeric only)
-        const cleanName = sanitize(fullname);
-        const cleanVoterId = voterId.trim().toUpperCase();
-        const cleanEmail = email.trim().toLowerCase();
-        const cleanAadhaar = aadhaarNumber ? aadhaarNumber.trim() : null;
-
-        // PRIORITY CHECK: If this Clerk user already has a local account, return immediately
-        const existingByAuth = await prisma.user.findUnique({ where: { auth_id } });
-        if (existingByAuth) {
-            return res.json({ message: 'User already synced' });
-        }
-
-        // Check if another user exists with these identifiers
-        const orConditions = [
-            { email: cleanEmail },
-            { voter_id: cleanVoterId }
-        ];
-        if (cleanAadhaar) {
-            orConditions.push({ aadhaar_number: cleanAadhaar });
-        }
-
+        // Check for duplicate email or voter_id
         const existingUser = await prisma.user.findFirst({
-            where: { OR: orConditions }
+            where: {
+                OR: [
+                    { email: cleanEmail },
+                    { voter_id: cleanVoterId }
+                ]
+            }
         });
 
         if (existingUser) {
-            return res.status(400).json({ error: 'User with this email, voter ID, or Aadhaar number already exists' });
+            if (existingUser.email === cleanEmail) {
+                return res.status(409).json({ error: 'An account with this email already exists. Please login instead.' });
+            }
+            return res.status(409).json({ error: 'This Voter ID is already registered.' });
         }
 
-        // Insert user into local DB linked to Clerk auth_id
-        await prisma.user.create({
+        // Check duplicate Aadhaar
+        if (aadhaar_number) {
+            const cleanAadhaar = aadhaar_number.replace(/\s/g, '');
+            const existingAadhaar = await prisma.user.findUnique({ where: { aadhaar_number: cleanAadhaar } });
+            if (existingAadhaar) {
+                return res.status(409).json({ error: 'This Aadhaar number is already linked to another account.' });
+            }
+        }
+
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        // Create user
+        const user = await prisma.user.create({
             data: {
-                auth_id,
-                fullname: cleanName,
-                voter_id: cleanVoterId,
+                fullname: sanitize(fullname),
                 email: cleanEmail,
-                password: null, // Password completely delegated to Clerk
-                aadhaar_number: cleanAadhaar,
-                mobile_number: mobileNumber ? mobileNumber.trim() : null,
-                state_code: stateCode || 0,
-                constituency_code: constituencyCode || 0
+                password: hashedPassword,
+                voter_id: cleanVoterId,
+                aadhaar_number: aadhaar_number ? aadhaar_number.replace(/\s/g, '') : null,
+                father_name: father_name ? sanitize(father_name) : null,
+                gender: gender ? sanitize(gender) : null,
+                dob: dob || null,
+                mobile_number: mobile_number ? sanitize(mobile_number) : null,
+                state_code: state_code ? parseInt(state_code) : 0,
+                constituency_code: constituency_code ? parseInt(constituency_code) : 0,
+                address: address ? sanitize(address) : null,
+                role: 'VOTER'
             }
         });
 
-        res.status(201).json({ message: 'Voter demographic sync successful' });
-    } catch (error) {
-        console.error('Registration/Sync error:', error);
+        // Generate JWT
+        const token = jwt.sign(
+            { id: user.id, email: user.email, voterId: user.voter_id, role: 'VOTER' },
+            EFFECTIVE_JWT_SECRET,
+            { expiresIn: '24h' }
+        );
 
-        // Handle Prisma unique constraint errors gracefully
-        if (error.code === 'P2002') {
-            const field = error.meta?.target?.[0] || 'field';
-            // If it's the auth_id constraint, the user was created between our check and insert (race condition)
-            if (field === 'auth_id') {
-                return res.json({ message: 'User already synced' });
+        // Log registration
+        await prisma.loginHistory.create({
+            data: { voter_id: user.voter_id, ip_address: req.ip, status: 'REGISTERED' }
+        });
+
+        res.status(201).json({
+            message: 'Registration successful! Welcome to Bharat E-Vote.',
+            token,
+            user: {
+                id: user.id,
+                fullname: user.fullname,
+                email: user.email,
+                voterId: user.voter_id,
+                hasVoted: false
             }
-            return res.status(400).json({ error: `A user with this ${field} already exists. Please verify your details.` });
-        }
-
-        res.status(500).json({ error: 'Server error during sync' });
+        });
+    } catch (error) {
+        console.error('Registration error:', error);
+        res.status(500).json({ error: 'Registration failed. Please try again.' });
     }
 });
 
+// Voter login — Step 1: Verify password, then send OTP for MFA
+app.post('/api/v1/auth/login', authLimiter, async (req, res) => {
+    try {
+        const { identifier, password } = req.body;
+
+        if (!identifier || !password) {
+            return res.status(400).json({ error: 'Email/Voter ID and password are required' });
+        }
+
+        const cleanIdentifier = identifier.trim().toLowerCase();
+
+        // Find user by email or voter_id
+        const user = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { email: cleanIdentifier },
+                    { voter_id: cleanIdentifier.toUpperCase() }
+                ]
+            }
+        });
+
+        if (!user) {
+            return res.status(401).json({ error: 'No account found with these credentials. Please register first.' });
+        }
+
+        if (!user.password) {
+            return res.status(401).json({ error: 'This account was created without a password. Please contact support.' });
+        }
+
+        // Verify password
+        const isValidPassword = await bcrypt.compare(password, user.password);
+        if (!isValidPassword) {
+            // Log failed attempt
+            await prisma.loginHistory.create({
+                data: { voter_id: user.voter_id, ip_address: req.ip, status: 'FAILED' }
+            }).catch(() => {});
+            return res.status(401).json({ error: 'Invalid password. Please try again.' });
+        }
+
+        // Check if voter is blacklisted
+        const approvedVoter = await prisma.approvedVoter.findUnique({ where: { email: user.email } });
+        if (approvedVoter && approvedVoter.status === 'BLACKLIST') {
+            return res.status(403).json({ error: 'Your account has been suspended. Contact ECI helpline 1950.' });
+        }
+
+        // ====== MFA: Generate and send OTP ======
+        const otp = String(Math.floor(100000 + Math.random() * 900000)); // 6-digit OTP
+        const otpHash = await bcrypt.hash(otp, 10);
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+        // Invalidate previous OTPs for this user
+        await prisma.mfaToken.updateMany({
+            where: { user_email: user.email, verified: false },
+            data: { verified: true }  // Mark old ones as used
+        });
+
+        // Create new MFA token
+        await prisma.mfaToken.create({
+            data: {
+                user_email: user.email,
+                otp_hash: otpHash,
+                purpose: 'LOGIN',
+                expires_at: expiresAt,
+                verified: false,
+                attempts: 0
+            }
+        });
+
+        // Send OTP via email
+        const emailService = require('./services/emailService');
+        const emailResult = await emailService.sendOTP(user.email, otp, user.fullname || 'Voter');
+
+        // Issue a short-lived pre-auth token (NOT the final JWT — just proves password was correct)
+        const preAuthToken = jwt.sign(
+            { id: user.id, email: user.email, voterId: user.voter_id, step: 'mfa_pending' },
+            EFFECTIVE_JWT_SECRET,
+            { expiresIn: '10m' }  // Only valid for 10 minutes (to complete OTP)
+        );
+
+        // Log pre-auth success
+        await prisma.loginHistory.create({
+            data: { voter_id: user.voter_id, ip_address: req.ip, device_info: req.headers['user-agent']?.slice(0, 200), status: 'MFA_PENDING' }
+        }).catch(() => {});
+
+        res.json({
+            message: 'Password verified. OTP sent to your registered email.',
+            mfaRequired: true,
+            preAuthToken,
+            email: user.email.replace(/(.{2})(.*)(@.*)/, '$1***$3'), // Masked email
+            otpDemo: emailResult.demo ? otp : undefined, // Only in demo mode
+            user: {
+                id: user.id,
+                fullname: user.fullname,
+                email: user.email,
+                voterId: user.voter_id,
+                hasVoted: user.has_voted,
+                walletAddress: user.wallet_address
+            }
+        });
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ error: 'Login failed. Please try again.' });
+    }
+});
+
+// Voter login — Step 2: Verify OTP to complete MFA
+app.post('/api/v1/auth/mfa/verify-otp', authLimiter, async (req, res) => {
+    try {
+        const { preAuthToken, otp } = req.body;
+
+        if (!preAuthToken || !otp) {
+            return res.status(400).json({ error: 'Pre-auth token and OTP are required' });
+        }
+
+        // Verify pre-auth token
+        let decoded;
+        try {
+            decoded = jwt.verify(preAuthToken, EFFECTIVE_JWT_SECRET);
+        } catch (err) {
+            return res.status(401).json({ error: 'Session expired. Please login again.' });
+        }
+
+        if (decoded.step !== 'mfa_pending') {
+            return res.status(400).json({ error: 'Invalid authentication step.' });
+        }
+
+        // Find the latest unverified OTP for this user
+        const mfaToken = await prisma.mfaToken.findFirst({
+            where: {
+                user_email: decoded.email,
+                purpose: 'LOGIN',
+                verified: false,
+                expires_at: { gte: new Date() }
+            },
+            orderBy: { created_at: 'desc' }
+        });
+
+        if (!mfaToken) {
+            return res.status(400).json({ error: 'OTP expired. Please request a new one.' });
+        }
+
+        // Check max attempts (5)
+        if (mfaToken.attempts >= 5) {
+            await prisma.mfaToken.update({
+                where: { id: mfaToken.id },
+                data: { verified: true }
+            });
+            return res.status(429).json({ error: 'Too many failed OTP attempts. Please login again.' });
+        }
+
+        // Verify OTP
+        const isValidOtp = await bcrypt.compare(otp.trim(), mfaToken.otp_hash);
+        if (!isValidOtp) {
+            await prisma.mfaToken.update({
+                where: { id: mfaToken.id },
+                data: { attempts: mfaToken.attempts + 1 }
+            });
+            return res.status(401).json({
+                error: `Invalid OTP. ${4 - mfaToken.attempts} attempts remaining.`,
+                attemptsRemaining: 4 - mfaToken.attempts
+            });
+        }
+
+        // Mark OTP as verified
+        await prisma.mfaToken.update({
+            where: { id: mfaToken.id },
+            data: { verified: true }
+        });
+
+        // Fetch full user data
+        const user = await prisma.user.findUnique({ where: { email: decoded.email } });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Issue the FINAL JWT (full authentication complete)
+        const token = jwt.sign(
+            { id: user.id, email: user.email, voterId: user.voter_id, voter_id: user.voter_id, role: user.role, mfa: true },
+            EFFECTIVE_JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        // Log full login success
+        await prisma.loginHistory.create({
+            data: { voter_id: user.voter_id, ip_address: req.ip, device_info: req.headers['user-agent']?.slice(0, 200), status: 'SUCCESS' }
+        }).catch(() => {});
+
+        res.json({
+            message: 'MFA verification successful. Login complete.',
+            mfaVerified: true,
+            token,
+            user: {
+                id: user.id,
+                fullname: user.fullname,
+                email: user.email,
+                voterId: user.voter_id,
+                hasVoted: user.has_voted,
+                walletAddress: user.wallet_address
+            }
+        });
+    } catch (error) {
+        console.error('MFA verify error:', error);
+        res.status(500).json({ error: 'OTP verification failed. Please try again.' });
+    }
+});
+
+// Resend OTP
+app.post('/api/v1/auth/mfa/resend-otp', authLimiter, async (req, res) => {
+    try {
+        const { preAuthToken } = req.body;
+
+        if (!preAuthToken) {
+            return res.status(400).json({ error: 'Pre-auth token is required' });
+        }
+
+        let decoded;
+        try {
+            decoded = jwt.verify(preAuthToken, EFFECTIVE_JWT_SECRET);
+        } catch (err) {
+            return res.status(401).json({ error: 'Session expired. Please login again.' });
+        }
+
+        if (decoded.step !== 'mfa_pending') {
+            return res.status(400).json({ error: 'Invalid authentication step.' });
+        }
+
+        const user = await prisma.user.findUnique({ where: { email: decoded.email } });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Invalidate previous OTPs
+        await prisma.mfaToken.updateMany({
+            where: { user_email: user.email, verified: false },
+            data: { verified: true }
+        });
+
+        // Generate new OTP
+        const otp = String(Math.floor(100000 + Math.random() * 900000));
+        const otpHash = await bcrypt.hash(otp, 10);
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+        await prisma.mfaToken.create({
+            data: {
+                user_email: user.email,
+                otp_hash: otpHash,
+                purpose: 'LOGIN',
+                expires_at: expiresAt,
+                verified: false,
+                attempts: 0
+            }
+        });
+
+        const emailService = require('./services/emailService');
+        const emailResult = await emailService.sendOTP(user.email, otp, user.fullname || 'Voter');
+
+        res.json({
+            message: 'New OTP sent to your registered email.',
+            email: user.email.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
+            otpDemo: emailResult.demo ? otp : undefined
+        });
+    } catch (error) {
+        console.error('Resend OTP error:', error);
+        res.status(500).json({ error: 'Failed to resend OTP' });
+    }
+});
+
+// ===================== QR CODE VOTING TICKETS =====================
+
+// Generate QR Voting Ticket (after full MFA login)
+app.post('/api/v1/auth/generate-qr-ticket', injectUser, async (req, res) => {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: req.user.id },
+            select: { id: true, email: true, voter_id: true, has_voted: true, fullname: true }
+        });
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        if (user.has_voted) {
+            return res.status(400).json({ error: 'You have already voted. QR ticket cannot be issued.' });
+        }
+
+        // Invalidate any existing unused tickets
+        await prisma.qrVoteTicket.updateMany({
+            where: { user_email: user.email, used: false },
+            data: { used: true }
+        });
+
+        // Generate time-limited ticket JWT (5 minutes)
+        const ticketExpiry = new Date(Date.now() + 5 * 60 * 1000);
+        const ticketToken = jwt.sign(
+            {
+                type: 'QR_VOTE_TICKET',
+                userId: user.id,
+                email: user.email,
+                voterId: user.voter_id,
+                issuedAt: Date.now(),
+                nonce: require('crypto').randomBytes(16).toString('hex')
+            },
+            EFFECTIVE_JWT_SECRET,
+            { expiresIn: '5m' }
+        );
+
+        // Store ticket in database
+        await prisma.qrVoteTicket.create({
+            data: {
+                user_email: user.email,
+                ticket_token: ticketToken,
+                expires_at: ticketExpiry,
+                used: false
+            }
+        });
+
+        res.json({
+            message: 'QR Voting Ticket issued. Valid for 5 minutes.',
+            ticketToken,
+            expiresAt: ticketExpiry.toISOString(),
+            validitySeconds: 300,
+            voterName: user.fullname
+        });
+    } catch (error) {
+        console.error('Generate QR ticket error:', error);
+        res.status(500).json({ error: 'Failed to generate voting ticket' });
+    }
+});
+
+// Validate QR Voting Ticket (before allowing vote submission)
+app.post('/api/v1/auth/validate-qr-ticket', injectUser, async (req, res) => {
+    try {
+        const { ticketToken } = req.body;
+
+        if (!ticketToken) {
+            return res.status(400).json({ error: 'QR ticket token is required' });
+        }
+
+        // Verify JWT signature and expiry
+        let ticketPayload;
+        try {
+            ticketPayload = jwt.verify(ticketToken, EFFECTIVE_JWT_SECRET);
+        } catch (err) {
+            return res.status(401).json({ error: 'QR ticket has expired or is invalid. Please generate a new one.', expired: true });
+        }
+
+        if (ticketPayload.type !== 'QR_VOTE_TICKET') {
+            return res.status(400).json({ error: 'Invalid ticket type' });
+        }
+
+        // Verify ticket belongs to the current user
+        if (ticketPayload.email !== req.user.email) {
+            return res.status(403).json({ error: 'This ticket does not belong to you' });
+        }
+
+        // Check database record
+        const ticket = await prisma.qrVoteTicket.findUnique({
+            where: { ticket_token: ticketToken }
+        });
+
+        if (!ticket) {
+            return res.status(404).json({ error: 'Ticket not found in records' });
+        }
+
+        if (ticket.used) {
+            return res.status(400).json({ error: 'This ticket has already been used' });
+        }
+
+        if (new Date() > ticket.expires_at) {
+            return res.status(401).json({ error: 'Ticket has expired', expired: true });
+        }
+
+        // Mark ticket as used
+        await prisma.qrVoteTicket.update({
+            where: { id: ticket.id },
+            data: { used: true }
+        });
+
+        res.json({
+            valid: true,
+            message: 'QR ticket validated. You may proceed to vote.',
+            voterId: ticketPayload.voterId,
+            email: ticketPayload.email
+        });
+    } catch (error) {
+        console.error('Validate QR ticket error:', error);
+        res.status(500).json({ error: 'Failed to validate ticket' });
+    }
+});
+
+// ===================== KEYSTROKE DYNAMICS =====================
+
+// Enroll keystroke profile (during registration or first logins)
+app.post('/api/v1/auth/keystroke/enroll', authLimiter, injectUser, async (req, res) => {
+    try {
+        const { holdTimes, flightTimes, meanSpeed, stdDeviation } = req.body;
+
+        if (!holdTimes || !flightTimes) {
+            return res.status(400).json({ error: 'Keystroke timing data is required' });
+        }
+
+        const userEmail = req.user.email;
+        const MIN_SAMPLES = 3;
+
+        // Get or create profile
+        let profile = await prisma.keystrokeProfile.findUnique({ where: { user_email: userEmail } });
+
+        if (!profile) {
+            profile = await prisma.keystrokeProfile.create({
+                data: {
+                    user_email: userEmail,
+                    hold_times: JSON.stringify(holdTimes),
+                    flight_times: JSON.stringify(flightTimes),
+                    mean_speed: meanSpeed || 0,
+                    std_deviation: stdDeviation || 0,
+                    sample_count: 1,
+                    is_enrolled: false
+                }
+            });
+        } else {
+            // Average the new sample with existing data
+            const existingHold = JSON.parse(profile.hold_times);
+            const existingFlight = JSON.parse(profile.flight_times);
+            const newCount = profile.sample_count + 1;
+
+            const avgHold = holdTimes.map((val, i) => {
+                const prev = existingHold[i] || 0;
+                return ((prev * profile.sample_count) + val) / newCount;
+            });
+
+            const avgFlight = flightTimes.map((val, i) => {
+                const prev = existingFlight[i] || 0;
+                return ((prev * profile.sample_count) + val) / newCount;
+            });
+
+            const avgSpeed = ((profile.mean_speed * profile.sample_count) + (meanSpeed || 0)) / newCount;
+            const avgStd = ((profile.std_deviation * profile.sample_count) + (stdDeviation || 0)) / newCount;
+
+            profile = await prisma.keystrokeProfile.update({
+                where: { user_email: userEmail },
+                data: {
+                    hold_times: JSON.stringify(avgHold),
+                    flight_times: JSON.stringify(avgFlight),
+                    mean_speed: avgSpeed,
+                    std_deviation: avgStd,
+                    sample_count: newCount,
+                    is_enrolled: newCount >= MIN_SAMPLES
+                }
+            });
+        }
+
+        res.json({
+            message: profile.is_enrolled ? 'Keystroke profile enrolled successfully' : `Sample ${profile.sample_count}/${MIN_SAMPLES} recorded`,
+            isEnrolled: profile.is_enrolled,
+            sampleCount: profile.sample_count,
+            samplesNeeded: MIN_SAMPLES
+        });
+    } catch (error) {
+        console.error('Keystroke enroll error:', error);
+        res.status(500).json({ error: 'Failed to enroll keystroke profile' });
+    }
+});
+
+// Verify keystroke pattern (during login)
+app.post('/api/v1/auth/keystroke/verify', authLimiter, async (req, res) => {
+    try {
+        const { email, holdTimes, flightTimes, meanSpeed } = req.body;
+
+        if (!email || !holdTimes || !flightTimes) {
+            return res.status(400).json({ error: 'Email and keystroke data required' });
+        }
+
+        const profile = await prisma.keystrokeProfile.findUnique({ where: { user_email: email.trim().toLowerCase() } });
+
+        if (!profile || !profile.is_enrolled) {
+            return res.json({ verified: true, score: 0, reason: 'No enrolled profile — skipping verification', enrolled: false });
+        }
+
+        // Euclidean distance comparison
+        const storedHold = JSON.parse(profile.hold_times);
+        const storedFlight = JSON.parse(profile.flight_times);
+
+        let holdDistance = 0, flightDistance = 0;
+        const holdLen = Math.min(holdTimes.length, storedHold.length);
+        const flightLen = Math.min(flightTimes.length, storedFlight.length);
+
+        for (let i = 0; i < holdLen; i++) {
+            holdDistance += Math.pow((holdTimes[i] - storedHold[i]), 2);
+        }
+        for (let i = 0; i < flightLen; i++) {
+            flightDistance += Math.pow((flightTimes[i] - storedFlight[i]), 2);
+        }
+
+        const totalDistance = Math.sqrt(holdDistance + flightDistance);
+        const speedDiff = Math.abs((meanSpeed || 0) - profile.mean_speed);
+
+        // Score: 0 = perfect match, higher = suspicious
+        const score = parseFloat((totalDistance + speedDiff * 10).toFixed(2));
+        const THRESHOLD = 500; // Configurable threshold
+        const verified = score < THRESHOLD;
+
+        // Update profile with last verification
+        await prisma.keystrokeProfile.update({
+            where: { user_email: email.trim().toLowerCase() },
+            data: {
+                last_verified: new Date(),
+                last_score: score,
+                flagged_count: verified ? profile.flagged_count : profile.flagged_count + 1
+            }
+        });
+
+        if (!verified) {
+            console.warn(`⚠️ Keystroke mismatch for ${email} — Score: ${score} (threshold: ${THRESHOLD})`);
+        }
+
+        res.json({
+            verified,
+            score,
+            threshold: THRESHOLD,
+            enrolled: true,
+            reason: verified ? 'Keystroke pattern matches enrolled profile' : 'Keystroke pattern differs significantly from enrolled profile'
+        });
+    } catch (error) {
+        console.error('Keystroke verify error:', error);
+        res.status(500).json({ error: 'Failed to verify keystroke pattern' });
+    }
+});
+
+// ===================== USER ROUTES =====================
+
 // Get current user
-app.get('/api/v1/auth/me', authenticateToken, async (req, res) => {
+app.get('/api/v1/auth/me', injectUser, async (req, res) => {
     try {
         const user = await prisma.user.findUnique({
             where: { id: req.user.id },
@@ -449,13 +899,38 @@ app.get('/api/v1/auth/me', authenticateToken, async (req, res) => {
     }
 });
 
+// Update User Profile
+app.put('/api/v1/user/profile', injectUser, async (req, res) => {
+    try {
+        const { fatherName, gender, dob, address } = req.body;
+        const updates = {};
+
+        if (fatherName !== undefined) updates.father_name = sanitize(fatherName);
+        if (gender !== undefined) updates.gender = sanitize(gender);
+        if (dob !== undefined) updates.dob = sanitize(dob);
+        if (address !== undefined) updates.address = sanitize(address);
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ error: 'No fields to update' });
+        }
+
+        await prisma.user.update({
+            where: { id: req.user.id },
+            data: updates
+        });
+
+        res.json({ message: 'Profile updated successfully' });
+    } catch (error) {
+        console.error('Update profile error:', error);
+        res.status(500).json({ error: 'Server error updating profile' });
+    }
+});
+
 // ===================== WALLET ROUTES =====================
 
-// Link wallet address to user
-app.post('/api/v1/user/link-wallet', authenticateToken, async (req, res) => {
+app.post('/api/v1/user/link-wallet', injectUser, async (req, res) => {
     try {
         const { walletAddress } = req.body;
-
         if (!walletAddress) {
             return res.status(400).json({ error: 'Wallet address is required' });
         }
@@ -474,108 +949,29 @@ app.post('/api/v1/user/link-wallet', authenticateToken, async (req, res) => {
 
 // ===================== VOTE ROUTES =====================
 
-// Upstash Redis for vote pre-flight tokens (persistent, survives server restarts)
-const { Redis: UpstashRedis } = require('@upstash/redis');
-let voteTokenRedis = null;
-const voteTokenFallback = new Map(); // In-memory fallback only if Upstash not configured
-
-if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-    voteTokenRedis = new UpstashRedis({
-        url: process.env.UPSTASH_REDIS_REST_URL,
-        token: process.env.UPSTASH_REDIS_REST_TOKEN
-    });
-    console.log('✅ Vote Pre-Flight Tokens: Upstash Redis connected');
-} else {
-    console.warn('⚠️  Vote Pre-Flight Tokens: Using in-memory fallback (no Upstash configured)');
-}
-
-async function storeVoteToken(auth_id, token) {
-    if (voteTokenRedis) {
-        await voteTokenRedis.set(`vote-token:${auth_id}`, JSON.stringify({ token }), { ex: 300 });
-    } else {
-        voteTokenFallback.set(auth_id, { token, expiresAt: Date.now() + 300000 });
-    }
-}
-
-async function getVoteToken(auth_id) {
-    if (voteTokenRedis) {
-        const data = await voteTokenRedis.get(`vote-token:${auth_id}`);
-        if (!data) return null;
-        return typeof data === 'string' ? JSON.parse(data) : data;
-    } else {
-        const entry = voteTokenFallback.get(auth_id);
-        if (!entry || Date.now() > entry.expiresAt) { voteTokenFallback.delete(auth_id); return null; }
-        return entry;
-    }
-}
-
-async function deleteVoteToken(auth_id) {
-    if (voteTokenRedis) {
-        await voteTokenRedis.del(`vote-token:${auth_id}`);
-    } else {
-        voteTokenFallback.delete(auth_id);
-    }
-}
-
-// Generate 5-minute single-use token (Pre-Flight Check)
-app.get('/api/v1/vote/pre-flight', requireAuth(), async (req, res) => {
+// Record vote (after blockchain transaction) — simplified, no pre-flight token needed
+app.post('/api/v1/vote/record', injectUser, async (req, res) => {
     try {
-        const auth_id = req.auth.userId;
-        const user = await prisma.user.findUnique({
-            where: { auth_id },
-            select: { id: true, has_voted: true }
-        });
-
-        if (!user) return res.status(404).json({ error: 'Identity mapping missing' });
-        if (user.has_voted) return res.status(400).json({ error: 'You have already voted' });
-
-        const token = require('crypto').randomBytes(32).toString('hex');
-        await storeVoteToken(auth_id, token);
-        res.json({ upstashToken: token });
-    } catch (err) {
-        console.error('Pre-flight error:', err);
-        res.status(500).json({ error: 'Server error during allocation' });
-    }
-});
-
-// Record vote (after blockchain transaction)
-app.post('/api/v1/vote/record', requireAuth(), verifyTurnstile, async (req, res) => {
-    try {
-        const { txHash, upstashToken } = req.body;
-        const auth_id = req.auth.userId;
+        const { txHash } = req.body;
 
         if (!txHash) {
             return res.status(400).json({ error: 'Transaction hash is required' });
         }
 
-        // 1. Upstash Redis Cache Check (persistent across restarts)
-        const cacheEntry = await getVoteToken(auth_id);
-        if (!cacheEntry) {
-            return res.status(403).json({ error: 'No pre-flight token session found. Access Denied.' });
-        }
-        if (cacheEntry.token !== upstashToken) {
-            await deleteVoteToken(auth_id);
-            return res.status(403).json({ error: 'Pre-flight token invalid or expired. Access Denied.' });
-        }
-
-        // Burn the token instantly to prevent race conditions
-        await deleteVoteToken(auth_id);
-
-        // Verify voter through Clerk backend UUID
         const user = await prisma.user.findUnique({
-            where: { auth_id },
+            where: { id: req.user.id },
             select: { id: true, voter_id: true, has_voted: true, email: true, fullname: true }
         });
 
         if (!user) {
-            return res.status(404).json({ error: 'Identity mapping missing' });
+            return res.status(404).json({ error: 'User not found' });
         }
 
         if (user.has_voted) {
             return res.status(400).json({ error: 'You have already voted' });
         }
 
-        // ZERO-KNOWLEDGE ENFORCEMENT: Never record the candidate_id in web2 databases
+        // Record the vote
         await prisma.$transaction([
             prisma.vote.create({
                 data: {
@@ -584,25 +980,16 @@ app.post('/api/v1/vote/record', requireAuth(), verifyTurnstile, async (req, res)
                 }
             }),
             prisma.user.update({
-                where: { auth_id },
+                where: { id: req.user.id },
                 data: { has_voted: true }
             })
         ]);
 
-        // Dispatch Enterprise Transactional Resend Receipt (QStash Decoupled Flow)
-        if (user.email && user.fullname) {
-            qStashWorker.publish('send_vote_receipt', {
-                email: user.email,
-                fullname: user.fullname,
-                txHash: txHash
-            });
-        }
-
-        // Auto-pin vote metadata to IPFS for tamper-proof decentralized receipt
+        // Auto-pin vote metadata to IPFS for tamper-proof receipt
         let ipfsHash = null;
         try {
             const ipfsResult = await ipfsService.pinVoteMetadata({
-                commitment: txHash, // Use tx hash as commitment for non-ZKP votes
+                commitment: txHash,
                 nullifierHash: `voter-${user.voter_id}`,
                 timestamp: new Date().toISOString()
             });
@@ -613,7 +1000,7 @@ app.post('/api/v1/vote/record', requireAuth(), verifyTurnstile, async (req, res)
         }
 
         res.json({
-            message: 'Zero-Knowledge Vote securely recorded & QStash receipt enqueued',
+            message: 'Vote securely recorded',
             ipfsHash: ipfsHash || null
         });
     } catch (error) {
@@ -623,7 +1010,7 @@ app.post('/api/v1/vote/record', requireAuth(), verifyTurnstile, async (req, res)
 });
 
 // Check if user has voted
-app.get('/api/v1/vote/status', authenticateToken, async (req, res) => {
+app.get('/api/v1/vote/status', injectUser, async (req, res) => {
     try {
         const user = await prisma.user.findUnique({
             where: { id: req.user.id },
@@ -636,8 +1023,8 @@ app.get('/api/v1/vote/status', authenticateToken, async (req, res) => {
     }
 });
 
-// Get vote receipt (for dashboard display)
-app.get('/api/v1/vote/receipt', authenticateToken, async (req, res) => {
+// Get vote receipt
+app.get('/api/v1/vote/receipt', injectUser, async (req, res) => {
     try {
         const vote = await prisma.vote.findFirst({
             where: { voter_id: req.user.voterId },
@@ -653,253 +1040,42 @@ app.get('/api/v1/vote/receipt', authenticateToken, async (req, res) => {
     }
 });
 
-// ===================== OTP ROUTES (2FA + Password Reset) =====================
-
-// Send OTP (for 2FA after password login, or password reset)
-app.post('/api/v1/auth/send-otp', otpLimiter, otpLimiterUpstash, verifyTurnstile, async (req, res) => {
-    try {
-        const { email, purpose } = req.body;
-        if (!email) return res.status(400).json({ error: 'Email is required' });
-
-        const cleanEmail = email.trim().toLowerCase();
-
-        // For password-reset, verify user exists
-        if (purpose === 'password-reset') {
-            const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
-            if (!user) {
-                // Return success to prevent email enumeration attacks
-                return res.json({ message: 'If this email is registered, an OTP has been sent.' });
-            }
-        }
-
-        const result = await otpService.sendOTP(cleanEmail, cleanEmail, 'email');
-
-        // Log delivery
-        await prisma.otpDeliveryLog.create({
-            data: {
-                recipient: cleanEmail,
-                purpose: purpose || 'login-2fa',
-                success: result.success
-            }
-        }).catch(() => { }); // Non-blocking
-
-        res.json({
-            message: result.message,
-            ...(result.demoOTP && { otp: result.demoOTP }) // Only in dev mode
-        });
-    } catch (error) {
-        console.error('Send OTP error:', error);
-        res.status(500).json({ error: 'Failed to send OTP' });
-    }
-});
-
-// Verify OTP (for 2FA after password login, or password reset)
-app.post('/api/v1/auth/verify-otp', otpLimiter, otpLimiterUpstash, verifyTurnstile, async (req, res) => {
-    try {
-        const { email, otp, purpose } = req.body;
-        if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
-
-        const cleanEmail = email.trim().toLowerCase();
-        const result = await otpService.verifyOTP(cleanEmail, otp);
-
-        if (!result.success) {
-            return res.status(400).json({ error: result.message });
-        }
-
-        // Log successful verification
-        await prisma.otpDeliveryLog.create({
-            data: {
-                recipient: cleanEmail,
-                purpose: `${purpose || 'login-2fa'}-verified`,
-                success: true
-            }
-        }).catch(() => { });
-
-        res.json({ message: result.message, verified: true });
-    } catch (error) {
-        console.error('Verify OTP error:', error);
-        res.status(500).json({ error: 'Failed to verify OTP' });
-    }
-});
-
-// Reset Password — OTP verified, then delegates actual password change to Clerk
-// We NEVER store passwords locally (password field is always null).
-// Frontend uses Clerk's reset_password_email_code strategy after this returns success.
-app.post('/api/v1/auth/reset-password', authLimiter, async (req, res) => {
-    try {
-        const { email, otp } = req.body;
-        if (!email || !otp) {
-            return res.status(400).json({ error: 'Email and OTP are required' });
-        }
-
-        const cleanEmail = email.trim().toLowerCase();
-
-        // Verify OTP
-        const otpResult = await otpService.verifyOTP(cleanEmail, otp);
-        if (!otpResult.success) {
-            return res.status(400).json({ error: otpResult.message });
-        }
-
-        // Log successful verification for audit
-        await prisma.otpDeliveryLog.create({
-            data: {
-                recipient: cleanEmail,
-                purpose: 'password-reset-verified',
-                success: true
-            }
-        }).catch(() => { });
-
-        // Signal frontend to proceed with Clerk's password reset
-        // The actual password change happens via Clerk SDK on the frontend
-        res.json({
-            message: 'OTP verified. You may now reset your password.',
-            verified: true,
-            // Frontend will use signIn.resetPassword() with Clerk
-            clerkResetReady: true
-        });
-    } catch (error) {
-        console.error('Reset password error:', error);
-        res.status(500).json({ error: 'Failed to verify reset request' });
-    }
-});
-
-// Send Login 2FA OTP (called after Clerk password auth succeeds)
-app.post('/api/v1/auth/login-2fa', otpLimiter, otpLimiterUpstash, async (req, res) => {
-    try {
-        const { email } = req.body;
-        if (!email) return res.status(400).json({ error: 'Email is required' });
-
-        const cleanEmail = email.trim().toLowerCase();
-        const result = await otpService.sendOTP(cleanEmail, `2fa:${cleanEmail}`, 'email');
-
-        await prisma.otpDeliveryLog.create({
-            data: {
-                recipient: cleanEmail,
-                purpose: 'login-2fa',
-                success: result.success
-            }
-        }).catch(() => { });
-
-        res.json({
-            message: 'Security verification code sent to your email.',
-            ...(result.demoOTP && { otp: result.demoOTP })
-        });
-    } catch (error) {
-        console.error('Login 2FA error:', error);
-        res.status(500).json({ error: 'Failed to send 2FA code' });
-    }
-});
-
-// Verify Login 2FA OTP
-app.post('/api/v1/auth/verify-login-2fa', otpLimiter, otpLimiterUpstash, async (req, res) => {
-    try {
-        const { email, otp } = req.body;
-        if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
-
-        const cleanEmail = email.trim().toLowerCase();
-        const result = await otpService.verifyOTP(`2fa:${cleanEmail}`, otp);
-
-        if (!result.success) {
-            return res.status(400).json({ error: result.message });
-        }
-
-        res.json({ message: '2FA verification successful', verified: true });
-    } catch (error) {
-        console.error('Verify Login 2FA error:', error);
-        res.status(500).json({ error: 'Failed to verify 2FA code' });
-    }
-});
-
-// ===================== KEYSTROKE DYNAMICS ROUTES =====================
-
-const keystrokeService = require('./services/keystrokeService');
-
-// Enroll or verify keystroke pattern (called during password login)
-app.post('/api/v1/keystroke/process', apiLimiter, async (req, res) => {
-    try {
-        const { email, timingData } = req.body;
-        if (!email || !timingData) {
-            return res.status(400).json({ error: 'Email and timing data are required' });
-        }
-
-        const result = await keystrokeService.processKeystroke(email.trim().toLowerCase(), timingData);
-
-        res.json({
-            enrolled: result.enrolled,
-            suspicious: result.suspicious,
-            score: result.score,
-            message: result.message
-        });
-    } catch (error) {
-        console.error('Keystroke process error:', error);
-        // Fail-open: never block login due to keystroke service failure
-        res.json({ enrolled: false, suspicious: false, score: 0, message: 'Service unavailable' });
-    }
-});
-
-// Get keystroke enrollment status
-app.get('/api/v1/keystroke/status/:email', apiLimiter, async (req, res) => {
-    try {
-        const email = req.params.email.trim().toLowerCase();
-        const status = await keystrokeService.getStatus(email);
-        res.json(status);
-    } catch (error) {
-        console.error('Keystroke status error:', error);
-        res.json({ enrolled: false, sampleCount: 0, flaggedCount: 0 });
-    }
-});
-
 // ===================== ADMIN ROUTES =====================
 
-// Admin credentials — loaded securely from environment variables
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@evote.com';
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
 
-// Pre-compute hash only as dev fallback — NEVER in production
 let EFFECTIVE_ADMIN_HASH;
 if (ADMIN_PASSWORD_HASH) {
     EFFECTIVE_ADMIN_HASH = ADMIN_PASSWORD_HASH;
     console.log('✅ Admin credentials loaded from environment variables');
-} else if (process.env.NODE_ENV === 'production') {
-    console.error('FATAL: ADMIN_PASSWORD_HASH must be set in production.');
-    process.exit(1);
 } else {
     EFFECTIVE_ADMIN_HASH = bcrypt.hashSync(process.env.ADMIN_DEV_PASSWORD || 'Admin@modern7', 10);
-    console.warn('⚠️  Using development admin credentials. Set ADMIN_PASSWORD_HASH for production.');
+    console.warn('⚠️  Using development admin credentials.');
 }
 
-// Strict rate limiter for admin login (5 attempts per 15 minutes)
 const adminLoginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 5,
-    message: { error: 'Too many login attempts. Account locked for 15 minutes.' },
+    max: 10,
+    message: { error: 'Too many login attempts. Try again in 15 minutes.' },
     standardHeaders: true,
     legacyHeaders: false
 });
 
-// Admin login
 app.post('/api/v1/admin/login', adminLoginLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
-
-        // Trim whitespace
         const trimmedEmail = email ? email.trim().toLowerCase() : '';
         const trimmedPassword = password ? password.trim() : '';
-
-        if (process.env.NODE_ENV !== 'production') {
-            console.log('Admin login attempt:', { email: trimmedEmail });
-        }
 
         if (!trimmedEmail || !trimmedPassword) {
             return res.status(400).json({ error: 'Email and password are required' });
         }
 
-        // Check email match
         if (trimmedEmail !== ADMIN_EMAIL) {
             return res.status(401).json({ error: 'Invalid admin credentials' });
         }
 
-        // Verify password with bcrypt
         const isValidPassword = await bcrypt.compare(trimmedPassword, EFFECTIVE_ADMIN_HASH);
         if (!isValidPassword) {
             return res.status(401).json({ error: 'Invalid admin credentials' });
@@ -911,7 +1087,6 @@ app.post('/api/v1/admin/login', adminLoginLimiter, async (req, res) => {
             { expiresIn: '8h' }
         );
 
-        // Fire-and-forget audit log (no await to not block login response)
         logAdminAction(trimmedEmail, 'LOGIN', 'Admin login successful', req.ip);
 
         res.json({
@@ -925,27 +1100,11 @@ app.post('/api/v1/admin/login', adminLoginLimiter, async (req, res) => {
     }
 });
 
-// Mount the detailed RBAC SaaS Admin Router
+// Mount the admin router
 app.use('/api/v1/admin', require('./routes/admin'));
-
-// Admin middleware for standalone legacy routes (IPFS)
-const authenticateAdmin = async (req, res, next) => {
-    try {
-        if (!req.auth || !req.auth.userId) return res.status(401).json({ error: 'Unauthorized' });
-        const user = await prisma.user.findUnique({ where: { auth_id: req.auth.userId } });
-        if (!user || user.role === 'VOTER') return res.status(403).json({ error: 'Admin access denied' });
-        next();
-    } catch (err) {
-        res.status(500).json({ error: 'Server error' });
-    }
-};
 
 // ===================== ZKP ROUTES =====================
 
-const zkpService = require('./services/zkpService');
-// ipfsService already imported at top of file
-
-// Get ZKP status
 app.get('/api/v1/zkp/status', apiLimiter, (req, res) => {
     res.json({
         zkpEnabled: true,
@@ -954,8 +1113,7 @@ app.get('/api/v1/zkp/status', apiLimiter, (req, res) => {
     });
 });
 
-// Generate vote commitment
-app.post('/api/v1/zkp/generate-commitment', zkpLimiter, zkpLimiterUpstash, authenticateToken, (req, res) => {
+app.post('/api/v1/zkp/generate-commitment', zkpLimiter, injectUser, (req, res) => {
     try {
         const { candidateId } = req.body;
         if (!candidateId || candidateId < 1) {
@@ -974,8 +1132,7 @@ app.post('/api/v1/zkp/generate-commitment', zkpLimiter, zkpLimiterUpstash, authe
     }
 });
 
-// Generate ZK proof
-app.post('/api/v1/zkp/generate-proof', zkpLimiter, zkpLimiterUpstash, authenticateToken, (req, res) => {
+app.post('/api/v1/zkp/generate-proof', zkpLimiter, injectUser, (req, res) => {
     try {
         const { candidateId, randomness, candidatesCount, commitment, nullifierHash } = req.body;
 
@@ -997,8 +1154,7 @@ app.post('/api/v1/zkp/generate-proof', zkpLimiter, zkpLimiterUpstash, authentica
     }
 });
 
-// Generate nullifier
-app.post('/api/v1/zkp/generate-nullifier', zkpLimiter, zkpLimiterUpstash, authenticateToken, (req, res) => {
+app.post('/api/v1/zkp/generate-nullifier', zkpLimiter, injectUser, (req, res) => {
     try {
         const { voterSecret, electionId } = req.body;
 
@@ -1021,8 +1177,7 @@ app.post('/api/v1/zkp/generate-nullifier', zkpLimiter, zkpLimiterUpstash, authen
     }
 });
 
-// Verify ZK proof (public endpoint — rate limited to prevent proof-grinding)
-app.post('/api/v1/zkp/verify-proof', zkpLimiter, zkpLimiterUpstash, (req, res) => {
+app.post('/api/v1/zkp/verify-proof', zkpLimiter, (req, res) => {
     try {
         const { commitment, nullifierHash, proof, candidatesCount } = req.body;
 
@@ -1050,8 +1205,7 @@ app.post('/api/v1/zkp/verify-proof', zkpLimiter, zkpLimiterUpstash, (req, res) =
     }
 });
 
-// Generate complete vote package
-app.post('/api/v1/zkp/generate-vote-package', zkpLimiter, zkpLimiterUpstash, authenticateToken, (req, res) => {
+app.post('/api/v1/zkp/generate-vote-package', zkpLimiter, injectUser, (req, res) => {
     try {
         const { candidateId, voterSecret, candidatesCount, electionId } = req.body;
 
@@ -1076,8 +1230,7 @@ app.post('/api/v1/zkp/generate-vote-package', zkpLimiter, zkpLimiterUpstash, aut
 
 // ===================== IPFS ROUTES =====================
 
-// Pin vote metadata to IPFS
-app.post('/api/v1/ipfs/pin-vote', ipfsLimiter, authenticateToken, async (req, res) => {
+app.post('/api/v1/ipfs/pin-vote', ipfsLimiter, injectUser, async (req, res) => {
     try {
         const { commitment, nullifierHash, timestamp } = req.body;
 
@@ -1108,31 +1261,6 @@ app.post('/api/v1/ipfs/pin-vote', ipfsLimiter, authenticateToken, async (req, re
     }
 });
 
-// Pin candidate metadata to IPFS
-app.post('/api/v1/ipfs/pin-candidate', ipfsLimiter, requireAuth(), authenticateAdmin, async (req, res) => {
-    try {
-        const { id, name, partyName, partySymbol, stateCode, constituencyCode } = req.body;
-
-        const result = await ipfsService.pinCandidateMetadata({
-            id,
-            name: sanitize(name),
-            partyName: sanitize(partyName),
-            partySymbol: sanitize(partySymbol),
-            stateCode,
-            constituencyCode
-        });
-
-        res.json({
-            ipfsHash: result.ipfsHash,
-            message: 'Candidate metadata pinned to IPFS'
-        });
-    } catch (error) {
-        console.error('IPFS pin candidate error:', error);
-        res.status(500).json({ error: 'Failed to pin candidate metadata' });
-    }
-});
-
-// Retrieve from IPFS
 app.get('/api/v1/ipfs/:hash', apiLimiter, async (req, res) => {
     try {
         const hash = req.params.hash;
@@ -1148,21 +1276,9 @@ app.get('/api/v1/ipfs/:hash', apiLimiter, async (req, res) => {
     }
 });
 
-// List all pinned items
-app.get('/api/v1/ipfs', apiLimiter, requireAuth(), authenticateAdmin, async (req, res) => {
-    try {
-        const pins = await ipfsService.listPins();
-        res.json({ pins });
-    } catch (error) {
-        console.error('IPFS list error:', error);
-        res.status(500).json({ error: 'Failed to list IPFS pins' });
-    }
-});
-
 // ===================== META-TX RELAY =====================
 
-// Relay a gasless meta-transaction
-app.post('/api/v1/meta-tx/relay', metaTxLimiter, authenticateToken, async (req, res) => {
+app.post('/api/v1/meta-tx/relay', metaTxLimiter, injectUser, async (req, res) => {
     try {
         const { request, signature } = req.body;
 
@@ -1170,8 +1286,6 @@ app.post('/api/v1/meta-tx/relay', metaTxLimiter, authenticateToken, async (req, 
             return res.status(400).json({ error: 'Forward request and signature are required' });
         }
 
-        // This endpoint would forward the meta-transaction to the blockchain
-        // In production, the relayer would have its own wallet to pay gas
         res.json({
             message: 'Meta-transaction relay endpoint ready',
             status: 'received',
@@ -1183,22 +1297,22 @@ app.post('/api/v1/meta-tx/relay', metaTxLimiter, authenticateToken, async (req, 
             note: 'In production, this relayer submits the tx on-chain and pays gas'
         });
     } catch (error) {
-        console.error('Meta-tx relay error:', error);
+        serverLog.error('Meta-tx relay error', { error: error.message });
         res.status(500).json({ error: 'Failed to relay meta-transaction' });
     }
 });
 
-// Sentry error handler — must be after all routes but before app.listen()
+// Sentry error handler
 Sentry.setupExpressErrorHandler(app);
 
-// Strict API Error Catcher (Prevents HTML "Unexpected Token <" payload leaks)
+// API Error Catcher
 app.use((err, req, res, next) => {
-    console.error('API Pipeline Fault:', err.message);
+    serverLog.error('API Pipeline Fault', { error: err.message, status: err.status, path: req.path });
     res.status(err.status || 500).json({ error: err.message || 'Internal Server Crash' });
 });
 
 // ===================== START SERVER =====================
 
 app.listen(PORT, () => {
-    console.log(`🚀 Bharat E-Vote Backend running on http://localhost:${PORT}`);
+    serverLog.info(`Server started on port ${PORT}`, { port: PORT, env: process.env.NODE_ENV || 'development' });
 });

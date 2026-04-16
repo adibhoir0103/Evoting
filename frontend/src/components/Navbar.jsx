@@ -1,15 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { authService } from '../services/authService';
 
 function Navbar({ user, onLogout, isAdmin }) {
     const [fontSize, setFontSize] = useState('normal');
     const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
-    const [showLoginDropdown, setShowLoginDropdown] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const [toastMessage, setToastMessage] = useState('');
-    const dropdownRef = useRef(null);
     const location = useLocation();
     const navigate = useNavigate();
     const { t, i18n } = useTranslation();
@@ -19,18 +15,10 @@ function Navbar({ user, onLogout, isAdmin }) {
     };
 
     useEffect(() => {
-        if (toastMessage) {
-            const timer = setTimeout(() => setToastMessage(''), 4000);
-            return () => clearTimeout(timer);
-        }
-    }, [toastMessage]);
-
-    useEffect(() => {
         document.documentElement.classList.remove('font-small', 'font-normal', 'font-large', 'font-xlarge');
         document.documentElement.classList.add(`font-${fontSize}`);
     }, [fontSize]);
 
-    // Dark mode persistence
     useEffect(() => {
         if (darkMode) {
             document.documentElement.classList.add('dark');
@@ -41,26 +29,9 @@ function Navbar({ user, onLogout, isAdmin }) {
     }, [darkMode]);
 
     useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setShowLoginDropdown(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    // Close mobile menu on route change
-    useEffect(() => {
         setMobileMenuOpen(false);
     }, [location.pathname]);
 
-    const isLoggedIn = authService.isLoggedIn();
-    const isAdminUser = isAdmin || localStorage.getItem('adminToken');
-
-    const navLinkClass = (path) => `text-sm font-semibold hover:text-primary transition-colors ${location.pathname === path ? 'text-primary border-b-2 border-primary pb-1' : 'text-gray-600'}`;
-
-    // Mobile Accessibility Focus Trap
     useEffect(() => {
         const mainContent = document.getElementById('main-content');
         if (mainContent) {
@@ -69,12 +40,15 @@ function Navbar({ user, onLogout, isAdmin }) {
         }
     }, [mobileMenuOpen]);
 
+    const isAdminUser = isAdmin || localStorage.getItem('adminToken');
+
+    const navLinkClass = (path) => `text-sm font-semibold hover:text-primary transition-colors ${location.pathname === path ? 'text-primary border-b-2 border-primary pb-1' : 'text-gray-600'}`;
+
     return (
         <>
-            {/* Accessibility Top Bar (Unified GIGW 3.0) */}
+            {/* Accessibility Top Bar */}
             <div className="bg-slate-900 border-b border-slate-800 text-[10px] md:text-xs font-semibold text-gray-200 py-2 z-50 relative">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-2">
-                    {/* Left: Skip to Main content & Government Tag */}
                     <div className="flex items-center gap-3">
                         <span className="bg-accent-saffron text-white px-2 py-0.5 rounded font-bold text-[10px] tracking-wider hidden sm:inline-block">DEMO</span>
                         <a href="#main-content" className="hover:text-white transition-colors focus:ring-2 focus:ring-accent-saffron rounded px-1">Skip to Main Content</a>
@@ -87,7 +61,6 @@ function Navbar({ user, onLogout, isAdmin }) {
                         </div>
                     </div>
                     
-                    {/* Right: Accessibility Controls & Language */}
                     <div className="flex items-center gap-3 sm:gap-4">
                         {/* Language Toggler */}
                         <div className="flex items-center">
@@ -107,27 +80,12 @@ function Navbar({ user, onLogout, isAdmin }) {
                         
                         {/* Font Resizer */}
                         <div className="flex items-center bg-slate-800 border border-slate-700 rounded overflow-hidden">
-                            <button 
-                                onClick={() => setFontSize('small')} 
-                                className={`px-2 py-0.5 hover:bg-slate-700 hover:text-white transition-colors ${fontSize === 'small' ? 'bg-slate-700 text-white font-bold' : 'text-gray-400'}`}
-                                aria-label="Decrease font size"
-                                title="Smaller Text"
-                            >A-</button>
-                            <button 
-                                onClick={() => setFontSize('normal')} 
-                                className={`px-2 py-0.5 border-l border-r border-slate-700 hover:bg-slate-700 hover:text-white transition-colors ${fontSize === 'normal' ? 'bg-slate-700 text-white font-bold' : 'text-gray-400'}`}
-                                aria-label="Normal font size"
-                                title="Normal Text"
-                            >A</button>
-                            <button 
-                                onClick={() => setFontSize('large')} 
-                                className={`px-2 py-0.5 hover:bg-slate-700 hover:text-white transition-colors ${fontSize === 'large' ? 'bg-slate-700 text-white font-bold' : 'text-gray-400'}`}
-                                aria-label="Increase font size"
-                                title="Larger Text"
-                            >A+</button>
+                            <button onClick={() => setFontSize('small')} className={`px-2 py-0.5 hover:bg-slate-700 hover:text-white transition-colors ${fontSize === 'small' ? 'bg-slate-700 text-white font-bold' : 'text-gray-400'}`} aria-label="Decrease font size" title="Smaller Text">A-</button>
+                            <button onClick={() => setFontSize('normal')} className={`px-2 py-0.5 border-l border-r border-slate-700 hover:bg-slate-700 hover:text-white transition-colors ${fontSize === 'normal' ? 'bg-slate-700 text-white font-bold' : 'text-gray-400'}`} aria-label="Normal font size" title="Normal Text">A</button>
+                            <button onClick={() => setFontSize('large')} className={`px-2 py-0.5 hover:bg-slate-700 hover:text-white transition-colors ${fontSize === 'large' ? 'bg-slate-700 text-white font-bold' : 'text-gray-400'}`} aria-label="Increase font size" title="Larger Text">A+</button>
                         </div>
 
-                        {/* Theme Toggler (Dark/High Contrast) */}
+                        {/* Theme Toggler */}
                         <button
                             onClick={() => setDarkMode(!darkMode)}
                             className="flex items-center justify-center w-7 h-7 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700 hover:text-white transition-colors focus:ring-2 focus:ring-accent-saffron outline-none"
@@ -144,7 +102,7 @@ function Navbar({ user, onLogout, isAdmin }) {
             <header className="bg-white border-b-4 border-primary shadow-sm sticky top-0 z-40">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between h-20">
-                        {/* Logo & Brand */}
+                        {/* Logo */}
                         <div className="flex items-center">
                             <Link to="/" className="flex items-center gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">
                                 <img
@@ -173,23 +131,21 @@ function Navbar({ user, onLogout, isAdmin }) {
 
                         {/* Desktop Navigation */}
                         <nav aria-label="Desktop Navigation" className="hidden md:flex items-center space-x-6">
-                            <Link to="/" className={navLinkClass('/')}>{t('nav.home')}</Link>
-                            <Link to="/guidelines" className={navLinkClass('/guidelines')}>{t('nav.onboarding')}</Link>
+                            <Link to="/dashboard" className={navLinkClass('/dashboard')}>{t('nav.dashboard')}</Link>
+                            <Link to="/vote" className={navLinkClass('/vote')}>
+                                <i className="fa-solid fa-vote-yea mr-1"></i>{t('nav.voting')}
+                            </Link>
                             <Link to="/results" className={navLinkClass('/results')}>
                                 <i className="fa-solid fa-chart-column mr-1"></i>{t('nav.results')}
                             </Link>
-                            
-                            {/* Voter-specific links */}
-                            {isLoggedIn && user && !isAdminUser && (
-                                <>
-                                    <Link to="/dashboard" className={navLinkClass('/dashboard')}>{t('nav.dashboard')}</Link>
-                                    <Link to="/vote" className={navLinkClass('/vote')}>
-                                        <i className="fa-solid fa-vote-yea mr-1"></i>{t('nav.voting')}
-                                    </Link>
-                                </>
-                            )}
-
-
+                            <Link to="/candidates" className={navLinkClass('/candidates')}>Candidates</Link>
+                            <Link to="/technology" className={navLinkClass('/technology')}>
+                                <i className="fa-solid fa-microchip mr-1"></i>Technology
+                            </Link>
+                            <Link to="/verify" className={navLinkClass('/verify')}>
+                                <i className="fa-solid fa-magnifying-glass-chart mr-1"></i>Verify
+                            </Link>
+                            <Link to="/guidelines" className={navLinkClass('/guidelines')}>{t('nav.onboarding')}</Link>
 
                             <form role="search" onSubmit={(e) => { e.preventDefault(); navigate('/search-roll'); }} className="flex items-center">
                                 <button type="submit" aria-label="Submit Search" className="text-gray-500 hover:text-primary transition-colors px-2 relative group focus:outline-none focus:ring-2 focus:ring-primary rounded">
@@ -198,50 +154,42 @@ function Navbar({ user, onLogout, isAdmin }) {
                                 </button>
                             </form>
 
-                            <div className="h-6 w-px bg-gray-300 mx-2"></div>
-
-                            {isLoggedIn && user ? (
-                                <div className="flex items-center gap-4">
-                                    <div className="flex items-center gap-2">
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${isAdminUser ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-primary'}`}>
-                                            {user.fullname ? user.fullname.charAt(0).toUpperCase() : 'U'}
-                                        </div>
-                                        <div className="hidden lg:block">
-                                            <span className="text-sm font-medium text-gray-700 block leading-none">{user.fullname?.split(' ')[0]}</span>
-                                            {isAdminUser && <span className="text-[10px] font-bold text-red-500 uppercase">Admin</span>}
-                                        </div>
-                                    </div>
-                                    <button onClick={onLogout} className="btn-secondary py-1.5 px-4 text-sm">
-                                        <i className="fa-solid fa-arrow-right-from-bracket mr-2"></i>{t('nav.logout')}
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="relative" ref={dropdownRef}>
-                                    <button
-                                        onClick={() => setShowLoginDropdown(!showLoginDropdown)}
-                                        className="btn-primary py-2 px-5 text-sm"
-                                    >
-                                        <i className="fa-solid fa-right-to-bracket mr-2"></i> Sign In <i className="fa-solid fa-caret-down ml-2"></i>
-                                    </button>
-                                    
-                                    {showLoginDropdown && (
-                                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-100 py-2 z-50">
-                                            <Link
-                                                to="/login"
-                                                className="block px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-primary font-medium transition-colors"
-                                                onClick={() => setShowLoginDropdown(false)}
-                                            >
-                                                <i className="fa-solid fa-user text-primary w-5"></i> Voter Login
-                                            </Link>
-                                            <Link
-                                                to="/admin-login"
-                                                className="block px-4 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 font-medium transition-colors border-t border-gray-100"
-                                                onClick={() => setShowLoginDropdown(false)}
-                                            >
-                                                <i className="fa-solid fa-user-shield text-red-500 w-5"></i> Admin Login
-                                            </Link>
-                                        </div>
+                            {user ? (
+                                <>
+                                    {/* Admin Navigation */}
+                                    {isAdminUser ? (
+                                        <Link to="/admin-panel" className={`text-sm font-semibold hover:text-red-600 transition-colors ${location.pathname === '/admin-panel' ? 'text-red-600 border-b-2 border-red-500 pb-1' : 'text-red-500'}`}>
+                                            <i className="fa-solid fa-user-shield mr-1"></i>Admin Panel
+                                        </Link>
+                                    ) : (
+                                        <Link to="/admin-login" className={`text-sm font-semibold hover:text-red-600 transition-colors ${location.pathname === '/admin-login' ? 'text-red-600 border-b-2 border-red-500 pb-1' : 'text-gray-500'}`}>
+                                            <i className="fa-solid fa-lock mr-1"></i>Admin
+                                        </Link>
                                     )}
+
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${isAdminUser ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-primary'}`}>
+                                                {user.fullname ? user.fullname.charAt(0).toUpperCase() : 'U'}
+                                            </div>
+                                            <div className="hidden lg:block">
+                                                <span className="text-sm font-medium text-gray-700 block leading-none">{user.fullname?.split(' ')[0]}</span>
+                                                {isAdminUser && <span className="text-[10px] font-bold text-red-500 uppercase">Admin</span>}
+                                            </div>
+                                        </div>
+                                        <button onClick={onLogout} className="text-xs font-semibold text-gray-400 hover:text-red-500 transition" title="Logout">
+                                            <i className="fa-solid fa-right-from-bracket"></i>
+                                        </button>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="flex items-center gap-3">
+                                    <Link to="/login" className="text-sm font-semibold text-primary hover:text-primary/80 transition px-3 py-2 rounded-lg hover:bg-blue-50">
+                                        Login
+                                    </Link>
+                                    <Link to="/signup" className="text-sm font-bold text-white bg-primary hover:bg-primary/90 transition px-4 py-2 rounded-lg shadow-sm">
+                                        Register
+                                    </Link>
                                 </div>
                             )}
                         </nav>
@@ -250,43 +198,40 @@ function Navbar({ user, onLogout, isAdmin }) {
                     {/* Mobile Menu */}
                     {mobileMenuOpen && (
                         <nav id="mobile-menu" aria-label="Mobile Navigation" className="md:hidden absolute top-full left-0 w-full bg-white shadow-xl border-t border-gray-200 py-4 px-4 space-y-2 z-50">
-                            <Link to="/" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">{t('nav.home')}</Link>
-                            <Link to="/guidelines" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">{t('nav.onboarding')}</Link>
+                            <Link to="/dashboard" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">{t('nav.dashboard')}</Link>
+                            <Link to="/vote" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-vote-yea mr-2"></i>{t('nav.voting')}</Link>
                             <Link to="/results" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-chart-column mr-2"></i>{t('nav.results')}</Link>
-                            
-                            {isLoggedIn && user && !isAdminUser && (
-                                <>
-                                    <Link to="/dashboard" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">{t('nav.dashboard')}</Link>
-                                    <Link to="/vote" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-vote-yea mr-2"></i>{t('nav.voting')}</Link>
-                                </>
-                            )}
-
-
-
+                            <Link to="/candidates" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Candidates</Link>
+                            <Link to="/technology" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-microchip mr-2"></i>Technology</Link>
+                            <Link to="/verify" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-magnifying-glass-chart mr-2"></i>Verify Vote</Link>
+                            <Link to="/guidelines" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">{t('nav.onboarding')}</Link>
+                            <Link to="/search-roll" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-magnifying-glass mr-2"></i>Search Roll</Link>
                             <div className="border-t border-gray-200 pt-3 mt-3">
-                                {isLoggedIn && user ? (
-                                    <button onClick={onLogout} className="w-full text-left px-3 py-2 rounded text-sm font-semibold text-red-600 hover:bg-red-50">
-                                        <i className="fa-solid fa-arrow-right-from-bracket mr-2"></i>Logout
-                                    </button>
+                                {user ? (
+                                    <>
+                                        <div className="px-3 py-2 text-sm text-gray-500">
+                                            <i className="fa-solid fa-user mr-2"></i>Logged in as <strong>{user.fullname?.split(' ')[0]}</strong>
+                                        </div>
+                                        <button onClick={onLogout} className="w-full text-left px-3 py-2 rounded text-sm font-semibold text-red-600 hover:bg-red-50">
+                                            <i className="fa-solid fa-right-from-bracket mr-2"></i>Logout
+                                        </button>
+                                    </>
                                 ) : (
                                     <>
-                                        <Link to="/login" className="block px-3 py-2 rounded text-sm font-semibold text-primary hover:bg-blue-50"><i className="fa-solid fa-user mr-2"></i>Voter Login</Link>
-                                        <Link to="/admin-login" className="block px-3 py-2 rounded text-sm font-semibold text-red-600 hover:bg-red-50"><i className="fa-solid fa-user-shield mr-2"></i>Admin Login</Link>
+                                        <Link to="/login" className="block px-3 py-2 rounded text-sm font-bold text-primary hover:bg-blue-50">
+                                            <i className="fa-solid fa-right-to-bracket mr-2"></i>Login
+                                        </Link>
+                                        <Link to="/signup" className="block px-3 py-2 rounded text-sm font-bold text-white bg-primary hover:bg-primary/90 text-center mt-2">
+                                            Register Now
+                                        </Link>
                                     </>
                                 )}
+                                <Link to="/admin-login" className="block px-3 py-2 rounded text-sm font-semibold text-red-600 hover:bg-red-50 mt-2"><i className="fa-solid fa-user-shield mr-2"></i>Admin Login</Link>
                             </div>
                         </nav>
                     )}
                 </div>
             </header>
-
-            {/* WCAG 3.2.2 Accessible Toast Notification */}
-            {toastMessage && (
-                <div role="status" aria-live="polite" className="fixed bottom-6 right-6 bg-gray-900 text-white px-6 py-4 rounded shadow-2xl z-50 flex items-center gap-3 border-l-4 border-blue-500 animate-[bounce_0.3s_ease-in-out]">
-                    <i className="fa-solid fa-circle-info text-blue-400"></i>
-                    <p className="text-sm font-medium">{toastMessage}</p>
-                </div>
-            )}
         </>
     );
 }

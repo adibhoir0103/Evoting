@@ -3,15 +3,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
 
-// Utility: Extract proper initials from any name, stripping titles
-const getInitials = (fullName) => {
-    if (!fullName) return "EC";
-    const cleanName = fullName.replace(/^(Shri|Smt|Dr\.|Mr\.|Mrs\.)\s+/i, '');
-    const nameArray = cleanName.split(' ');
-    if (nameArray.length === 1) return nameArray[0].charAt(0).toUpperCase();
-    return (nameArray[0].charAt(0) + nameArray[nameArray.length - 1].charAt(0)).toUpperCase();
-};
-
 function LandingPage() {
     const navigate = useNavigate();
     const { t } = useTranslation();
@@ -20,7 +11,7 @@ function LandingPage() {
         <div className="flex flex-col min-h-screen bg-transparent font-sans">
             <Helmet>
                 <title>Home | Bharat E-Vote Portal</title>
-                <meta name="description" content="Official National Portal for the Secure Digital Electoral Process. Cast your vote securely using Blockchain and Aadhaar authentication." />
+                <meta name="description" content="Official National Portal for the Secure Digital Electoral Process. Cast your vote securely using Blockchain technology." />
                 <link rel="canonical" href="https://evote.gov.in/" />
             </Helmet>
             <main id="main-content" className="flex-grow">
@@ -33,7 +24,7 @@ function LandingPage() {
                         <div className="w-full lg:w-3/5 space-y-8">
                             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-800 text-sm font-semibold">
                                 <i className="fa-solid fa-shield-halved text-primary"></i>
-                                GIGW 3.0 & WCAG 2.1 AA Compliant
+                                Blockchain-Secured E-Voting Platform
                             </div>
                             
                             <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-gray-900 leading-tight tracking-tight drop-shadow-md">
@@ -48,18 +39,18 @@ function LandingPage() {
                                 <button 
                                     onClick={() => navigate('/login')} 
                                     className="btn-primary text-lg px-8 py-4 shadow-lg shadow-primary/20 flex items-center justify-center gap-3"
-                                    aria-label="Sign In as Voter"
+                                    aria-label="Login to Cast Your Vote"
                                 >
                                     <i className="fa-solid fa-right-to-bracket text-xl"></i>
-                                    {t('hero.login')}
+                                    Login to Vote
                                 </button>
                                 <button 
                                     onClick={() => navigate('/signup')} 
                                     className="btn-secondary text-lg px-8 py-4 flex items-center justify-center gap-3 bg-white/90 dark:bg-[#0f1a36]/90 shadow-lg backdrop-blur-lg border border-gray-200 dark:border-transparent dark:text-gray-100"
-                                    aria-label="Register New Voter"
+                                    aria-label="Register as a Voter"
                                 >
                                     <i className="fa-solid fa-user-plus text-primary text-xl"></i>
-                                    {t('hero.createAccount')}
+                                    New Voter? Register
                                 </button>
                             </div>
                         </div>
@@ -68,28 +59,28 @@ function LandingPage() {
                             <div className="bg-white/90 dark:bg-[#0f1a36]/85 backdrop-blur-xl border border-white/50 dark:border-white/10 p-6 rounded-2xl shadow-xl w-full max-w-md">
                                 <h3 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-100 pb-4 flex items-center gap-2">
                                     <i className="fa-solid fa-lock text-accent-green text-base"></i>
-                                    Digital Electoral Process
+                                    How Voting Works
                                 </h3>
                                 <ul className="space-y-4">
                                     <li className="flex items-start gap-3">
                                         <div className="flex-shrink-0 w-8 h-8 rounded-full bg-accent-saffron/10 text-accent-saffron flex items-center justify-center font-bold">1</div>
                                         <div>
-                                            <p className="font-semibold text-gray-900">Aadhaar Verification</p>
-                                            <p className="text-sm text-gray-500">Identity verification via UIDAI</p>
+                                            <p className="font-semibold text-gray-900">Connect Wallet</p>
+                                            <p className="text-sm text-gray-500">Link your MetaMask or Web3 wallet</p>
                                         </div>
                                     </li>
                                     <li className="flex items-start gap-3">
                                         <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-100 text-primary flex items-center justify-center font-bold">2</div>
                                         <div>
-                                            <p className="font-semibold text-gray-900">Wallet Authorization</p>
-                                            <p className="text-sm text-gray-500">Secure blockchain session creation</p>
+                                            <p className="font-semibold text-gray-900">Select Candidate</p>
+                                            <p className="text-sm text-gray-500">Choose in a secure proctored window</p>
                                         </div>
                                     </li>
                                     <li className="flex items-start gap-3">
                                         <div className="flex-shrink-0 w-8 h-8 rounded-full bg-accent-green/10 text-accent-green flex items-center justify-center font-bold">3</div>
                                         <div>
-                                            <p className="font-semibold text-gray-900">Cast Ballot</p>
-                                            <p className="text-sm text-gray-500">Immutable vote recording</p>
+                                            <p className="font-semibold text-gray-900">Vote on Blockchain</p>
+                                            <p className="text-sm text-gray-500">Immutable, transparent, tamper-proof</p>
                                         </div>
                                     </li>
                                 </ul>
@@ -98,7 +89,7 @@ function LandingPage() {
                     </div>
                 </section>
 
-                {/* 2. What's New — Static Accessible Notification Banner */}
+                {/* 2. What's New */}
                 <div className="bg-primary text-white py-3 border-b border-gray-700 shadow-xl relative z-10" role="region" aria-label="Latest Announcements">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-start sm:items-center gap-3">
                         <div className="bg-accent-saffron text-white font-bold px-3 py-1 rounded text-xs tracking-wider flex items-center gap-2 shrink-0">
@@ -127,10 +118,16 @@ function LandingPage() {
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <Link to="/vote" aria-label="Cast Your Vote" className="bg-white/85 dark:bg-[#0f1a36]/80 backdrop-blur-lg border border-white/40 dark:border-white/10 p-6 border-t-4 border-accent-green rounded shadow-xl hover:-translate-y-1 block focus:outline-none focus:ring-2 focus:ring-accent-saffron transition-all duration-300">
+                                <i className="fa-solid fa-vote-yea text-3xl text-accent-green mb-4"></i>
+                                <h3 className="text-xl font-bold text-gray-900 mb-2">Cast Your Vote</h3>
+                                <p className="text-sm text-gray-600">Enter the secure voting booth and cast your ballot on the blockchain.</p>
+                            </Link>
+
                             <Link to="/search-roll" aria-label="Search Name in Electoral Roll" className="bg-white/85 dark:bg-[#0f1a36]/80 backdrop-blur-lg border border-white/40 dark:border-white/10 p-6 border-t-4 border-primary rounded shadow-xl hover:-translate-y-1 block focus:outline-none focus:ring-2 focus:ring-accent-saffron transition-all duration-300">
                                 <i className="fa-solid fa-magnifying-glass-chart text-3xl text-primary mb-4"></i>
                                 <h3 className="text-xl font-bold text-gray-900 mb-2">Search in Electoral Roll</h3>
-                                <p className="text-sm text-gray-600">Verify your name and polling station details in the current massive digital registry.</p>
+                                <p className="text-sm text-gray-600">Verify your name and polling station details in the current digital registry.</p>
                             </Link>
 
                             <Link to="/candidates" aria-label="Know Your Candidates" className="bg-white/85 dark:bg-[#0f1a36]/80 backdrop-blur-lg border border-white/40 dark:border-white/10 p-6 border-t-4 border-primary rounded shadow-xl hover:-translate-y-1 block focus:outline-none focus:ring-2 focus:ring-accent-saffron transition-all duration-300">
@@ -150,12 +147,6 @@ function LandingPage() {
                                 <h3 className="text-xl font-bold text-gray-900 mb-2">Voter Guidelines</h3>
                                 <p className="text-sm text-gray-600">Read the official manual on how to securely cast your vote via the E-Voting system.</p>
                             </Link>
-
-                            <a href="https://voters.eci.gov.in" target="_blank" rel="noopener noreferrer" aria-label="Track Application Status External" className="bg-white/85 dark:bg-[#0f1a36]/80 backdrop-blur-lg border border-white/40 dark:border-white/10 p-6 border-t-4 border-primary rounded shadow-xl hover:-translate-y-1 block focus:outline-none focus:ring-2 focus:ring-accent-saffron transition-all duration-300">
-                                <i className="fa-solid fa-file-circle-check text-3xl text-primary mb-4"></i>
-                                <h3 className="text-xl font-bold text-gray-900 mb-2">Track Application <i className="fa-solid fa-arrow-up-right-from-square text-[10px] ml-1"></i></h3>
-                                <p className="text-sm text-gray-600">Check the status of your Form 6/7/8 submissions on the external NVSP portal.</p>
-                            </a>
 
                             <div className="bg-blue-50/90 dark:bg-[#1a2c5b]/70 backdrop-blur-lg border border-white/40 dark:border-white/10 p-6 border-t-4 border-primary rounded shadow-inner flex flex-col justify-center items-center text-center">
                                 <i className="fa-solid fa-mobile-screen-button text-3xl text-primary mb-2"></i>
@@ -182,7 +173,7 @@ function LandingPage() {
                     </div>
                 </section>
 
-                {/* 4. National Statistics Analytics */}
+                {/* 4. National Statistics */}
                 <section className="bg-white py-12 border-y border-gray-200">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center divide-x divide-gray-200">
@@ -206,36 +197,7 @@ function LandingPage() {
                     </div>
                 </section>
 
-                {/* 5. Current Leadership */}
-                <section className="py-16 bg-gray-50">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="text-center mb-12">
-                            <h2 className="text-3xl font-bold text-primary">Election Commission of India</h2>
-                            <div className="w-16 h-1 bg-accent-saffron mx-auto mt-4 mb-8"></div>
-                        </div>
-
-                        <div className="flex flex-wrap justify-center gap-8">
-                            {[
-                                { name: "Shri Rajiv Kumar", title: "Chief Election Commissioner", role: "CEC" },
-                                { name: "Shri Gyanesh Kumar", title: "Election Commissioner", role: "EC" },
-                                { name: "Dr. Sukhbir Singh Sandhu", title: "Election Commissioner", role: "EC" }
-                            ].map((official, idx) => (
-                                <div key={idx} className="bg-white p-6 rounded-lg shadow border border-gray-200 text-center w-64 hover:shadow-lg transition-shadow">
-                                    <div 
-                                        className="w-24 h-24 rounded-full mx-auto mb-4 bg-primary text-white flex items-center justify-center text-2xl font-bold border-4 border-gray-100 shadow-sm"
-                                        aria-label={`Avatar for ${official.name}`}
-                                    >
-                                        {getInitials(official.name)}
-                                    </div>
-                                    <h4 className="font-bold text-gray-900 text-lg">{official.name}</h4>
-                                    <p className="text-sm text-accent-saffron font-semibold">{official.title}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </section>
-                
-                {/* 6. Info Bar */}
+                {/* 5. Info Bar */}
                 <section className="bg-primary text-white py-12 border-t-4 border-accent-saffron">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div className="grid md:grid-cols-3 gap-8 text-center divide-y md:divide-y-0 md:divide-x divide-white/20">
