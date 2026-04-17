@@ -91,13 +91,13 @@ function Footer() {
                         <Link to="/vote" className="hover:text-white transition px-2 font-bold text-accent-saffron">Cast Vote Online</Link> <span className="text-gray-600">|</span>
                         <Link to="/technology" className="hover:text-white transition px-2 font-bold text-accent-saffron">Technology</Link> <span className="text-gray-600">|</span>
                         <Link to="/verify" className="hover:text-white transition px-2 font-bold text-accent-saffron">Verify Vote</Link> <span className="text-gray-600">|</span>
-                        <Link to="/guidelines" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Disclaimer Policy">Disclaimer</Link> <span className="text-gray-600">|</span>
-                        <Link to="/guidelines" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Copyright Guidelines">Copyright Policy</Link> <span className="text-gray-600">|</span>
-                        <Link to="/guidelines" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="External Hyperlink Policies">Hyperlink Policy</Link> <span className="text-gray-600">|</span>
+                        <Link to="/help" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Disclaimer Policy">Disclaimer</Link> <span className="text-gray-600">|</span>
+                        <Link to="/help" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Copyright Guidelines">Copyright Policy</Link> <span className="text-gray-600">|</span>
+                        <Link to="/help" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="External Hyperlink Policies">Hyperlink Policy</Link> <span className="text-gray-600">|</span>
                         <Link to="/help" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Submit Feedback to Webmaster">Feedback</Link> <span className="text-gray-600">|</span>
-                        <Link to="/guidelines" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Portal Terms and Conditions">Terms & Conditions</Link> <span className="text-gray-600">|</span>
-                        <Link to="/guidelines" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Strict Privacy Directives">Privacy Policy</Link> <span className="text-gray-600">|</span>
-                        <Link to="/guidelines" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Cybersecurity Protocol Statement">Security Policy</Link>
+                        <Link to="/help" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Portal Terms and Conditions">Terms & Conditions</Link> <span className="text-gray-600">|</span>
+                        <Link to="/help" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Strict Privacy Directives">Privacy Policy</Link> <span className="text-gray-600">|</span>
+                        <Link to="/help" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Cybersecurity Protocol Statement">Security Policy</Link>
                     </div>
                 </div>
             </div>

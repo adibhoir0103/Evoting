@@ -11,13 +11,10 @@ import Footer from './components/Footer';
 // Pages — lazy loaded for code splitting (reduces initial bundle ~60%)
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const VotingPage = lazy(() => import('./pages/VotingPage'));
-const VoterGuidelines = lazy(() => import('./pages/VoterGuidelines'));
 const HelpPage = lazy(() => import('./pages/HelpPage'));
 const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage'));
 const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
-const CandidatesPage = lazy(() => import('./pages/CandidatesPage'));
-const SearchRollPage = lazy(() => import('./pages/SearchRollPage'));
 const ResultsPage = lazy(() => import('./pages/ResultsPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -292,10 +289,10 @@ function AppLayout({ user, isAdmin, setIsAdmin, handleLogin, handleLogout, handl
                     } />
 
                     {/* Public Pages */}
-                    <Route path="/guidelines" element={<VoterGuidelines />} />
+                    <Route path="/guidelines" element={<Navigate to="/help" replace />} />
                     <Route path="/help" element={<HelpPage />} />
-                    <Route path="/candidates" element={<CandidatesPage />} />
-                    <Route path="/search-roll" element={<SearchRollPage />} />
+                    <Route path="/candidates" element={<Navigate to="/vote" replace />} />
+                    <Route path="/search-roll" element={<Navigate to="/help" replace />} />
                     <Route path="/results" element={<ResultsPage />} />
                     <Route path="/technology" element={<TechnologyPage />} />
                     <Route path="/verify" element={<VerifyVotePage />} />

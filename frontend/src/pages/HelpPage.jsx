@@ -92,23 +92,37 @@ function HelpPage() {
             ]
         },
         {
-            id: 'technical',
-            title: 'Technical Issues',
-            icon: 'fa-cog',
+            id: 'guidelines',
+            title: 'Voter Guidelines',
+            icon: 'fa-book',
             content: [
                 {
-                    q: 'Page not loading or showing errors',
-                    a: `1. Clear browser cache and cookies
-2. Try a different browser (Chrome recommended)
-3. Disable browser extensions temporarily
-4. Check if backend server is running on port 5000`
+                    q: 'Before Voting',
+                    a: `• Verify your name appears in the electoral roll
+• Carry your EPIC (Voter ID Card) or any of the 12 alternative photo IDs approved by ECI
+• For e-voting, your Aadhaar must be linked to your voter registration
+• Ensure your Secure Vault extension is active and connected to the National Voting Network`
                 },
                 {
-                    q: 'Cryptographic data decode error',
-                    a: `This usually means the ledger contract needs administrative redeployment:
-1. Ensure the backend cryptographic engine is running
-2. Contact the technical administrator to synchronize the ledger
-3. Refresh the frontend application`
+                    q: 'During Voting',
+                    a: `• Each voter can cast only ONE vote — multiple voting is a punishable offense under IPC Section 171
+• Your vote is encrypted on the secure cryptographic ledger — no one can see whom you voted for
+• Review your choice carefully before confirming — once submitted, votes CANNOT be changed
+• Wait for the Secure Vault to confirm the transaction — do not close the browser until success`
+                },
+                {
+                    q: 'After Voting',
+                    a: `• Your vote is recorded securely with a unique cryptographic transaction hash
+• Results will be announced after polls close, as per ECI schedule
+• You can verify your vote was recorded on the public cryptographic ledger explorer`
+                },
+                {
+                    q: 'Model Code of Conduct',
+                    a: `• Do not attempt to influence other voters
+• Maintain decorum and silence in the voting area
+• Report any irregularities to the Election Officer
+• Respect the democratic process and accept results
+• Any attempt to tamper with the voting process is a criminal offense under the Indian Penal Code`
                 }
             ]
         }
@@ -118,10 +132,10 @@ function HelpPage() {
         <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="gov-card p-6 md:p-8">
                 <h1 className="text-2xl font-bold text-gray-900 mb-1">
-                    <i className="fa-solid fa-circle-question text-primary mr-2"></i> Help & Troubleshooting
+                    <i className="fa-solid fa-circle-question text-primary mr-2"></i> Help, Guidelines & Troubleshooting
                 </h1>
                 <p className="text-gray-500 mb-6">
-                    Find solutions to common problems and get support
+                    Find solutions to common problems, voter guidelines, and support
                 </p>
 
                 {/* Quick Fix Banner */}
@@ -181,18 +195,18 @@ function HelpPage() {
                     <p className="text-gray-500 text-sm mb-3">If the problem continues after trying the above solutions:</p>
                     <ul className="text-gray-700 text-sm space-y-2">
                         <li><strong>Helpline:</strong> 1950 (Toll Free)</li>
-                        <li><strong>Email:</strong> support@bharatevote.gov.in (Demo)</li>
+                        <li><strong>Email:</strong> support@bharat-evote.me</li>
                         <li><strong>Local ERO:</strong> Contact your nearest Electoral Registration Officer</li>
                         <li><strong>Technical Support:</strong> Check browser console (F12) for error details</li>
                     </ul>
                 </div>
 
                 <div className="mt-6 flex gap-3 justify-center flex-wrap">
-                    <Link to="/guidelines" className="btn-secondary px-6 py-2.5">
-                        <i className="fa-solid fa-book mr-2"></i> Voter Guidelines
-                    </Link>
                     <Link to="/vote" className="btn-primary px-6 py-2.5">
                         <i className="fa-solid fa-vote-yea mr-2"></i> Go to Voting
+                    </Link>
+                    <Link to="/results" className="btn-secondary px-6 py-2.5">
+                        <i className="fa-solid fa-chart-column mr-2"></i> View Results
                     </Link>
                 </div>
             </div>

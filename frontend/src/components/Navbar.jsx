@@ -145,14 +145,7 @@ function Navbar({ user, onLogout, isAdmin }) {
                             <Link to="/verify" className={navLinkClass('/verify')}>
                                 <i className="fa-solid fa-magnifying-glass-chart mr-1"></i>Verify
                             </Link>
-                            <Link to="/guidelines" className={navLinkClass('/guidelines')}>{t('nav.onboarding')}</Link>
-
-                            <form role="search" onSubmit={(e) => { e.preventDefault(); navigate('/search-roll'); }} className="flex items-center">
-                                <button type="submit" aria-label="Submit Search" className="text-gray-500 hover:text-primary transition-colors px-2 relative group focus:outline-none focus:ring-2 focus:ring-primary rounded">
-                                    <i className="fa-solid fa-magnifying-glass text-lg"></i>
-                                    <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Search Roll</span>
-                                </button>
-                            </form>
+                            <Link to="/help" className={navLinkClass('/help')}>{t('nav.onboarding')}</Link>
 
                             {user ? (
                                 <>
@@ -201,11 +194,9 @@ function Navbar({ user, onLogout, isAdmin }) {
                             <Link to="/dashboard" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">{t('nav.dashboard')}</Link>
                             <Link to="/vote" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-vote-yea mr-2"></i>{t('nav.voting')}</Link>
                             <Link to="/results" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-chart-column mr-2"></i>{t('nav.results')}</Link>
-                            <Link to="/candidates" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">Candidates</Link>
                             <Link to="/technology" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-microchip mr-2"></i>Technology</Link>
                             <Link to="/verify" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-magnifying-glass-chart mr-2"></i>Verify Vote</Link>
-                            <Link to="/guidelines" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">{t('nav.onboarding')}</Link>
-                            <Link to="/search-roll" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-magnifying-glass mr-2"></i>Search Roll</Link>
+                            <Link to="/help" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-circle-question mr-2"></i>{t('nav.onboarding')}</Link>
                             <div className="border-t border-gray-200 pt-3 mt-3">
                                 {user ? (
                                     <>

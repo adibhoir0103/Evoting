@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { BlockchainService } from '../../services/blockchainService';
-
-const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
-const API_URL = rawUrl.startsWith('http') ? (rawUrl.endsWith('/api/v1') ? rawUrl : rawUrl.replace(/\/$/, '') + '/api/v1') : 'https://' + rawUrl.replace(/\/$/, '') + (rawUrl.endsWith('/api/v1') ? '' : '/api/v1');
+import { API_URL } from '../../config/api';
 
 const VoterRolls = () => {
     const [voters, setVoters] = useState([]);

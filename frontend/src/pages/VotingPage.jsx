@@ -199,8 +199,8 @@ function VotingPage({ user, onUserUpdate }) {
         setVoteState('idle');
     };
 
-    // Submit vote from proctor mode
-    const submitVoteFromProctor = async (candidate) => {
+    // ===== UNIFIED VOTE EXECUTION (replaces duplicate submitVote + submitVoteFromProctor) =====
+    const executeVote = async (candidate) => {
         if (!candidate) return;
 
         try {
@@ -249,8 +249,7 @@ function VotingPage({ user, onUserUpdate }) {
                     ipfsHash: ipfsHash,
                     txHash: receipt.hash
                 });
-                setHasVoted(true);
-                if (onUserUpdate) onUserUpdate({ ...user, hasVoted: true });
+                setShowVerification(true);
             } else {
                 setVoteState('pending');
                 const receipt = await service.vote(candidate.id);
@@ -261,9 +260,13 @@ function VotingPage({ user, onUserUpdate }) {
                 setVoteState('confirmed');
 
                 setSuccess(`Vote cast successfully! Tx: ${receipt.hash.slice(0, 10)}...`);
-                setHasVoted(true);
-                if (onUserUpdate) onUserUpdate({ ...user, hasVoted: true });
             }
+
+            // Common post-vote state updates
+            setHasVoted(true);
+            setSelectedCandidate(null);
+            if (onUserUpdate) onUserUpdate({ ...user, hasVoted: true });
+            await loadBlockchainData(service, walletAddress);
         } catch (err) {
             const msg = err.message || 'Failed to cast vote';
             if (msg.includes('rejected') || msg.includes('ACTION_REJECTED')) {
@@ -276,84 +279,9 @@ function VotingPage({ user, onUserUpdate }) {
         }
     };
 
-    const submitVote = async () => {
-        if (!selectedCandidate) return;
-
-        try {
-            setVoteState('checking');
-            setTxHash('');
-            setError('');
-
-            const service = BlockchainService.getInstance();
-            let isZKP = false;
-            try { isZKP = await service.isZKPEnabled(); } catch (e) { /* legacy */ }
-
-            setVoteState('signing');
-            
-            if (isZKP && voterSecret) {
-                const votePackage = await zkpClientService.generateVotePackage(
-                    selectedCandidate.id,
-                    voterSecret,
-                    candidates.length,
-                    'bharat-evote-2026'
-                );
-
-                let ipfsHash = '';
-                try {
-                    const ipfsResult = await zkpClientService.pinVoteToIPFS(votePackage.commitment, votePackage.nullifierHash);
-                    ipfsHash = ipfsResult.ipfsHash || '';
-                } catch (e) { console.log('IPFS pinning skipped'); }
-
-                setVoteState('pending');
-                const receipt = await service.submitEncryptedVote(
-                    votePackage.commitment,
-                    votePackage.nullifierHash,
-                    votePackage.identityCommitment,
-                    votePackage.proof,
-                    ipfsHash
-                );
-                
-                setVoteState('confirming');
-                setTxHash(receipt.hash);
-                
-                await authService.recordVote(receipt.hash);
-                setVoteState('confirmed');
-
-                setZkpVoteData({
-                    nullifierHash: votePackage.nullifierHash,
-                    commitment: votePackage.commitment,
-                    ipfsHash: ipfsHash,
-                    txHash: receipt.hash
-                });
-                setShowVerification(true);
-                setSelectedCandidate(null);
-            } else {
-                setVoteState('pending');
-                const receipt = await service.vote(selectedCandidate.id);
-                setVoteState('confirming');
-                setTxHash(receipt.hash);
-
-                await authService.recordVote(receipt.hash);
-                setVoteState('confirmed');
-
-                setSuccess(`Vote cast successfully! Tx: ${receipt.hash.slice(0, 10)}...`);
-                setHasVoted(true);
-                setSelectedCandidate(null);
-                
-                if (onUserUpdate) onUserUpdate({ ...user, hasVoted: true });
-                await loadBlockchainData(service, walletAddress);
-            }
-        } catch (err) {
-            const msg = err.message || 'Failed to cast vote';
-            if (msg.includes('rejected') || msg.includes('ACTION_REJECTED')) {
-                setError('You rejected the transaction — you have not voted yet.');
-                setVoteState('recovered');
-            } else {
-                setError(msg);
-                setVoteState('failed');
-            }
-        }
-    };
+    // Wrappers for proctor mode and direct mode
+    const submitVoteFromProctor = (candidate) => executeVote(candidate);
+    const submitVote = () => executeVote(selectedCandidate);
 
     const handleVerificationComplete = () => {
         setShowVerification(false);
