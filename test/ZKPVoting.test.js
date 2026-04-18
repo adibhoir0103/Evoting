@@ -78,7 +78,7 @@ describe("ZKP Voting System", function () {
         await forwarder.waitForDeployment();
 
         // Deploy main Voting contract
-        const Voting = await ethers.getContractFactory("Voting");
+        const Voting = await ethers.getContractFactory("VotingV2");
         voting = await Voting.deploy();
         await voting.waitForDeployment();
 

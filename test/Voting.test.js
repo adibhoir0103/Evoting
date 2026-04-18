@@ -13,7 +13,7 @@ describe("Voting Contract", function () {
         [admin, voter1, voter2, unauthorized] = await ethers.getSigners();
 
         // Deploy contract
-        const Voting = await ethers.getContractFactory("Voting");
+        const Voting = await ethers.getContractFactory("VotingV2");
         voting = await Voting.deploy();
         await voting.waitForDeployment();
     });
@@ -163,12 +163,14 @@ describe("Voting Contract", function () {
             expect(candidate.voteCount).to.equal(1);
         });
 
-        it("Should prevent double voting", async function () {
-            await voting.connect(voter1).vote(1);
+        it("Should allow limited re-voting but stop at MAX_REVOTES", async function () {
+            await voting.connect(voter1).vote(1); // 1st
+            await voting.connect(voter1).vote(2); // 2nd
+            await voting.connect(voter1).vote(1); // 3rd (MAX_REVOTES limit)
 
             await expect(
                 voting.connect(voter1).vote(2)
-            ).to.be.revertedWith("You have already voted");
+            ).to.be.revertedWith("Maximum re-vote limit reached");
         });
 
         it("Should fail if unauthorized user tries to vote", async function () {
@@ -201,9 +203,10 @@ describe("Voting Contract", function () {
             });
             expect(event).to.not.be.undefined;
             const parsed = voting.interface.parseLog(event);
-            expect(parsed.args[0]).to.equal(1); // candidateId
+            expect(parsed.args[0]).to.not.equal(1); // candidateId is obfuscated into a keccak256 hash
+            expect(parsed.args[2]).to.equal(1); // voteVersion should be 1
             // Verify voter address is NOT in the event (secret ballot)
-            expect(parsed.args.length).to.equal(2); // only candidateId + timestamp
+            expect(parsed.args.length).to.equal(3); // only obfuscatedId, timestamp, and version
         });
 
         it("Should NOT expose voter's choice (secret ballot)", async function () {
@@ -212,9 +215,9 @@ describe("Voting Contract", function () {
             // Only hasVoted is exposed, not which candidate they chose
             expect(await voting.hasVoterVoted(voter1.address)).to.equal(true);
             const info = await voting.getVoterInfo(voter1.address);
-            // getVoterInfo returns 4 values: isAuthorized, hasVoted, stateCode, constituencyCode
+            // getVoterInfo returns 6 values: isAuthorized, hasVoted, stateCode, constituencyCode, voteVersion, canRevote
             // No votedCandidateId field
-            expect(info.length).to.equal(4);
+            expect(info.length).to.equal(6);
         });
 
         it("Should prevent admin from voting", async function () {
@@ -400,36 +403,20 @@ describe("Voting Contract", function () {
     });
 
     describe("Security Tests", function () {
-        it("Should ensure votes are immutable once cast", async function () {
+        it("Should decrement old candidate count when re-voting", async function () {
             await voting.addCandidateSimple("Alice");
+            await voting.addCandidateSimple("Bob");
             await voting.authorizeVoterSimple(voter1.address);
             await voting.startVoting();
 
-            await voting.connect(voter1).vote(1);
+            await voting.connect(voter1).vote(1); // Vote Alice
+            expect((await voting.getCandidate(1)).voteCount).to.equal(1);
+            expect((await voting.getCandidate(2)).voteCount).to.equal(0);
 
-            // Even admin cannot change a vote
-            const candidate = await voting.getCandidate(1);
-            expect(candidate.voteCount).to.equal(1);
-
-            // Voter cannot vote again
-            await expect(
-                voting.connect(voter1).vote(1)
-            ).to.be.revertedWith("You have already voted");
-        });
-
-        it("Should prevent reentrancy attacks", async function () {
-            // The hasVoted flag is set before incrementing vote count
-            // This prevents reentrancy attacks
-            await voting.addCandidateSimple("Alice");
-            await voting.authorizeVoterSimple(voter1.address);
-            await voting.startVoting();
-
-            await voting.connect(voter1).vote(1);
-
-            // Second vote attempt should fail
-            await expect(
-                voting.connect(voter1).vote(1)
-            ).to.be.revertedWith("You have already voted");
+            // Re-vote Bob
+            await voting.connect(voter1).vote(2); 
+            expect((await voting.getCandidate(1)).voteCount).to.equal(0);
+            expect((await voting.getCandidate(2)).voteCount).to.equal(1);
         });
 
         it("Should only allow admin to control voting", async function () {
