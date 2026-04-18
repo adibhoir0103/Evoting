@@ -8,7 +8,7 @@ async function main() {
     console.log("Account balance:", (await hre.ethers.provider.getBalance(deployer.address)).toString());
 
     // ============ Deploy Voting Contract ============
-    const Voting = await hre.ethers.getContractFactory("Voting");
+    const Voting = await hre.ethers.getContractFactory("VotingV2");
     console.log("\n📦 Deploying Voting contract...");
     const voting = await Voting.deploy();
     await voting.waitForDeployment();
@@ -64,7 +64,8 @@ async function main() {
     }
 
     // Copy Voting ABI
-    const votingArtifact = await hre.artifacts.readArtifact("Voting");
+    const votingArtifact = await hre.artifacts.readArtifact("VotingV2");
+    // Ensure the frontend still expects 'Voting.json'
     fs.writeFileSync(
         path.join(contractsDir, "Voting.json"),
         JSON.stringify(votingArtifact, null, 2)
