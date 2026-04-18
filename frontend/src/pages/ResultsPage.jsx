@@ -3,6 +3,7 @@ import { BlockchainService } from '../services/blockchainService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { indianStates, getStateName } from '../utils/indianStates';
 import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 const CHART_COLORS = ['#2563eb', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#d946ef', '#f97316'];
 
@@ -101,55 +102,97 @@ function ResultsPage() {
 
     const generateResultsPDF = () => {
         const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
         
+        // --- Header Graphic ---
+        doc.setFillColor(0, 51, 102); // Deep Blue
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
+        doc.setFillColor(255, 153, 51); // Saffron line under header
+        doc.rect(0, 40, pageWidth, 2, 'F');
+        
+        // --- Header Text ---
+        doc.setTextColor(255, 255, 255);
         doc.setFontSize(22);
-        doc.setTextColor(30, 64, 175);
-        doc.text('Bharat E-Vote Election Results', 105, 20, { align: 'center' });
-        
+        doc.setFont('helvetica', 'bold');
+        doc.text('Bharat E-Vote', pageWidth / 2, 20, { align: 'center' });
         doc.setFontSize(12);
-        doc.setTextColor(100, 100, 100);
+        doc.text('Official Cryptographic Election Results', pageWidth / 2, 30, { align: 'center' });
         
+        // --- Metadata Box ---
+        doc.setTextColor(0, 0, 0);
         const constituencyString = selectedState === 0 
             ? 'National Level / All States' 
             : `${getStateName(selectedState)} ${selectedConstituency > 0 ? `- Constituency #${selectedConstituency}` : '(State Level)'}`;
             
-        doc.text(`Scope: ${constituencyString}`, 20, 35);
-        doc.text(`Total Votes: ${totalVotes}`, 20, 45);
-        doc.text(`Status: ${votingActive ? 'Active (Live)' : 'Closed (Final)'}`, 20, 55);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        let metaY = 55;
+        doc.text(`Scope: ${constituencyString}`, 20, metaY); metaY += 7;
+        doc.text(`Total Cast Votes: ${totalVotes}`, 20, metaY); metaY += 7;
+        doc.text(`Network Status: ${votingActive ? 'Active (Live)' : 'Closed (Final Sealed Results)'}`, 20, metaY);
+        
+        // --- Leading Box (if closed and winner exists) ---
+        let startY = metaY + 15;
+        if (!votingActive && winner && Number(winner.voteCount) > 0) {
+            doc.setFillColor(240, 249, 255);
+            doc.setDrawColor(0, 51, 102);
+            doc.roundedRect(20, startY, pageWidth - 40, 20, 3, 3, 'FD');
+            doc.setTextColor(0, 51, 102);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.text('LEADING CANDIDATE / WINNER', 25, startY + 7);
+            doc.setFontSize(14);
+            doc.text(`${winner.name} (${winner.partyName || 'IND'}) - ${Number(winner.voteCount)} Votes`, 25, startY + 15);
+            startY += 30;
+        }
 
+        // --- Table ---
         if (votingActive) {
             doc.setFontSize(14);
             doc.setTextColor(200, 0, 0);
-            doc.text('Tally Data is Sealed during Active Polls.', 105, 100, { align: 'center' });
-        } else {
-            let startY = 80;
+            doc.setFont('helvetica', 'bold');
+            doc.text('Tally Data is Sealed during Active Polls.', pageWidth / 2, startY + 20, { align: 'center' });
             doc.setFontSize(10);
-            doc.setTextColor(0, 0, 0);
-            doc.text('Candidate', 20, startY - 10);
-            doc.text('Party', 80, startY - 10);
-            doc.text('Votes', 150, startY - 10);
-            doc.line(20, startY - 5, 190, startY - 5);
-            
+            doc.setTextColor(100, 100, 100);
+            doc.setFont('helvetica', 'normal');
+            doc.text('Wait for the Election Officer to close the smart contract before retrieving tallies.', pageWidth / 2, startY + 30, { align: 'center' });
+        } else {
             const sorted = [...filteredCandidates].sort((a,b) => Number(b.voteCount) - Number(a.voteCount));
-            sorted.forEach((c) => {
-                if (startY > 270) {
-                    doc.addPage();
-                    startY = 20;
-                }
-                const nameText = c.name.length > 25 ? c.name.slice(0, 25) + '...' : c.name;
-                const partyText = c.partyName || 'Independent';
-                
-                doc.text(nameText, 20, startY);
-                doc.text(partyText, 80, startY);
-                doc.text(String(Number(c.voteCount)), 150, startY);
-                startY += 10;
+            const tableData = sorted.map((c, index) => [
+                index + 1,
+                c.name,
+                c.partyName || 'Independent',
+                c.stateCode > 0 ? getStateName(c.stateCode) : 'National',
+                Number(c.voteCount)
+            ]);
+            
+            doc.autoTable({
+                startY: startY,
+                head: [['Rank', 'Candidate', 'Party', 'Region', 'Votes']],
+                body: tableData,
+                theme: 'striped',
+                headStyles: { fillColor: [0, 51, 102], textColor: 255, fontStyle: 'bold' },
+                alternateRowStyles: { fillColor: [248, 250, 252] },
+                margin: { left: 20, right: 20 },
+                styles: { fontSize: 9, cellPadding: 4 }
             });
         }
 
+        // --- Footer ---
+        const pageCount = doc.internal.getNumberOfPages();
         const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
         doc.setFontSize(8);
-        doc.text(`Generated exactly at: ${timestamp}`, 20, 290);
-        doc.save(`Election_Results_${Date.now()}.pdf`);
+        doc.setTextColor(150, 150, 150);
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.text(`Generated exactly at: ${timestamp}`, 20, pageHeight - 10);
+            doc.text(`Page ${i} of ${pageCount}`, pageWidth - 20, pageHeight - 10, { align: 'right' });
+            doc.text(`Generated from highly secure Blockchain Database`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+        }
+        
+        doc.save(`BharatEVote_Results_${Date.now()}.pdf`);
     };
 
     const winner = getWinner(filteredCandidates);

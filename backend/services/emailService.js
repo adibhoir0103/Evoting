@@ -338,7 +338,7 @@ class EmailService {
                         </div>
                         <div class="body-text">${bodyText}</div>
                         <div style="text-align: center;">
-                            <a href="https://bharat-evote.netlify.app/vote" class="cta-button">\ud83d\uddf3\ufe0f Cast Your Vote Now</a>
+                            <a href="https://bharat-evote.netlify.app/${subject.includes('Results') ? 'results' : 'vote'}" class="cta-button">${subject.includes('Results') ? '📊 View Official Results' : '🗳️ Cast Your Vote Now'}</a>
                         </div>
                     </div>
                     <div class="footer">

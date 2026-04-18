@@ -29,7 +29,7 @@ async function checkAndNotify() {
             where: {
                 start_time: { not: null },
                 end_time: { not: null },
-                status: { in: ['PUBLISHED', 'ACTIVE'] }
+                status: { in: ['PUBLISHED', 'ACTIVE', 'CLOSED'] }
             }
         });
 
@@ -70,6 +70,14 @@ async function checkAndNotify() {
                     subject: '⚠️ Last 30 Minutes to Vote!',
                     getBody: (name, elName) => `Dear ${name},\n\n⚠️ URGENT: Only 30 minutes remain to cast your vote for "${elName}"!\n\nVoting closes at: ${endTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n\n🗳️ Vote now: https://bharat-evote.netlify.app/vote\n\nDon't miss your chance to participate in India's democracy!\n\nJai Hind! 🇮🇳`,
                     onlyNonVoters: true // Only send to voters who haven't voted
+                });
+            }
+
+            // 4. ELECTION_RESULTS_DECLARED: When election is officially CLOSED
+            if (election.status === 'CLOSED') {
+                await sendNotification(election, 'ELECTION_RESULTS_DECLARED', {
+                    subject: 'Election Results Are Now Live! 📊',
+                    getBody: (name, elName) => `Dear ${name},\n\nThe official polling for "${elName}" has officially concluded.\n\n📊 The mathematical tally has been unlocked, and cryptographically verified results are now finalized on the blockchain.\n\n🏆 View the Winners & Vote Distribution here:\nhttps://bharat-evote.netlify.app/results\n\nThank you for participating in India's secure democracy.\n\nJai Hind! 🇮🇳`
                 });
             }
         }

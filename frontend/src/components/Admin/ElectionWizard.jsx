@@ -151,8 +151,21 @@ const ElectionWizard = () => {
 
         if (type === 'activate') {
             try {
-                const id = toast.loading('Waiting for MetaMask signature to Start Election...');
-                await BlockchainService.getInstance().startVoting();
+                const id = toast.loading('Initializing Election Validation...');
+                
+                // --- Mandatory NOTA Enforcement ---
+                const service = BlockchainService.getInstance();
+                const candidates = await service.getAllCandidates();
+                const hasNota = candidates.some(c => c.name.toUpperCase().includes('NOTA') || c.name.toUpperCase().includes('NONE OF THE ABOVE'));
+                
+                if (!hasNota) {
+                    toast.loading('Injecting mandatory NOTA candidate to Blockchain...', { id });
+                    await service.addCandidate('None of the Above (NOTA)', 'NOTA', '🚫', 0, 0); // 0, 0 = available nationally
+                }
+                
+                toast.loading('Waiting for MetaMask signature to Start Election...', { id });
+                await service.startVoting();
+                
                 toast.success('Election cryptographically ACTIVATED!', { id });
                 updateStatus(electionId, 'ACTIVE', `Authorized by Passphrase: Provided`);
             } catch (err) {
