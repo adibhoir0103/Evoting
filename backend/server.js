@@ -359,6 +359,11 @@ app.post('/api/v1/auth/login', authLimiter, async (req, res) => {
             return res.status(401).json({ error: 'No account found with these credentials. Please register first.' });
         }
 
+        // --- SINGLE ACTIVE SESSION CONSTRAINT ---
+        if (user.active_session_token && user.active_session_expires && user.active_session_expires > new Date()) {
+            return res.status(403).json({ error: 'user is active in another window' });
+        }
+
         if (!user.password) {
             return res.status(401).json({ error: 'This account was created without a password. Please contact support.' });
         }
@@ -509,11 +514,24 @@ app.post('/api/v1/auth/mfa/verify-otp', authLimiter, async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
+        // Issue active session constraint token
+        const crypto = require('crypto');
+        const sessionToken = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
+        const sessionExpiry = new Date(Date.now() + 20 * 60 * 1000); // 20 minutes timeout
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                active_session_token: sessionToken,
+                active_session_expires: sessionExpiry
+            }
+        });
+
         // Issue the FINAL JWT (full authentication complete)
         const token = jwt.sign(
-            { id: user.id, email: user.email, voterId: user.voter_id, voter_id: user.voter_id, role: user.role, mfa: true },
+            { id: user.id, email: user.email, voterId: user.voter_id, voter_id: user.voter_id, role: user.role, mfa: true, active_session_token: sessionToken },
             EFFECTIVE_JWT_SECRET,
-            { expiresIn: '30m' }
+            { expiresIn: '20m' }
         );
 
         // Log full login success
@@ -598,6 +616,26 @@ app.post('/api/v1/auth/mfa/resend-otp', authLimiter, async (req, res) => {
     } catch (error) {
         console.error('Resend OTP error:', error);
         res.status(500).json({ error: 'Failed to resend OTP' });
+    }
+});
+
+// ===================== LOGOUT =====================
+app.post('/api/v1/auth/logout', injectUser, async (req, res) => {
+    try {
+        if (!req.user || !req.user.id) {
+            return res.status(401).json({ error: 'Not authenticated' });
+        }
+        await prisma.user.update({
+            where: { id: req.user.id },
+            data: {
+                active_session_token: null,
+                active_session_expires: null
+            }
+        });
+        res.json({ message: 'Logged out successfully' });
+    } catch (error) {
+        console.error('Logout error:', error);
+        res.status(500).json({ error: 'Logout failed' });
     }
 });
 

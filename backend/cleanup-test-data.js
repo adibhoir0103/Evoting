@@ -52,13 +52,13 @@ async function cleanup() {
 
     // Show approved voters
     const approved = await prisma.approvedVoter.findMany({
-        select: { id: true, email: true, full_name: true, status: true }
+        select: { id: true, email: true, fullname: true, status: true }
     });
     console.log('\n📋 Approved Voter Whitelist:');
     if (approved.length === 0) {
         console.log('   ⚠️  EMPTY — No one can register! Add voters via Admin Panel.');
     } else {
-        approved.forEach(v => console.log(`   ${v.id}: ${v.full_name} (${v.email}) — ${v.status}`));
+        approved.forEach(v => console.log(`   ${v.id}: ${v.fullname} (${v.email}) — ${v.status}`));
     }
 
     console.log('\n✅ Cleanup complete!');

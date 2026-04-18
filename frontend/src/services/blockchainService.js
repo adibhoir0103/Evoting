@@ -102,6 +102,16 @@ export class BlockchainService {
                 method: 'eth_requestAccounts'
             });
 
+            const connectedAddress = accounts[0];
+            const isAdminContext = !!localStorage.getItem('adminToken');
+            const dedicatedAdminWallet = import.meta.env.VITE_DEDICATED_ADMIN_WALLET;
+
+            if (isAdminContext && dedicatedAdminWallet) {
+                if (connectedAddress.toLowerCase() !== dedicatedAdminWallet.toLowerCase()) {
+                    throw new Error(`Admin operations are strictly restricted to the dedicated wallet: ${dedicatedAdminWallet}. Please switch your MetaMask account.`);
+                }
+            }
+
             // Create provider and signer
             this.provider = new ethers.BrowserProvider(window.ethereum);
             this.signer = await this.provider.getSigner();

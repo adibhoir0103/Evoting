@@ -45,6 +45,10 @@ model User {
   // Legacy global vote flag (deprecating in favor of ElectionVoter.has_voted)
   has_voted        Boolean  @default(false) 
   
+  // Single active session tracking
+  active_session_token   String?
+  active_session_expires DateTime?
+  
   role             Role     @default(VOTER)
   created_at       DateTime @default(now())
   
