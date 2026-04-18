@@ -99,8 +99,8 @@ async function sendNotification(election, type, { subject, getBody, onlyNonVoter
         if (onlyNonVoters) {
             // Get approved voters who haven't voted in this election
             const allApproved = await prisma.approvedVoter.findMany({
-                where: { status: 'APPROVED' },
-                select: { email: true, full_name: true }
+                where: { status: 'WHITELIST' },
+                select: { email: true, fullname: true }
             });
 
             // Get users who HAVE voted
@@ -113,8 +113,8 @@ async function sendNotification(election, type, { subject, getBody, onlyNonVoter
             recipients = allApproved.filter(v => !votedEmails.has(v.email));
         } else {
             recipients = await prisma.approvedVoter.findMany({
-                where: { status: 'APPROVED' },
-                select: { email: true, full_name: true }
+                where: { status: 'WHITELIST' },
+                select: { email: true, fullname: true }
             });
         }
 
@@ -133,7 +133,7 @@ async function sendNotification(election, type, { subject, getBody, onlyNonVoter
 
             for (const voter of batch) {
                 try {
-                    const name = voter.full_name || 'Voter';
+                    const name = voter.fullname || 'Voter';
                     const body = getBody(name, election.name);
 
                     // Use the OTP email template but with custom content
