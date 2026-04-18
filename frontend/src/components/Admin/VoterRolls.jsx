@@ -14,6 +14,8 @@ const VoterRolls = () => {
     const [deleteConfirmId, setDeleteConfirmId] = useState(null);
     const [blockchainAddress, setBlockchainAddress] = useState('');
     const [authLoading, setAuthLoading] = useState(false);
+    const [authStateCode, setAuthStateCode] = useState(0);
+    const [authConstituencyCode, setAuthConstituencyCode] = useState(0);
 
     const getToken = () => localStorage.getItem('adminToken');
 
@@ -165,20 +167,29 @@ const VoterRolls = () => {
                     try {
                         const service = BlockchainService.getInstance();
                         const id = toast.loading('Waiting for MetaMask signature...');
-                        await service.authorizeVoter(blockchainAddress);
+                        await service.authorizeVoter(blockchainAddress, Number(authStateCode), Number(authConstituencyCode));
                         toast.success('Address authorized on the Blockchain!', { id });
                         setBlockchainAddress('');
+                        setAuthStateCode(0);
+                        setAuthConstituencyCode(0);
                     } catch (err) {
                         toast.error(err.message || 'Failed to authorize transaction');
                     } finally {
                         setAuthLoading(false);
                     }
-                }} className="flex items-center gap-3">
-                    <input type="text" className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 font-mono" 
-                        value={blockchainAddress} onChange={(e) => setBlockchainAddress(e.target.value)} required placeholder="0x... (Public Wallet Address)" />
-                    <button type="submit" disabled={authLoading || !blockchainAddress} className="px-6 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 transition shadow-sm disabled:opacity-50">
-                        {authLoading ? <><i className="fa-solid fa-spinner fa-spin mr-2"></i> Authorizing...</> : <><i className="fa-solid fa-link mr-2"></i> Authorize Wallet</>}
-                    </button>
+                }} className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                        <input type="text" className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 font-mono" 
+                            value={blockchainAddress} onChange={(e) => setBlockchainAddress(e.target.value)} required placeholder="0x... (Public Wallet Address)" />
+                        <input type="number" min="0" className="w-24 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" 
+                            value={authStateCode} onChange={(e) => setAuthStateCode(e.target.value)} placeholder="State" title="State Code (0 for National)" />
+                        <input type="number" min="0" className="w-32 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" 
+                            value={authConstituencyCode} onChange={(e) => setAuthConstituencyCode(e.target.value)} placeholder="Constituency" title="Constituency Code (0 for All)" />
+                        <button type="submit" disabled={authLoading || !blockchainAddress} className="px-6 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 transition shadow-sm disabled:opacity-50 break-keep whitespace-nowrap">
+                            {authLoading ? <><i className="fa-solid fa-spinner fa-spin mr-2"></i> Authorizing...</> : <><i className="fa-solid fa-link mr-2"></i> Authorize Wallet</>}
+                        </button>
+                    </div>
+                    <p className="text-xs text-gray-400"><i className="fa-solid fa-circle-info mr-1"></i> Tip: Use State 0 and Constituency 0 to allow wildcard national voting.</p>
                 </form>
             </div>
 

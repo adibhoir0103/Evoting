@@ -434,8 +434,13 @@ function DashboardPage({ user, onUserUpdate }) {
                                                 </Link>
                                             )}
                                             {hasVoted && (
-                                                <div className="mt-2 text-sm font-medium text-green-600 bg-green-50 px-3 py-1.5 rounded border border-green-200 inline-block">
-                                                    <i className="fa-solid fa-check-circle mr-1"></i> Successfully Voted
+                                                <div className="mt-2 flex flex-col gap-2">
+                                                    <div className="text-sm font-medium text-green-600 bg-green-50 px-3 py-1.5 rounded border border-green-200 inline-block w-fit">
+                                                        <i className="fa-solid fa-check-circle mr-1"></i> Successfully Voted
+                                                    </div>
+                                                    <Link to="/vote" className="w-fit text-xs font-bold text-red-600 hover:text-red-800 underline flex items-center mt-1">
+                                                        <i className="fa-solid fa-rotate-left mr-1"></i> Want to change your vote? Checking eligibility...
+                                                    </Link>
                                                 </div>
                                             )}
                                         </div>

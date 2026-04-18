@@ -430,6 +430,19 @@ function VotingPage({ user, onUserUpdate }) {
                         >
                             <i className="fa-solid fa-download mr-2"></i> Download Receipt
                         </button>
+                        {voterConstituencyInfo?.canRevote && (
+                            <button 
+                                onClick={() => {
+                                    setHasVoted(false);
+                                    setVoteState('idle');
+                                    setQrTicketValidated(false); // require QR validation again
+                                }}
+                                className="bg-red-600 hover:bg-red-700 text-white min-w-[200px] px-5 py-2 rounded shadow transition-colors font-bold" 
+                                aria-label="Change my vote"
+                            >
+                                <i className="fa-solid fa-triangle-exclamation mr-2"></i> Change My Vote
+                            </button>
+                        )}
                     </div>
                 </div>
             </section>

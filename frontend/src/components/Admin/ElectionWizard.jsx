@@ -300,7 +300,14 @@ const ElectionWizard = () => {
 
                                     {/* Principal Flow: Awaiting Approval -> Active (uses modal instead of prompt) */}
                                     {election.status === 'AWAITING_APPROVAL' && (
-                                        <button onClick={() => setModal({ open: true, type: 'activate', electionId: election.id })} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm transition font-bold shadow-lg animate-pulse">
+                                        <button onClick={async () => {
+                                            const isActive = await BlockchainService.getInstance().isVotingActive();
+                                            if (isActive) {
+                                                toast.error("Another election is currently ACTIVE on the blockchain. You must Force Close it before launching a new one.");
+                                            } else {
+                                                setModal({ open: true, type: 'activate', electionId: election.id });
+                                            }
+                                        }} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm transition font-bold shadow-lg animate-pulse">
                                             Approve & Start Voting
                                         </button>
                                     )}
