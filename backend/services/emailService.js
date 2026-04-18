@@ -53,7 +53,7 @@ class EmailService {
      * @param {string} userName - User's name for personalization
      * @returns {{ success: boolean, messageId: string, email: string, demo?: boolean }}
      */
-    async sendOTP(email, otp, userName = 'Voter') {
+    async sendOTP(email, otp, userName = 'Voter', subject = 'Login Verification') {
         const htmlContent = `
             <!DOCTYPE html>
             <html>
@@ -174,7 +174,7 @@ class EmailService {
                 const data = await this._sendBrevo({
                     to: email,
                     toName: userName,
-                    subject: 'Your Bharat E-Vote OTP - Secure Login',
+                    subject: `Bharat E-Vote - ${subject}`,
                     htmlContent
                 });
 
@@ -302,6 +302,70 @@ class EmailService {
         } catch (error) {
             console.error('Broadcast email error:', error);
             return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Send election notification email (reminders, voting started, last call)
+     */
+    async sendElectionNotification(email, userName, subject, bodyText, electionName) {
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body { font-family: 'Inter', 'Segoe UI', sans-serif; background: #f5f7fa; padding: 20px; }
+                    .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }
+                    .header { background: #000080; color: white; padding: 30px 20px; text-align: center; }
+                    .header h1 { margin: 0; font-size: 24px; }
+                    .content { padding: 30px 20px; }
+                    .election-badge { background: #f0f9ff; border: 2px solid #000080; border-radius: 8px; padding: 15px; text-align: center; margin: 20px 0; }
+                    .election-badge h3 { color: #000080; margin: 0; font-size: 18px; }
+                    .body-text { white-space: pre-line; color: #333; line-height: 1.6; }
+                    .cta-button { display: inline-block; background: #000080; color: white; padding: 14px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; margin: 20px 0; }
+                    .footer { background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #777; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>\ud83c\uddee\ud83c\uddf3 Bharat E-Vote</h1>
+                        <p style="margin: 5px 0 0 0; opacity: 0.9;">${subject}</p>
+                    </div>
+                    <div class="content">
+                        <div class="election-badge">
+                            <h3>\ud83d\uddf3\ufe0f ${electionName}</h3>
+                        </div>
+                        <div class="body-text">${bodyText}</div>
+                        <div style="text-align: center;">
+                            <a href="https://bharat-evote.netlify.app/vote" class="cta-button">\ud83d\uddf3\ufe0f Cast Your Vote Now</a>
+                        </div>
+                    </div>
+                    <div class="footer">
+                        <p>\u00a9 2026 Bharat E-Vote | Blockchain-Based E-Voting System</p>
+                        <p>This is an automated notification. Do not reply.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        if (this.isReady) {
+            try {
+                await this._sendBrevo({
+                    to: email,
+                    toName: userName,
+                    subject: `Bharat E-Vote - ${subject}`,
+                    htmlContent
+                });
+                return { success: true };
+            } catch (error) {
+                console.error(`Election notification email error for ${email}:`, error.message);
+                return { success: false, error: error.message };
+            }
+        } else {
+            console.log(`[DEMO] Election notification to ${email}: ${subject}`);
+            return { success: true, demo: true };
         }
     }
 }

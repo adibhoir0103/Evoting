@@ -35,6 +35,10 @@ const adminLog = logger.child('admin');
 // Initialize Backend EVM WebSocket Listeners for real-time contract tracing
 blockchainListener.init();
 
+// Initialize Election Email Notification Scheduler
+const electionNotifier = require('./services/electionNotifier');
+electionNotifier.start();
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -594,6 +598,160 @@ app.post('/api/v1/auth/mfa/resend-otp', authLimiter, async (req, res) => {
     } catch (error) {
         console.error('Resend OTP error:', error);
         res.status(500).json({ error: 'Failed to resend OTP' });
+    }
+});
+
+// ===================== FORGOT PASSWORD =====================
+
+// Step 1: Request password reset — sends OTP to registered email
+app.post('/api/v1/auth/forgot-password', authLimiter, async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ error: 'Email address is required' });
+        }
+
+        const cleanEmail = email.trim().toLowerCase();
+
+        // Find user
+        const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
+        if (!user) {
+            // Don't reveal whether account exists (security best practice)
+            return res.json({ message: 'If an account exists with this email, an OTP has been sent.' });
+        }
+
+        // Generate OTP
+        const otp = String(Math.floor(100000 + Math.random() * 900000));
+        const otpHash = await bcrypt.hash(otp, 10);
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes for password reset
+
+        // Invalidate previous reset OTPs
+        await prisma.mfaToken.updateMany({
+            where: { user_email: cleanEmail, purpose: 'PASSWORD_RESET', verified: false },
+            data: { verified: true }
+        });
+
+        // Create reset token
+        await prisma.mfaToken.create({
+            data: {
+                user_email: cleanEmail,
+                otp_hash: otpHash,
+                purpose: 'PASSWORD_RESET',
+                expires_at: expiresAt,
+                verified: false,
+                attempts: 0
+            }
+        });
+
+        // Send OTP
+        const emailService = require('./services/emailService');
+        const emailResult = await emailService.sendOTP(cleanEmail, otp, user.fullname || 'Voter', 'Password Reset');
+
+        // Issue a short-lived reset token
+        const resetToken = jwt.sign(
+            { email: cleanEmail, purpose: 'password_reset' },
+            EFFECTIVE_JWT_SECRET,
+            { expiresIn: '10m' }
+        );
+
+        res.json({
+            message: 'If an account exists with this email, an OTP has been sent.',
+            resetToken,
+            email: cleanEmail.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
+            otpDemo: emailResult.demo ? otp : undefined
+        });
+    } catch (error) {
+        console.error('Forgot password error:', error);
+        res.status(500).json({ error: 'Failed to process request. Please try again.' });
+    }
+});
+
+// Step 2: Reset password — verify OTP and set new password
+app.post('/api/v1/auth/reset-password', authLimiter, async (req, res) => {
+    try {
+        const { resetToken, otp, newPassword } = req.body;
+
+        if (!resetToken || !otp || !newPassword) {
+            return res.status(400).json({ error: 'Reset token, OTP, and new password are required' });
+        }
+
+        if (newPassword.length < 8) {
+            return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+        }
+
+        // Verify reset token
+        let decoded;
+        try {
+            decoded = jwt.verify(resetToken, EFFECTIVE_JWT_SECRET);
+        } catch (err) {
+            return res.status(401).json({ error: 'Reset session expired. Please request a new OTP.' });
+        }
+
+        if (decoded.purpose !== 'password_reset') {
+            return res.status(400).json({ error: 'Invalid reset token.' });
+        }
+
+        // Find the latest unverified reset OTP
+        const mfaToken = await prisma.mfaToken.findFirst({
+            where: {
+                user_email: decoded.email,
+                purpose: 'PASSWORD_RESET',
+                verified: false,
+                expires_at: { gte: new Date() }
+            },
+            orderBy: { created_at: 'desc' }
+        });
+
+        if (!mfaToken) {
+            return res.status(400).json({ error: 'OTP expired. Please request a new one.' });
+        }
+
+        // Check max attempts
+        if (mfaToken.attempts >= 5) {
+            await prisma.mfaToken.update({
+                where: { id: mfaToken.id },
+                data: { verified: true }
+            });
+            return res.status(429).json({ error: 'Too many failed attempts. Please request a new OTP.' });
+        }
+
+        // Verify OTP
+        const isValidOtp = await bcrypt.compare(otp.trim(), mfaToken.otp_hash);
+        if (!isValidOtp) {
+            await prisma.mfaToken.update({
+                where: { id: mfaToken.id },
+                data: { attempts: mfaToken.attempts + 1 }
+            });
+            return res.status(401).json({
+                error: `Invalid OTP. ${4 - mfaToken.attempts} attempts remaining.`,
+                attemptsRemaining: 4 - mfaToken.attempts
+            });
+        }
+
+        // Mark OTP as verified
+        await prisma.mfaToken.update({
+            where: { id: mfaToken.id },
+            data: { verified: true }
+        });
+
+        // Hash and update password
+        const hashedPassword = await bcrypt.hash(newPassword, 12);
+        await prisma.user.update({
+            where: { email: decoded.email },
+            data: { password: hashedPassword }
+        });
+
+        // Log the password reset
+        const user = await prisma.user.findUnique({ where: { email: decoded.email } });
+        await prisma.loginHistory.create({
+            data: { voter_id: user?.voter_id || 'UNKNOWN', ip_address: req.ip, status: 'PASSWORD_RESET' }
+        }).catch(() => {});
+
+        res.json({ message: 'Password reset successful! You can now login with your new password.' });
+    } catch (error) {
+        console.error('Reset password error:', error);
+        res.status(500).json({ error: 'Password reset failed. Please try again.' });
     }
 });
 

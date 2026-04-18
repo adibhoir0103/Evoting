@@ -215,3 +215,14 @@ model QrVoteTicket {
 
   @@index([user_email])
 }
+
+model ElectionNotification {
+  id            Int      @id @default(autoincrement())
+  election_id   Int
+  type          String   // REMINDER_24H, VOTING_STARTED, LAST_CALL_30M
+  sent_count    Int      @default(0)
+  sent_at       DateTime @default(now())
+
+  @@unique([election_id, type])
+  @@index([election_id])
+}
