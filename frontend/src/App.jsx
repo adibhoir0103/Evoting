@@ -109,8 +109,29 @@ function App() {
                 const acceptedChains = ['0xaa36a7', '0x539'];
                 if (!acceptedChains.includes(chainId)) {
                     toast.error('Wrong network! Please switch to Sepolia Testnet or Localhost 8545');
+                    try {
+                        window.ethereum.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: '0xaa36a7' }],
+                        }).catch((err) => {
+                            console.error('Failed to switch network automatically:', err);
+                            if (err.code === 4001) {
+                                // User rejected the switch — show persistent, actionable toast
+                                toast.error(
+                                    'Network switch rejected. Please open MetaMask → Settings → Networks → select "Sepolia Testnet", then reload the page.',
+                                    { duration: Infinity, id: 'network-rejected' }
+                                );
+                            } else {
+                                toast.error('Network switch failed. Please manually switch to Sepolia Testnet in MetaMask.', { duration: Infinity, id: 'network-error' });
+                            }
+                        });
+                    } catch (err) {
+                        console.error('Failed to initiate network switch:', err);
+                        toast.error('Could not prompt MetaMask. Please manually switch to Sepolia Testnet.', { duration: Infinity, id: 'network-prompt-error' });
+                    }
+                } else {
+                    window.location.reload();
                 }
-                window.location.reload();
             });
         }
 

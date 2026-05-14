@@ -122,6 +122,7 @@ contract VotingV2 {
     }
 
     function setTrustedForwarder(address _forwarder) external onlyAdmin votingIsNotActive {
+        require(_forwarder != address(0), "Invalid forwarder address");
         trustedForwarder = _forwarder;
     }
 
@@ -252,11 +253,12 @@ contract VotingV2 {
     /**
      * @dev Cast or re-cast a vote for a candidate
      * @param _candidateId ID of the candidate to vote for
+     * @param _secretSalt Random 256-bit salt generated off-chain to secure the event hash
      * @notice Voter must be authorized. Can re-vote up to MAX_REVOTES times.
      *         Re-voting window closes REVOTE_LOCKOUT before votingEndTime.
      *         If re-voting, the old candidate's count is decremented.
      */
-    function vote(uint256 _candidateId) public votingIsActive {
+    function vote(uint256 _candidateId, uint256 _secretSalt) public votingIsActive {
         require(!zkpEnabled, "ZKP mode is active: use the ZKP voting contract instead");
         require(_msgSender() != admin, "Admin cannot vote");
         Voter storage voter = voters[_msgSender()];
@@ -302,9 +304,9 @@ contract VotingV2 {
         // Increment new candidate vote count
         candidate.voteCount++;
         
-        // Emit obfuscated event (no candidate info leaked)
+        // Emit obfuscated event using off-chain secret salt to mathematically prevent brute-forcing
         emit VoteCast(
-            uint256(keccak256(abi.encodePacked(_candidateId, block.timestamp, block.prevrandao))),
+            uint256(keccak256(abi.encodePacked(_candidateId, _msgSender(), block.timestamp, _secretSalt))),
             block.timestamp,
             voter.voteVersion
         );
@@ -326,22 +328,19 @@ contract VotingV2 {
     }
 
     function getCandidatesByConstituency(uint8 _stateCode, uint8 _constituencyCode) public view returns (Candidate[] memory) {
+        Candidate[] memory temp = new Candidate[](candidatesCount);
         uint256 count = 0;
         for (uint256 i = 1; i <= candidatesCount; i++) {
             if ((candidates[i].stateCode == _stateCode || candidates[i].stateCode == 0) &&
                 (candidates[i].constituencyCode == _constituencyCode || candidates[i].constituencyCode == 0)) {
+                temp[count] = candidates[i];
                 count++;
             }
         }
 
         Candidate[] memory result = new Candidate[](count);
-        uint256 idx = 0;
-        for (uint256 i = 1; i <= candidatesCount; i++) {
-            if ((candidates[i].stateCode == _stateCode || candidates[i].stateCode == 0) &&
-                (candidates[i].constituencyCode == _constituencyCode || candidates[i].constituencyCode == 0)) {
-                result[idx] = candidates[i];
-                idx++;
-            }
+        for (uint256 i = 0; i < count; i++) {
+            result[i] = temp[i];
         }
         return result;
     }

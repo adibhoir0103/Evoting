@@ -9,7 +9,12 @@ artifacts
 
 # Frontend
 frontend/build
+frontend/dist
 frontend/node_modules
+
+# Backend runtime artifacts
+backend/uploads
+backend/ipfs_mock
 
 # Deployment info
 deployment-info.json

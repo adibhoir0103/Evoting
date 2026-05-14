@@ -10,6 +10,7 @@ import { indianStates, getStateName } from '../utils/indianStates';
 import { Helmet } from 'react-helmet-async';
 import { jsPDF } from 'jspdf';
 import useElectionTimer from '../hooks/useElectionTimer';
+import { humanizeError } from '../utils/errorMessages';
 
 function VotingPage({ user, onUserUpdate }) {
     const navigate = useNavigate();
@@ -88,7 +89,7 @@ function VotingPage({ user, onUserUpdate }) {
 
             await loadBlockchainData(service, account);
         } catch (err) {
-            setError(err.message || 'Failed to connect wallet');
+            setError(humanizeError(err) || 'Failed to connect wallet');
         } finally {
             setLoading(false);
         }
@@ -101,7 +102,7 @@ function VotingPage({ user, onUserUpdate }) {
             setWalletConnected(true);
             await loadBlockchainData(service, address);
         } catch (err) {
-            setError(err.message);
+            setError(humanizeError(err));
             setLoading(false);
         }
     };
@@ -129,7 +130,7 @@ function VotingPage({ user, onUserUpdate }) {
 
             setCandidates(filteredCandidates);
         } catch (err) {
-            setError('Failed to load voting data: ' + err.message);
+            setError('Failed to load voting data: ' + humanizeError(err));
         } finally {
             setLoading(false);
         }
@@ -199,7 +200,24 @@ function VotingPage({ user, onUserUpdate }) {
         setVoteState('idle');
     };
 
-    // ===== UNIFIED VOTE EXECUTION (replaces duplicate submitVote + submitVoteFromProctor) =====
+    // ===== UNIFIED VOTE EXECUTION =====
+    /**
+     * Executes the voting transaction. This function bifurcates based on the election's security configuration:
+     *
+     * FLOW A (ZKP Enabled):
+     * 1. Off-chain: Generates a Pedersen commitment hiding the candidate choice and randomness.
+     * 2. Off-chain: Generates a Schnorr-style Zero-Knowledge Proof (challenge, responses).
+     * 3. Off-chain: Pins the commitment to IPFS for persistent verifiability.
+     * 4. On-chain: Submits the commitment, nullifier, and proof to ZKPVoting.sol.
+     * 5. On-chain: The contract verifies the math; if valid, the vote is stored anonymously.
+     *
+     * FLOW B (Standard EVM):
+     * 1. Off-chain: Generates a secure random salt.
+     * 2. On-chain: Submits candidate choice and salt to Voting.sol.
+     * 3. On-chain: The contract hashes the choice with the salt for event obfuscation.
+     *
+     * @param {Object} candidate - The selected candidate object
+     */
     const executeVote = async (candidate) => {
         if (!candidate) return;
 
@@ -268,12 +286,12 @@ function VotingPage({ user, onUserUpdate }) {
             if (onUserUpdate) onUserUpdate({ ...user, hasVoted: true });
             await loadBlockchainData(service, walletAddress);
         } catch (err) {
-            const msg = err.message || 'Failed to cast vote';
-            if (msg.includes('rejected') || msg.includes('ACTION_REJECTED')) {
+            const msg = (err.message || '').toLowerCase();
+            if (msg.includes('rejected') || msg.includes('action_rejected')) {
                 setError('You rejected the transaction — you have not voted yet.');
                 setVoteState('recovered');
             } else {
-                setError(msg);
+                setError(humanizeError(err));
                 setVoteState('failed');
             }
         }

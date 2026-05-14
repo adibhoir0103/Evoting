@@ -11,7 +11,7 @@ async function main() {
     const admin = signers[0];
     const voters = signers.slice(1, 11); // The 10 voters
 
-    const Voting = await hre.ethers.getContractFactory("Voting");
+    const Voting = await hre.ethers.getContractFactory("VotingV2");
     const deploymentInfoPath = path.join(__dirname, '..', 'deployment-info.json');
     if (!fs.existsSync(deploymentInfoPath)) {
         throw new Error("deployment-info.json not found!");

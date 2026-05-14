@@ -318,7 +318,12 @@ export class BlockchainService {
      */
     async vote(candidateId) {
         try {
-            const tx = await this.contract.vote(candidateId);
+            // Generate a secure 256-bit random salt to mathematically secure the event hash
+            const randomBytes = new Uint8Array(32);
+            window.crypto.getRandomValues(randomBytes);
+            const secretSalt = ethers.toBigInt(ethers.hexlify(randomBytes));
+
+            const tx = await this.contract.vote(candidateId, secretSalt);
             console.log('⏳ Transaction sent:', tx.hash);
             const receipt = await tx.wait();
             console.log('✅ Vote cast successfully');

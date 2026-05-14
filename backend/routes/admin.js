@@ -1,71 +1,41 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const prisma = require('../lib/prisma');
-const { PrismaClient } = require('@prisma/client');
 const multer = require('multer');
 const csv = require('csv-parser');
 const fs = require('fs');
 const path = require('path');
 const emailService = require('../services/emailService');
+const { isAdmin } = require('../middleware/authenticate');
+const { asyncHandler } = require('../middleware/errorHandler');
+const { logAdminAction: logAction } = require('../utils/helpers');
+const adminAuth = require('../controllers/adminAuthController');
 
-// Configure Multer for CSV Uploads
-const upload = multer({ dest: 'uploads/' });
-
-const jwt = require('jsonwebtoken');
-
-// JWT Secret must match server.js — crash in production if missing
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
-    console.error('FATAL: JWT_SECRET environment variable is required in production.');
-    process.exit(1);
-}
-const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'dev-only-local-key-fallback';
-
-// Custom Middleware: Validate Admin JWT (with dev fallback)
-const isAdmin = (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
-
-    // If a real JWT is provided, verify it
-    if (token && token !== 'test-token') {
-        try {
-            const decoded = jwt.verify(token, EFFECTIVE_JWT_SECRET);
-            req.adminUser = {
-                id: decoded.id || 0,
-                email: decoded.email,
-                role: decoded.role === 'admin' ? 'SUPER_ADMIN' : (decoded.role || 'SUPER_ADMIN')
-            };
-            return next();
-        } catch (err) {
-            return res.status(401).json({ error: 'Invalid or expired admin token. Please log in again.' });
+// Configure Multer for CSV Uploads with security limits
+const upload = multer({
+    dest: 'uploads/',
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype !== 'text/csv' && !file.originalname.endsWith('.csv')) {
+            return cb(new Error('Only CSV files are allowed'), false);
         }
+        cb(null, true);
     }
+});
 
-    // Production: require real auth
-    if (process.env.NODE_ENV === 'production') {
-        return res.status(401).json({ error: 'Admin authentication required.' });
-    }
+// Admin login rate limiter
+const adminLoginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, max: 10,
+    message: { error: 'Too many login attempts. Try again in 15 minutes.' },
+    standardHeaders: true, legacyHeaders: false
+});
 
-    // Dev fallback: mock admin
-    req.adminUser = {
-        id: 1,
-        email: 'testadmin@evote.gov',
-        role: 'SUPER_ADMIN'
-    };
-    next();
-};
+// ===== Admin Auth Routes (BEFORE isAdmin middleware) =====
+router.post('/login', adminLoginLimiter, asyncHandler(adminAuth.adminLogin));
+router.post('/verify-mfa', adminLoginLimiter, asyncHandler(adminAuth.adminVerifyMfa));
 
-// Helper: Log Admin Action
-const logAction = async (admin_email, action, details, ip_address) => {
-    try {
-        await prisma.adminAuditLog.create({
-            data: { admin_email, action, details, ip_address }
-        });
-    } catch (e) {
-        console.error('Failed to write audit log', e);
-    }
-};
-
+// ===== All routes below require admin authentication =====
 router.use(isAdmin);
 
 // ==========================================
@@ -107,7 +77,10 @@ router.patch('/elections/:id/status', async (req, res) => {
         const validStatuses = ['DRAFT', 'PUBLISHED', 'AWAITING_APPROVAL', 'ACTIVE', 'PAUSED', 'CLOSED', 'ARCHIVED'];
         if (!validStatuses.includes(status)) return res.status(400).json({ error: 'Invalid status' });
 
-        const election = await prisma.election.findUnique({ where: { id: parseInt(id) } });
+        const electionId = parseInt(id);
+        if (isNaN(electionId)) return res.status(400).json({ error: 'Invalid election ID' });
+
+        const election = await prisma.election.findUnique({ where: { id: electionId } });
         if (!election) return res.status(404).json({ error: 'Election not found' });
 
         // ===== HOD → PRINCIPAL APPROVAL GATE =====
@@ -132,9 +105,9 @@ router.patch('/elections/:id/status', async (req, res) => {
             const timeUntilStart = new Date(election.start_time).getTime() - Date.now();
             const ONE_HOUR = 60 * 60 * 1000;
             
-            if (timeUntilStart <= ONE_HOUR && timeUntilStart > 0) {
+            if (timeUntilStart <= ONE_HOUR) {
                  return res.status(403).json({ 
-                     error: 'Time-Lock Active. Structural changes are strictly prohibited within 60 minutes of the election start time.'
+                     error: 'Time-Lock Active. Structural changes are strictly prohibited within 60 minutes of the election start time and during the election.'
                  });
             }
         }
@@ -167,7 +140,10 @@ router.post('/elections/:id/candidates', async (req, res) => {
         const { id } = req.params;
         const { candidate_name, party_name, party_symbol, state_code, constituency_code } = req.body;
 
-        const election = await prisma.election.findUnique({ where: { id: parseInt(id) }, select: { status: true } });
+        const electionId = parseInt(id);
+        if (isNaN(electionId)) return res.status(400).json({ error: 'Invalid election ID' });
+
+        const election = await prisma.election.findUnique({ where: { id: electionId }, select: { status: true } });
         if (!election) return res.status(404).json({ error: 'Election not found' });
 
         // STRICT ZERO-TRUST GUARDRAIL: No modifying ballot options after DRAFT Phase
@@ -178,7 +154,7 @@ router.post('/elections/:id/candidates', async (req, res) => {
 
         const candidate = await prisma.electionCandidate.create({
             data: {
-                election_id: parseInt(id),
+                election_id: electionId,
                 candidate_name,
                 party_name,
                 party_symbol,
@@ -200,7 +176,11 @@ router.delete('/elections/:id/candidates/:candidateId', async (req, res) => {
     try {
         const { id, candidateId } = req.params;
 
-        const election = await prisma.election.findUnique({ where: { id: parseInt(id) }, select: { status: true } });
+        const electionId = parseInt(id);
+        const candidateIdNum = parseInt(candidateId);
+        if (isNaN(electionId) || isNaN(candidateIdNum)) return res.status(400).json({ error: 'Invalid ID' });
+
+        const election = await prisma.election.findUnique({ where: { id: electionId }, select: { status: true } });
         if (!election) return res.status(404).json({ error: 'Election not found' });
 
         // STRICT ZERO-TRUST GUARDRAIL
@@ -210,7 +190,7 @@ router.delete('/elections/:id/candidates/:candidateId', async (req, res) => {
         }
 
         await prisma.electionCandidate.delete({
-            where: { id: parseInt(candidateId) }
+            where: { id: candidateIdNum }
         });
 
         await logAction(req.adminUser.email, 'DELETE_CANDIDATE', `Dropped candidate ${candidateId} from Election ${id}`, req.ip);
@@ -252,14 +232,15 @@ router.post(['/elections/:id/voters/upload', '/elections/:id/voters/bulk'], uplo
         if (!req.file) return res.status(400).json({ error: 'No CSV file uploaded' });
 
         const results = [];
-        fs.createReadStream(req.file.path)
+        const stream = fs.createReadStream(req.file.path);
+        stream
             .pipe(csv())
             .on('data', (data) => results.push(data))
             .on('end', async () => {
                 let successCount = 0;
                 let errorCount = 0;
 
-                const localPrisma = new PrismaClient();
+                const localPrisma = prisma; // Reuse existing Prisma client
                 try {
                     for (const row of results) {
                         // CSV should have a column 'aadhaar_number' or 'email' or 'voter_id'
@@ -305,15 +286,21 @@ router.post(['/elections/:id/voters/upload', '/elections/:id/voters/bulk'], uplo
                         }
                     }
                 } finally {
-                    await localPrisma.$disconnect();
+                    // No disconnect needed — reusing singleton
                 }
 
                 // Cleanup temp file
-                fs.unlinkSync(req.file.path);
+                if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
                 await logAction(req.adminUser.email, 'CSV_UPLOAD_VOTERS', `Uploaded ${successCount} successful voters to Election ${electionId}. ${errorCount} errors.`, req.ip);
                 
                 res.json({ message: 'Upload complete', successCount, errorCount });
+            })
+            .on('error', (err) => {
+                console.error('CSV Parsing Error:', err);
+                stream.destroy(); // Prevent 'end' event from firing
+                if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+                if (!res.headersSent) res.status(500).json({ error: 'Failed to process CSV file' });
             });
     } catch (err) {
         console.error(err);
@@ -349,12 +336,14 @@ router.patch('/users/:id/role', async (req, res) => {
 
         const { id } = req.params;
         const { role } = req.body;
+        const userId = parseInt(id);
+        if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user ID' });
 
         const validRoles = ['VOTER', 'SUPER_ADMIN', 'ELECTION_OFFICER', 'AUDITOR'];
         if (!validRoles.includes(role)) return res.status(400).json({ error: 'Invalid role' });
 
         const updatedUser = await prisma.user.update({
-            where: { id: parseInt(id) },
+            where: { id: userId },
             data: { role }
         });
 
@@ -378,33 +367,50 @@ router.get('/audit', async (req, res) => {
     }
 });
 
-// Broadcast Email to Election Voters (via QStash for reliability)
+// Broadcast Email to Election Voters (direct send via email service)
 router.post('/elections/:id/notify', async (req, res) => {
     try {
         const { subject, body } = req.body;
+        if (!subject || !body) return res.status(400).json({ error: 'Subject and body are required' });
+
         const electionId = parseInt(req.params.id);
-        const qStashWorker = require('../services/qStashWorker');
-        
+        if (isNaN(electionId)) return res.status(400).json({ error: 'Invalid election ID' });
+
         const voters = await prisma.electionVoter.findMany({
             where: { election_id: electionId },
             include: { user: true }
         });
-        
-        let queued = 0;
-        for (const v of voters) {
-            if (v.user && v.user.email) {
-                qStashWorker.publish('send_broadcast', {
-                    email: v.user.email,
-                    fullname: v.user.fullname,
-                    subject,
-                    body
-                });
-                queued++;
+
+        let sentCount = 0;
+        let errorCount = 0;
+        const batchSize = 10;
+
+        for (let i = 0; i < voters.length; i += batchSize) {
+            const batch = voters.slice(i, i + batchSize);
+            for (const v of batch) {
+                if (v.user && v.user.email) {
+                    try {
+                        await emailService.sendBroadcastEmail(
+                            v.user.email,
+                            v.user.fullname || 'Voter',
+                            subject,
+                            body
+                        );
+                        sentCount++;
+                    } catch (emailErr) {
+                        errorCount++;
+                        console.error(`Broadcast email failed for ${v.user.email}:`, emailErr.message);
+                    }
+                }
+            }
+            // Small delay between batches to avoid rate limits
+            if (i + batchSize < voters.length) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
             }
         }
-        
-        await logAction(req.adminUser.email, 'BROADCAST_EMAIL', `Queued notification "${subject}" to ${queued} voters in Election ${electionId} via QStash`, req.ip);
-        res.json({ message: 'Broadcast queued', stats: { totalVoters: voters.length, emailsQueued: queued } });
+
+        await logAction(req.adminUser.email, 'BROADCAST_EMAIL', `Sent notification "${subject}" to ${sentCount} voters in Election ${electionId}`, req.ip);
+        res.json({ message: 'Broadcast sent', stats: { totalVoters: voters.length, emailsSent: sentCount, errors: errorCount } });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Broadcast failed' });
@@ -503,13 +509,15 @@ router.patch('/approved-voters/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body;
+        const voterId = parseInt(id);
+        if (isNaN(voterId)) return res.status(400).json({ error: 'Invalid voter ID' });
 
         if (!['WHITELIST', 'BLACKLIST'].includes(status)) {
             return res.status(400).json({ error: 'Status must be WHITELIST or BLACKLIST' });
         }
 
         const voter = await prisma.approvedVoter.update({
-            where: { id: parseInt(id) },
+            where: { id: voterId },
             data: { status }
         });
 
@@ -525,8 +533,11 @@ router.patch('/approved-voters/:id', async (req, res) => {
 router.delete('/approved-voters/:id', async (req, res) => {
     try {
         const { id } = req.params;
+        const voterId = parseInt(id);
+        if (isNaN(voterId)) return res.status(400).json({ error: 'Invalid voter ID' });
+
         const voter = await prisma.approvedVoter.delete({
-            where: { id: parseInt(id) }
+            where: { id: voterId }
         });
 
         await logAction(req.adminUser.email, 'DELETE_APPROVED_VOTER', `Removed ${voter.email} from approved list`, req.ip);
@@ -543,7 +554,8 @@ router.post('/approved-voters/bulk', upload.single('file'), async (req, res) => 
         if (!req.file) return res.status(400).json({ error: 'No CSV file uploaded' });
 
         const results = [];
-        fs.createReadStream(req.file.path)
+        const stream = fs.createReadStream(req.file.path);
+        stream
             .pipe(csv())
             .on('data', (data) => results.push(data))
             .on('end', async () => {
@@ -576,9 +588,15 @@ router.post('/approved-voters/bulk', upload.single('file'), async (req, res) => 
                     }
                 }
 
-                fs.unlinkSync(req.file.path);
+                if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
                 await logAction(req.adminUser.email, 'BULK_APPROVED_VOTERS', `Uploaded ${successCount} approved voters. ${errorCount} errors.`, req.ip);
                 res.json({ message: 'Bulk upload complete', successCount, errorCount });
+            })
+            .on('error', (err) => {
+                console.error('CSV Parsing Error:', err);
+                stream.destroy(); // Prevent 'end' event from firing
+                if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+                if (!res.headersSent) res.status(500).json({ error: 'Failed to process CSV file' });
             });
     } catch (err) {
         console.error('Bulk upload error:', err);

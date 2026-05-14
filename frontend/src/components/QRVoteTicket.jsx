@@ -16,6 +16,7 @@ function QRVoteTicket({ user, onTicketValidated, onCancel }) {
     const [ticketToken, setTicketToken] = useState('');
     const [qrDataUrl, setQrDataUrl] = useState('');
     const [countdown, setCountdown] = useState(300);
+    const [expiryTime, setExpiryTime] = useState(0);
     const [error, setError] = useState('');
     const [voterName, setVoterName] = useState('');
     const canvasRef = useRef(null);
@@ -27,21 +28,19 @@ function QRVoteTicket({ user, onTicketValidated, onCancel }) {
         generateTicket();
     }, []);
 
-    // Countdown timer
+    // Countdown timer (Fixed: Timer Race Condition using absolute time)
     useEffect(() => {
-        if (state !== 'displaying' || countdown <= 0) return;
+        if (state !== 'displaying' || expiryTime === 0) return;
         const interval = setInterval(() => {
-            setCountdown(prev => {
-                if (prev <= 1) {
-                    setState('expired');
-                    clearInterval(interval);
-                    return 0;
-                }
-                return prev - 1;
-            });
+            const remaining = Math.max(0, Math.floor((expiryTime - Date.now()) / 1000));
+            setCountdown(remaining);
+            if (remaining <= 0) {
+                setState('expired');
+                clearInterval(interval);
+            }
         }, 1000);
         return () => clearInterval(interval);
-    }, [state, countdown]);
+    }, [state, expiryTime]);
 
     const formatTime = (seconds) => {
         const m = Math.floor(seconds / 60);
@@ -70,7 +69,9 @@ function QRVoteTicket({ user, onTicketValidated, onCancel }) {
 
             setTicketToken(data.ticketToken);
             setVoterName(data.voterName || user?.fullname || 'Voter');
-            setCountdown(data.validitySeconds || 300);
+            const validitySecs = data.validitySeconds || 300;
+            setCountdown(validitySecs);
+            setExpiryTime(Date.now() + validitySecs * 1000);
 
             // Generate QR code image
             const qrUrl = await QRCode.toDataURL(data.ticketToken, {

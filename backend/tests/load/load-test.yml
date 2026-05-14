@@ -1,0 +1,33 @@
+config:
+  target: "http://localhost:5000"
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      rampTo: 20
+      name: "Ramp up load (Simulating 100+ concurrent users)"
+  payload:
+    # We can inject fake OTPs to test the otpLimiter
+    path: "./users.csv"
+    fields:
+      - "preAuthToken"
+      - "otp"
+    skipHeader: true
+
+scenarios:
+  - name: "Voter fetches candidates (Read-heavy)"
+    flow:
+      - get:
+          url: "/api/v1/health"
+      - get:
+          url: "/api/v1/candidates"
+
+  - name: "Voter submits OTP (Write/Rate-limited)"
+    weight: 1
+    flow:
+      - post:
+          url: "/api/v1/auth/mfa/verify-otp"
+          json:
+            preAuthToken: "fake-jwt-token-{{ $randomString() }}"
+            otp: "{{ $randomString() }}"
+          expect:
+            - statusCode: 400 # Expecting failure or rate limit because token is fake

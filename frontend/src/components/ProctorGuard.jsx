@@ -39,6 +39,7 @@ function ProctorGuard({
     const [showViolationFlash, setShowViolationFlash] = useState(false);
     const [violationMsg, setViolationMsg] = useState('');
     const [isTimerPaused, setIsTimerPaused] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const containerRef = useRef(null);
     const timerRef = useRef(null);
     const violationTimeoutRef = useRef(null);
@@ -49,6 +50,13 @@ function ProctorGuard({
     const isConfirmed = voteState === 'confirmed';
     const isFailed = voteState === 'failed';
     const isRecovered = voteState === 'recovered';
+
+    // Reset local submitting state if parent indicates failure
+    useEffect(() => {
+        if (isFailed || isRecovered) {
+            setIsSubmitting(false);
+        }
+    }, [isFailed, isRecovered]);
 
     // ====== FULLSCREEN ======
     useEffect(() => {
@@ -571,11 +579,21 @@ function ProctorGuard({
                             </button>
                             <button
                                 className="proctor-btn proctor-btn-primary"
-                                onClick={() => onConfirmVote(selectedCandidate)}
-                                disabled={!selectedCandidate || timeRemaining === 0}
+                                onClick={async () => {
+                                    if (isSubmitting || isProcessing) return;
+                                    setIsSubmitting(true);
+                                    try {
+                                        await onConfirmVote(selectedCandidate);
+                                    } catch (e) {
+                                        // Ignore, parent handles error state
+                                    } finally {
+                                        setIsSubmitting(false);
+                                    }
+                                }}
+                                disabled={!selectedCandidate || timeRemaining === 0 || isSubmitting || isProcessing}
                             >
                                 <i className="fa-solid fa-check-to-slot"></i>
-                                Confirm & Cast Vote
+                                {isSubmitting || isProcessing ? 'Processing...' : 'Confirm & Cast Vote'}
                             </button>
                         </div>
                     </div>

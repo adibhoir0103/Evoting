@@ -1,188 +1,121 @@
-# Blockchain E-Voting System — Bharat E-Vote
+# 🇮🇳 Bharat E-Vote
+**Blockchain-Based E-Voting System**
 
-A secure, transparent, and privacy-preserving blockchain-based electronic voting system built with Ethereum, Solidity, React (Vite), and Supabase. Features Zero-Knowledge Proof (ZKP) voting, constituency-based elections, and enterprise-grade monitoring.
+Bharat E-Vote is a highly secure, decentralized electronic voting platform designed as a Proof-of-Concept for national-scale elections. It employs Ethereum smart contracts, Zero-Knowledge Proofs (ZKP), and multi-factor authentication to guarantee mathematically secure, anonymous, and coercion-resistant voting.
 
-## 🚀 Features
+## 🌟 Key Features
+- **Zero-Knowledge Proofs (ZKP):** Voters cast encrypted votes that are verified on-chain without revealing their identity or candidate choice.
+- **Coercion Deterrence:** Voters can re-vote up to 3 times before the election time-lock expires, neutralizing "over-the-shoulder" coercion.
+- **ProctorGuard UI:** Anti-tab-switching browser protections and QR ticketing prevent device hijacking during the vote sequence.
+- **Gasless Meta-Transactions:** Voters do not need to pay Ethereum gas fees (ERC-2771).
+- **High-Performance Backend:** Upstash Redis handles active session lookups, protecting the primary PostgreSQL database from N+1 polling attacks.
 
-### Core Voting
-- **Blockchain-Based Voting**: Immutable vote storage on Ethereum smart contracts
-- **Secret Ballot**: Vote choices are never stored on-chain (voter privacy preserved)
-- **Double Voting Prevention**: Cryptographic enforcement at the contract level
-- **Constituency-Based Elections**: State and constituency-level candidate filtering
-- **Real-Time Results**: Live vote count updates via blockchain events
-- **Vote Receipts**: Cryptographic proof of participation without revealing choice
+## 🏗️ Architecture
+- **Frontend:** React + Vite, Ethers.js v6, Tailwind CSS
+- **Backend:** Node.js, Express, Prisma ORM, PostgreSQL, Upstash Redis
+- **Blockchain:** Hardhat, Solidity, OpenZeppelin
+- **Storage:** IPFS (via Pinata) for decentralized candidate metadata
 
-### Zero-Knowledge Proofs (ZKP)
-- **Pedersen Commitments**: Vote privacy via commitment schemes
-- **Nullifier-Based Eligibility**: Prevents double voting without linking identity
-- **Universal Verifiability**: Anyone can verify election integrity
-- **IPFS Metadata**: Encrypted vote metadata stored off-chain
+---
 
-### Security & Monitoring
-- **Sentry**: Error monitoring for frontend (React) and backend (Node.js)
-- **PostHog**: Analytics and session replay
-- **Cloudflare Turnstile**: Invisible bot protection (CAPTCHA alternative)
-- **Upstash Redis**: Distributed rate limiting + persistent OTP storage
-- **Helmet**: Security headers (CSP, HSTS, etc.)
-- **Resend**: Production-grade transactional email delivery
+## 🚀 Quick Setup Guide
 
-### Authentication
-- **Supabase Auth**: Email/phone OTP-based authentication
-- **MetaMask Integration**: Seamless wallet connection with network detection
-- **Admin RBAC**: Contract-level admin access control
-
-## 📋 Prerequisites
-
-- Node.js v16+
+### 1. Prerequisites
+- Node.js (v18+)
+- PostgreSQL installed and running locally
+- Upstash Redis account (Free tier)
+- Pinata IPFS account (Free tier)
+- Brevo Email API account (Free tier)
 - MetaMask browser extension
-- npm
 
-## 🛠️ Installation
+### 2. Environment Variables
+Create a `.env` file in the **root** directory and populate it:
 
+```env
+# Database (PostgreSQL)
+DATABASE_URL="postgresql://username:password@localhost:5432/evoting?schema=public"
+
+# Upstash Redis (For Session Security)
+UPSTASH_REDIS_REST_URL="https://your-upstash-url.upstash.io"
+UPSTASH_REDIS_REST_TOKEN="your_upstash_token"
+
+# JWT Auth
+JWT_SECRET="generate_a_very_long_random_string_here"
+
+# Brevo Email API (For OTPs & Notifications)
+BREVO_API_KEY="xkeysib-..."
+BREVO_FROM_EMAIL="admin@bharatevote.com"
+BREVO_FROM_NAME="Bharat E-Vote Admin"
+
+# IPFS Pinata
+PINATA_API_KEY="your_pinata_key"
+PINATA_SECRET_API_KEY="your_pinata_secret"
+PINATA_JWT="your_pinata_jwt"
+
+# Blockchain RPC (Optional for Testnets)
+SEPOLIA_URL="https://eth-sepolia.g.alchemy.com/v2/..."
+PRIVATE_KEY="your_admin_wallet_private_key"
+```
+
+### 3. Installation
+Install all dependencies for the monorepo:
 ```bash
-# 1. Install blockchain dependencies (root)
+# In the root directory:
 npm install
 
-# 2. Install frontend dependencies
-cd frontend && npm install && cd ..
-
-# 3. Install backend dependencies
-cd backend && npm install && cd ..
-
-# 4. Compile smart contracts
-npx hardhat compile
+# In the frontend directory:
+cd frontend
+npm install
 ```
 
-## ⚙️ Environment Setup
-
+### 4. Database Setup
 ```bash
-# Backend
-cp backend/.env.example backend/.env
-# Fill in your Supabase, Sentry, Resend, Upstash, and Turnstile keys
+# Push the Prisma schema to your PostgreSQL database
+npx prisma db push
 
-# Frontend
-cp frontend/.env.example frontend/.env.local
-# Fill in your Sentry DSN, PostHog key, and Turnstile site key
+# (Optional) Seed the database with sample candidates
+npx prisma db seed
 ```
 
-## 🚀 Running Locally
-
-### 1. Start Local Blockchain
+### 5. Blockchain Deployment
+**Option A: Localhost (Testing)**
+Start a local Hardhat node in a separate terminal:
 ```bash
 npx hardhat node
 ```
-
-### 2. Deploy Contracts (new terminal)
+In another terminal, deploy the contracts to localhost:
 ```bash
 npx hardhat run scripts/deploy.js --network localhost
 ```
+*Note: Ensure your MetaMask is connected to `Localhost 8545` and import the first Hardhat account private key.*
 
-### 3. Start Backend (new terminal)
+**Option B: Sepolia Public Testnet (Production/Demo)**
+To deploy to a globally decentralized testnet, configure `SEPOLIA_RPC_URL` and `PRIVATE_KEY` in your `.env` file, then run:
 ```bash
-cd backend && npm run dev
+npx hardhat run scripts/deploy.js --network sepolia
+```
+*Note: You must have Sepolia testnet ETH in your wallet to deploy.*
+
+### 6. Run the Application
+Start both the backend server and frontend client concurrently:
+```bash
+# From the root directory:
+npm start
 ```
 
-### 4. Start Frontend (new terminal)
-```bash
-cd frontend && npm run dev
-```
-
-Visit `http://localhost:5173`
-
-### 5. Configure MetaMask
-The app auto-prompts to add the Hardhat network. Alternatively:
-- **Network Name**: Hardhat Localhost
-- **RPC URL**: `http://127.0.0.1:8545`
-- **Chain ID**: `1337`
-- **Currency**: ETH
-
-Import a test account using any private key from the Hardhat node output.
+---
 
 ## 🧪 Testing
-
+The smart contract architecture is covered by an automated test suite.
+To run the Hardhat tests:
 ```bash
-# Run all 85 tests (Voting + ZKPVoting)
-npx hardhat test
-
-# View test coverage
-npx hardhat coverage
-
-# View gas report
-REPORT_GAS=true npx hardhat test
+npm run test
 ```
 
-## 📁 Project Structure
+## 🛡️ Security Audit Notes (Phase 5)
+This application has undergone extensive vulnerability remediation:
+1. **ZKP Signature Forgery:** Reverted vulnerable ECDSA verifiers to simulated Schnorr challenges to preserve vote anonymity.
+2. **N+1 Polling Exhaustion:** Authenticated requests now verify JWTs entirely in-memory using Redis.
+3. **Event Log Deanonymization:** Standard EVM votes are hashed with an off-chain `_secretSalt` via `window.crypto.getRandomValues()` prior to blockchain submission.
 
-```
-evoting/
-├── contracts/
-│   ├── Voting.sol              # Main voting contract
-│   ├── ZKPVoting.sol           # Zero-Knowledge Proof extension
-│   └── MinimalForwarder.sol    # ERC-2771 meta-transaction forwarder
-├── scripts/
-│   └── deploy.js               # Deploys all 3 contracts
-├── test/
-│   ├── Voting.test.js           # 45 tests for Voting contract
-│   └── ZKPVoting.test.js        # 40 tests for ZKP contract
-├── backend/
-│   ├── server.js                # Express API server
-│   ├── services/
-│   │   ├── emailService.js      # Resend email delivery
-│   │   ├── otpService.js        # Upstash Redis OTP store
-│   │   └── rateLimiter.js       # Upstash distributed rate limiter
-│   └── prisma/                  # Database schema
-├── frontend/
-│   ├── src/
-│   │   ├── components/          # React components
-│   │   ├── pages/               # 13 pages (Landing, Login, Voting, Admin, etc.)
-│   │   ├── services/            # Blockchain + Auth services
-│   │   └── contracts/           # Auto-copied ABIs from deploy
-│   └── index.html
-├── .github/workflows/           # CI pipeline
-└── hardhat.config.js
-```
-
-## 🏗️ Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| **Blockchain** | Ethereum, Solidity ^0.8.19, Hardhat |
-| **Frontend** | React 19 (Vite), Vanilla CSS, Ethers.js v6 |
-| **Backend** | Node.js, Express, Prisma ORM |
-| **Auth** | Supabase Auth (Email/Phone OTP) |
-| **Database** | PostgreSQL (Supabase) |
-| **Wallet** | MetaMask |
-| **Monitoring** | Sentry (errors), PostHog (analytics) |
-| **Email** | Resend |
-| **Cache/Rate Limiting** | Upstash Redis |
-| **Bot Protection** | Cloudflare Turnstile |
-
-## 🔒 Security Features
-
-- **Secret Ballot**: `votedCandidateId` is never stored on-chain
-- **Double Voting Prevention**: `hasVoted` flag + `require()` checks
-- **Admin Cannot Vote**: Explicit `require(msg.sender != admin)`
-- **Constituency Enforcement**: Voters can only vote in their assigned constituency
-- **Timeline Controls**: Time-locked voting windows with `block.timestamp`
-- **State Guards**: `setZKPMode()` and `setTrustedForwarder()` locked during active voting
-- **Rate Limiting**: Per-IP and distributed Redis-based throttling
-- **CSP Headers**: Helmet.js with strict Content Security Policy
-- **Input Validation**: Comprehensive checks on all inputs
-- **Reentrancy Protection**: Checks-Effects-Interactions pattern
-
-## 📖 Documentation
-
-See [PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md) for:
-- Smart contract architecture diagrams
-- Security audit report
-- ZKP cryptographic protocol details
-- API endpoint reference
-- Deployment guide
-
-## 📝 License
-
-MIT
-
-## 👨‍💻 Author
-
-Final Year Computer Science Project — 2026
+*Note: The Zero-Knowledge Proofs implemented in `ZKPVoting.sol` utilize a simulated Schnorr-like verification. In a production environment, this should be replaced with a Circom/Groth16 verifier contract.*

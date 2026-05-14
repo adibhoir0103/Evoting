@@ -334,14 +334,13 @@ describe("ZKP Voting System", function () {
         });
 
         it("Should verify vote inclusion", async function () {
-            const [included, index] = await zkpVoting.verifyVoteInclusion(commitment);
+            const included = await zkpVoting.verifyVoteInclusion(commitment);
             expect(included).to.equal(true);
-            expect(index).to.equal(0); // First vote
         });
 
         it("Should return false for non-existent commitment", async function () {
             const fakeCommitment = randomBytes32();
-            const [included] = await zkpVoting.verifyVoteInclusion(fakeCommitment);
+            const included = await zkpVoting.verifyVoteInclusion(fakeCommitment);
             expect(included).to.equal(false);
         });
 
@@ -460,7 +459,7 @@ describe("ZKP Voting System", function () {
             await voting.startVoting();
 
             await expect(
-                voting.connect(voter1).vote(1)
+                voting.connect(voter1).vote(1, 12345)
             ).to.be.revertedWith("ZKP mode is active: use the ZKP voting contract instead");
         });
 
@@ -469,7 +468,7 @@ describe("ZKP Voting System", function () {
             await voting.authorizeVoterSimple(voter1.address);
             await voting.startVoting();
 
-            await voting.connect(voter1).vote(1);
+            await voting.connect(voter1).vote(1, 12345);
             expect(await voting.hasVoterVoted(voter1.address)).to.equal(true);
         });
 

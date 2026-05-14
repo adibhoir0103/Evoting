@@ -61,6 +61,8 @@ model User {
 
   votes            Vote[]
   election_voters  ElectionVoter[]
+
+  @@index([state_code, constituency_code])
 }
 
 model Election {
@@ -89,6 +91,8 @@ model ElectionCandidate {
   constituency_code Int     @default(0)
 
   election         Election @relation(fields: [election_id], references: [id], onDelete: Cascade)
+
+  @@index([state_code, constituency_code])
 }
 
 model ElectionVoter {

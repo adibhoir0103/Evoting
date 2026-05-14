@@ -7,6 +7,7 @@ import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 import useElectionTimer from '../hooks/useElectionTimer';
 import { API_URL } from '../config/api';
+import { humanizeError } from '../utils/errorMessages';
 
 function DashboardPage({ user, onUserUpdate }) {
     const navigate = useNavigate();
@@ -53,7 +54,7 @@ function DashboardPage({ user, onUserUpdate }) {
                 }
             }
         } catch (err) {
-            setError('Failed to load dashboard data. Please try again.');
+            setError('Failed to load dashboard data: ' + humanizeError(err));
         } finally {
             setLoading(false);
         }
@@ -85,7 +86,7 @@ function DashboardPage({ user, onUserUpdate }) {
             setProfile(prev => ({ ...prev, ...cardFormData }));
             setIsEditingCard(false);
         } catch (err) {
-            toast.error('Failed to update card: ' + err.message);
+            toast.error('Failed to update card: ' + humanizeError(err));
         }
     };
 
@@ -553,7 +554,7 @@ function DashboardPage({ user, onUserUpdate }) {
 
                                                     doc.save('BharatEVote_Receipt.pdf');
                                                 } catch (err) {
-                                                    toast.error('Failed to generate PDF: ' + err.message);
+                                                    toast.error('Failed to generate PDF: ' + humanizeError(err));
                                                 }
                                             }}
                                             className="inline-flex items-center text-xs font-bold text-green-700 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded border border-green-200 transition-colors"

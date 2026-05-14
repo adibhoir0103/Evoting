@@ -1,0 +1,15 @@
+{
+  "data": {
+    "type": "vote_receipt",
+    "version": "1.0",
+    "election": "bharat-evote-2026",
+    "commitment": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    "nullifierHash": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+    "timestamp": "2026-04-07T12:00:00.000Z",
+    "zkpVerified": true
+  },
+  "metadata": {
+    "name": "vote-receipt-1777453514998",
+    "pinned": "2026-04-29T09:05:14.999Z"
+  }
+}

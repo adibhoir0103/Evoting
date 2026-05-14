@@ -6,6 +6,19 @@ const FROM_EMAIL = process.env.BREVO_FROM_EMAIL || process.env.RESEND_FROM_EMAIL
 const FROM_NAME = process.env.BREVO_FROM_NAME || 'Bharat E-Vote';
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
+/**
+ * Escape HTML entities to prevent injection in email templates
+ */
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 class EmailService {
     constructor() {
         this.isReady = false;
@@ -133,7 +146,7 @@ class EmailService {
                     </div>
                     
                     <div class="content">
-                        <h2 style="color: #000080; margin-top: 0;">Hello, ${userName}!</h2>
+                        <h2 style="color: #000080; margin-top: 0;">Hello, ${escapeHtml(userName)}!</h2>
                         <p>You have requested to login to your Bharat E-Vote account using OTP authentication.</p>
                         
                         <div class="otp-box">
@@ -248,7 +261,7 @@ class EmailService {
                         <h1>✅ Digital Vote Safely Cast!</h1>
                     </div>
                     <div class="content">
-                        <h2 style="margin-top: 0; color: #fff;">Namaste, ${userName}</h2>
+                        <h2 style="margin-top: 0; color: #fff;">Namaste, ${escapeHtml(userName)}</h2>
                         <p style="color: #cbd5e1;">Your cryptographic vote has been successfully mined onto the blockchain network. Your identity has been completely decoupled from your vote using advanced Zero-Knowledge Proofs.</p>
                         <div class="hash-box">${shortHash}</div>
                         <p style="color: #94a3b8; font-size: 14px;">You can verify this transaction hash on the local block explorer to mathematically prove your vote was cast without revealing your candidate choice.</p>
@@ -291,8 +304,8 @@ class EmailService {
                 subject: subject,
                 htmlContent: `
                     <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-                        <h2>Namaste, ${userName}</h2>
-                        <p>${body}</p>
+                        <h2>Namaste, ${escapeHtml(userName)}</h2>
+                        <p>${escapeHtml(body)}</p>
                         <br/>
                         <p style="color: #888; font-size: 12px;">This is an automated administrative notification from Bharat E-Vote.</p>
                     </div>

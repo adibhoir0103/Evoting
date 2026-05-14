@@ -10,6 +10,42 @@ function Navbar({ user, onLogout, isAdmin }) {
     const navigate = useNavigate();
     const { t, i18n } = useTranslation();
 
+    const firstMenuElementRef = useRef(null);
+    const lastMenuElementRef = useRef(null);
+    const menuButtonRef = useRef(null);
+
+    // Mobile menu focus trap & ESC handler
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (!mobileMenuOpen) return;
+            if (e.key === 'Escape') {
+                setMobileMenuOpen(false);
+                menuButtonRef.current?.focus();
+                return;
+            }
+            if (e.key === 'Tab') {
+                if (e.shiftKey) {
+                    if (document.activeElement === firstMenuElementRef.current) {
+                        e.preventDefault();
+                        lastMenuElementRef.current?.focus();
+                    }
+                } else {
+                    if (document.activeElement === lastMenuElementRef.current) {
+                        e.preventDefault();
+                        firstMenuElementRef.current?.focus();
+                    }
+                }
+            }
+        };
+
+        if (mobileMenuOpen) {
+            window.addEventListener('keydown', handleKeyDown);
+            setTimeout(() => firstMenuElementRef.current?.focus(), 50);
+        }
+
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [mobileMenuOpen]);
+
     const changeLanguage = (lng) => {
         i18n.changeLanguage(lng);
     };
@@ -80,9 +116,9 @@ function Navbar({ user, onLogout, isAdmin }) {
                         
                         {/* Font Resizer */}
                         <div className="flex items-center bg-slate-800 border border-slate-700 rounded overflow-hidden">
-                            <button onClick={() => setFontSize('small')} className={`px-2 py-0.5 hover:bg-slate-700 hover:text-white transition-colors ${fontSize === 'small' ? 'bg-slate-700 text-white font-bold' : 'text-gray-400'}`} aria-label="Decrease font size" title="Smaller Text">A-</button>
-                            <button onClick={() => setFontSize('normal')} className={`px-2 py-0.5 border-l border-r border-slate-700 hover:bg-slate-700 hover:text-white transition-colors ${fontSize === 'normal' ? 'bg-slate-700 text-white font-bold' : 'text-gray-400'}`} aria-label="Normal font size" title="Normal Text">A</button>
-                            <button onClick={() => setFontSize('large')} className={`px-2 py-0.5 hover:bg-slate-700 hover:text-white transition-colors ${fontSize === 'large' ? 'bg-slate-700 text-white font-bold' : 'text-gray-400'}`} aria-label="Increase font size" title="Larger Text">A+</button>
+                            <button onClick={() => setFontSize('small')} className={`px-2 py-0.5 hover:bg-slate-700 hover:text-white transition-colors ${fontSize === 'small' ? 'bg-slate-700 text-white font-bold' : 'text-gray-300'}`} aria-label="Decrease font size" title="Smaller Text">A-</button>
+                            <button onClick={() => setFontSize('normal')} className={`px-2 py-0.5 border-l border-r border-slate-700 hover:bg-slate-700 hover:text-white transition-colors ${fontSize === 'normal' ? 'bg-slate-700 text-white font-bold' : 'text-gray-300'}`} aria-label="Normal font size" title="Normal Text">A</button>
+                            <button onClick={() => setFontSize('large')} className={`px-2 py-0.5 hover:bg-slate-700 hover:text-white transition-colors ${fontSize === 'large' ? 'bg-slate-700 text-white font-bold' : 'text-gray-300'}`} aria-label="Increase font size" title="Larger Text">A+</button>
                         </div>
 
                         {/* Theme Toggler */}
@@ -120,6 +156,7 @@ function Navbar({ user, onLogout, isAdmin }) {
 
                         {/* Mobile Menu Button */}
                         <button
+                            ref={menuButtonRef}
                             className="md:hidden flex items-center text-gray-600 hover:text-primary"
                             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                             aria-label="Toggle mobile menu"
@@ -191,7 +228,7 @@ function Navbar({ user, onLogout, isAdmin }) {
                     {/* Mobile Menu */}
                     {mobileMenuOpen && (
                         <nav id="mobile-menu" aria-label="Mobile Navigation" className="md:hidden absolute top-full left-0 w-full bg-white shadow-xl border-t border-gray-200 py-4 px-4 space-y-2 z-50">
-                            <Link to="/dashboard" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">{t('nav.dashboard')}</Link>
+                            <Link ref={firstMenuElementRef} to="/dashboard" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">{t('nav.dashboard')}</Link>
                             <Link to="/vote" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-vote-yea mr-2"></i>{t('nav.voting')}</Link>
                             <Link to="/results" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-chart-column mr-2"></i>{t('nav.results')}</Link>
                             <Link to="/technology" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-microchip mr-2"></i>Technology</Link>
@@ -217,7 +254,7 @@ function Navbar({ user, onLogout, isAdmin }) {
                                         </Link>
                                     </>
                                 )}
-                                <Link to="/admin-login" className="block px-3 py-2 rounded text-sm font-semibold text-red-600 hover:bg-red-50 mt-2"><i className="fa-solid fa-user-shield mr-2"></i>Admin Login</Link>
+                                <Link ref={lastMenuElementRef} to="/admin-login" className="block px-3 py-2 rounded text-sm font-semibold text-red-600 hover:bg-red-50 mt-2"><i className="fa-solid fa-user-shield mr-2"></i>Admin Login</Link>
                             </div>
                         </nav>
                     )}

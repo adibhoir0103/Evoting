@@ -7,29 +7,29 @@ function Footer() {
             {/* 1. Logos Strip (White Background) */}
             <div className="bg-white py-6 border-b-4 border-accent-saffron shadow-inner">
                 <div className="max-w-7xl mx-auto px-4 flex flex-wrap justify-center md:justify-around items-center gap-8">
-                    <a href="https://eci.gov.in" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center group">
+                    <a href="https://eci.gov.in" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center group p-2 rounded focus-visible:ring-2 focus-visible:ring-accent-saffron">
                         <div className="h-12 w-12 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
                             <i className="fa-solid fa-landmark text-primary text-xl"></i>
                         </div>
-                        <span className="text-[10px] font-bold text-primary mt-2">Election Commission</span>
+                        <span className="text-xs font-bold text-primary mt-2">Election Commission</span>
                     </a>
-                    <a href="https://digitalindia.gov.in" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center group">
+                    <a href="https://digitalindia.gov.in" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center group p-2 rounded focus-visible:ring-2 focus-visible:ring-accent-saffron">
                         <div className="h-12 w-12 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
                             <i className="fa-solid fa-microchip text-primary text-xl"></i>
                         </div>
-                        <span className="text-[10px] font-bold text-primary mt-2">Digital India</span>
+                        <span className="text-xs font-bold text-primary mt-2">Digital India</span>
                     </a>
-                    <a href="https://mygov.in" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center group">
+                    <a href="https://mygov.in" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center group p-2 rounded focus-visible:ring-2 focus-visible:ring-accent-saffron">
                         <div className="h-12 w-12 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
                             <i className="fa-solid fa-users text-primary text-xl"></i>
                         </div>
-                        <span className="text-[10px] font-bold text-primary mt-2">MyGov</span>
+                        <span className="text-xs font-bold text-primary mt-2">MyGov</span>
                     </a>
-                    <a href="https://www.nic.in" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center group">
+                    <a href="https://www.nic.in" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center group p-2 rounded focus-visible:ring-2 focus-visible:ring-accent-saffron">
                         <div className="h-12 w-12 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
                             <i className="fa-solid fa-globe text-primary text-xl"></i>
                         </div>
-                        <span className="text-[10px] font-bold text-primary mt-2">NIC</span>
+                        <span className="text-xs font-bold text-primary mt-2">NIC</span>
                     </a>
                 </div>
             </div>
@@ -84,20 +84,20 @@ function Footer() {
                         Designed & developed by Election Commission of India, Govt. of India and hosted on Meghraj cloud
                     </p>
                     
-                    <div className="flex flex-wrap justify-center text-[11px] text-gray-400">
-                        <Link to="/" className="hover:text-white transition px-2">About Us</Link> <span className="text-gray-600">|</span>
-                        <Link to="/help" className="hover:text-white transition px-2">Help</Link> <span className="text-gray-600">|</span>
-                        <a href="https://voters.eci.gov.in/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition px-2 font-bold text-accent-saffron">Voter Services Portal <i className="fa-solid fa-external-link-alt text-[8px] ml-0.5"></i></a> <span className="text-gray-600">|</span>
-                        <Link to="/vote" className="hover:text-white transition px-2 font-bold text-accent-saffron">Cast Vote Online</Link> <span className="text-gray-600">|</span>
-                        <Link to="/technology" className="hover:text-white transition px-2 font-bold text-accent-saffron">Technology</Link> <span className="text-gray-600">|</span>
-                        <Link to="/verify" className="hover:text-white transition px-2 font-bold text-accent-saffron">Verify Vote</Link> <span className="text-gray-600">|</span>
-                        <Link to="/help" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Disclaimer Policy">Disclaimer</Link> <span className="text-gray-600">|</span>
-                        <Link to="/help" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Copyright Guidelines">Copyright Policy</Link> <span className="text-gray-600">|</span>
-                        <Link to="/help" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="External Hyperlink Policies">Hyperlink Policy</Link> <span className="text-gray-600">|</span>
-                        <Link to="/help" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Submit Feedback to Webmaster">Feedback</Link> <span className="text-gray-600">|</span>
-                        <Link to="/help" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Portal Terms and Conditions">Terms & Conditions</Link> <span className="text-gray-600">|</span>
-                        <Link to="/help" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Strict Privacy Directives">Privacy Policy</Link> <span className="text-gray-600">|</span>
-                        <Link to="/help" className="hover:text-white transition px-2 focus:outline-none focus:underline" aria-label="Cybersecurity Protocol Statement">Security Policy</Link>
+                    <div className="flex flex-wrap justify-center items-center text-xs text-gray-400 gap-x-1 gap-y-1">
+                        <Link to="/" className="hover:text-white transition p-3 min-h-[44px] flex items-center rounded focus-visible:ring-2 focus-visible:ring-accent-saffron">About Us</Link> <span className="text-gray-600 hidden sm:inline">|</span>
+                        <Link to="/help" className="hover:text-white transition p-3 min-h-[44px] flex items-center rounded focus-visible:ring-2 focus-visible:ring-accent-saffron">Help</Link> <span className="text-gray-600 hidden sm:inline">|</span>
+                        <a href="https://voters.eci.gov.in/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition p-3 min-h-[44px] flex items-center rounded focus-visible:ring-2 focus-visible:ring-accent-saffron font-bold text-accent-saffron">Voter Services Portal <i className="fa-solid fa-external-link-alt text-[10px] ml-1.5"></i></a> <span className="text-gray-600 hidden sm:inline">|</span>
+                        <Link to="/vote" className="hover:text-white transition p-3 min-h-[44px] flex items-center rounded focus-visible:ring-2 focus-visible:ring-accent-saffron font-bold text-accent-saffron">Cast Vote Online</Link> <span className="text-gray-600 hidden sm:inline">|</span>
+                        <Link to="/technology" className="hover:text-white transition p-3 min-h-[44px] flex items-center rounded focus-visible:ring-2 focus-visible:ring-accent-saffron font-bold text-accent-saffron">Technology</Link> <span className="text-gray-600 hidden sm:inline">|</span>
+                        <Link to="/verify" className="hover:text-white transition p-3 min-h-[44px] flex items-center rounded focus-visible:ring-2 focus-visible:ring-accent-saffron font-bold text-accent-saffron">Verify Vote</Link> <span className="text-gray-600 hidden sm:inline">|</span>
+                        <Link to="/help" className="hover:text-white transition p-3 min-h-[44px] flex items-center rounded focus-visible:ring-2 focus-visible:ring-accent-saffron focus:outline-none focus:underline" aria-label="Disclaimer Policy">Disclaimer</Link> <span className="text-gray-600 hidden sm:inline">|</span>
+                        <Link to="/help" className="hover:text-white transition p-3 min-h-[44px] flex items-center rounded focus-visible:ring-2 focus-visible:ring-accent-saffron focus:outline-none focus:underline" aria-label="Copyright Guidelines">Copyright Policy</Link> <span className="text-gray-600 hidden sm:inline">|</span>
+                        <Link to="/help" className="hover:text-white transition p-3 min-h-[44px] flex items-center rounded focus-visible:ring-2 focus-visible:ring-accent-saffron focus:outline-none focus:underline" aria-label="External Hyperlink Policies">Hyperlink Policy</Link> <span className="text-gray-600 hidden sm:inline">|</span>
+                        <Link to="/help" className="hover:text-white transition p-3 min-h-[44px] flex items-center rounded focus-visible:ring-2 focus-visible:ring-accent-saffron focus:outline-none focus:underline" aria-label="Submit Feedback to Webmaster">Feedback</Link> <span className="text-gray-600 hidden sm:inline">|</span>
+                        <Link to="/help" className="hover:text-white transition p-3 min-h-[44px] flex items-center rounded focus-visible:ring-2 focus-visible:ring-accent-saffron focus:outline-none focus:underline" aria-label="Portal Terms and Conditions">Terms & Conditions</Link> <span className="text-gray-600 hidden sm:inline">|</span>
+                        <Link to="/help" className="hover:text-white transition p-3 min-h-[44px] flex items-center rounded focus-visible:ring-2 focus-visible:ring-accent-saffron focus:outline-none focus:underline" aria-label="Strict Privacy Directives">Privacy Policy</Link> <span className="text-gray-600 hidden sm:inline">|</span>
+                        <Link to="/help" className="hover:text-white transition p-3 min-h-[44px] flex items-center rounded focus-visible:ring-2 focus-visible:ring-accent-saffron focus:outline-none focus:underline" aria-label="Cybersecurity Protocol Statement">Security Policy</Link>
                     </div>
                 </div>
             </div>

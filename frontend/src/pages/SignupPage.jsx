@@ -209,7 +209,7 @@ function SignupPage() {
 
                 {/* Error Banner */}
                 {error && (
-                    <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 animate-shake">
+                    <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 animate-shake" role="alert" aria-live="assertive">
                         <i className="fa-solid fa-circle-exclamation text-red-500 mt-0.5"></i>
                         <p className="text-sm text-red-700 font-medium">{error}</p>
                     </div>
@@ -226,44 +226,51 @@ function SignupPage() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Full Name (as on EPIC) <span className="text-red-500">*</span></label>
+                                <label htmlFor="signup-fullname" className="block text-sm font-semibold text-gray-700 mb-1">Full Name (as on EPIC) <span className="text-red-500">*</span></label>
                                 <input
+                                    id="signup-fullname"
                                     type="text"
                                     value={form.fullname}
                                     onChange={(e) => updateField('fullname', e.target.value)}
                                     className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm"
                                     placeholder="Enter your full name"
                                     autoFocus
+                                    aria-required="true"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Email Address <span className="text-red-500">*</span></label>
+                                <label htmlFor="signup-email" className="block text-sm font-semibold text-gray-700 mb-1">Email Address <span className="text-red-500">*</span></label>
                                 <input
+                                    id="signup-email"
                                     type="email"
                                     value={form.email}
                                     onChange={(e) => updateField('email', e.target.value)}
                                     className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm"
                                     placeholder="voter@example.com"
+                                    aria-required="true"
                                 />
                                 <p className="text-xs text-gray-400 mt-1"><i className="fa-solid fa-info-circle mr-1"></i>Must match your admin-approved email</p>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Voter ID (EPIC Number) <span className="text-red-500">*</span></label>
+                                <label htmlFor="signup-voterid" className="block text-sm font-semibold text-gray-700 mb-1">Voter ID (EPIC Number) <span className="text-red-500">*</span></label>
                                 <input
+                                    id="signup-voterid"
                                     type="text"
                                     value={form.voter_id}
                                     onChange={(e) => updateField('voter_id', e.target.value.toUpperCase())}
                                     className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm font-mono tracking-wider"
                                     placeholder="ABC1234567"
                                     maxLength={10}
+                                    aria-required="true"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Aadhaar Number</label>
+                                <label htmlFor="signup-aadhaar" className="block text-sm font-semibold text-gray-700 mb-1">Aadhaar Number</label>
                                 <input
+                                    id="signup-aadhaar"
                                     type="text"
                                     value={form.aadhaar_number}
                                     onChange={(e) => {
@@ -288,8 +295,9 @@ function SignupPage() {
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Father's Name</label>
+                                    <label htmlFor="signup-fathername" className="block text-sm font-semibold text-gray-700 mb-1">Father's Name</label>
                                     <input
+                                        id="signup-fathername"
                                         type="text"
                                         value={form.father_name}
                                         onChange={(e) => updateField('father_name', e.target.value)}
@@ -299,8 +307,9 @@ function SignupPage() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Gender</label>
+                                    <label htmlFor="signup-gender" className="block text-sm font-semibold text-gray-700 mb-1">Gender</label>
                                     <select
+                                        id="signup-gender"
                                         value={form.gender}
                                         onChange={(e) => updateField('gender', e.target.value)}
                                         className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm bg-white"
@@ -315,8 +324,9 @@ function SignupPage() {
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Date of Birth</label>
+                                    <label htmlFor="signup-dob" className="block text-sm font-semibold text-gray-700 mb-1">Date of Birth</label>
                                     <input
+                                        id="signup-dob"
                                         type="date"
                                         value={form.dob}
                                         onChange={(e) => updateField('dob', e.target.value)}
@@ -326,8 +336,9 @@ function SignupPage() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Mobile Number</label>
+                                    <label htmlFor="signup-mobile" className="block text-sm font-semibold text-gray-700 mb-1">Mobile Number</label>
                                     <input
+                                        id="signup-mobile"
                                         type="tel"
                                         value={form.mobile_number}
                                         onChange={(e) => updateField('mobile_number', e.target.value.replace(/\D/g, '').slice(0, 10))}
@@ -340,8 +351,9 @@ function SignupPage() {
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">State</label>
+                                    <label htmlFor="signup-state" className="block text-sm font-semibold text-gray-700 mb-1">State</label>
                                     <select
+                                        id="signup-state"
                                         value={form.state_code}
                                         onChange={(e) => updateField('state_code', e.target.value)}
                                         className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm bg-white"
@@ -354,8 +366,9 @@ function SignupPage() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Constituency Code</label>
+                                    <label htmlFor="signup-constituency" className="block text-sm font-semibold text-gray-700 mb-1">Constituency Code</label>
                                     <input
+                                        id="signup-constituency"
                                         type="number"
                                         value={form.constituency_code}
                                         onChange={(e) => updateField('constituency_code', e.target.value)}
@@ -367,8 +380,9 @@ function SignupPage() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Address</label>
+                                <label htmlFor="signup-address" className="block text-sm font-semibold text-gray-700 mb-1">Address</label>
                                 <textarea
+                                    id="signup-address"
                                     value={form.address}
                                     onChange={(e) => updateField('address', e.target.value)}
                                     className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm resize-none"
@@ -392,8 +406,9 @@ function SignupPage() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Create Password <span className="text-red-500">*</span></label>
+                                <label htmlFor="signup-password" className="block text-sm font-semibold text-gray-700 mb-1">Create Password <span className="text-red-500">*</span></label>
                                 <input
+                                    id="signup-password"
                                     type="password"
                                     value={form.password}
                                     onChange={(e) => updateField('password', e.target.value)}
@@ -403,11 +418,13 @@ function SignupPage() {
                                     className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm"
                                     placeholder="Min 8 chars, mixed case + number"
                                     autoComplete="new-password"
+                                    aria-required="true"
+                                    aria-describedby="password-strength"
                                 />
                                 {/* Password strength bar */}
                                 {form.password && (
-                                    <div className="mt-2">
-                                        <div className="flex gap-1 mb-1">
+                                    <div id="password-strength" className="mt-2" aria-label={`Password strength: ${strength.label}`}>
+                                        <div className="flex gap-1 mb-1" aria-hidden="true">
                                             {[1,2,3,4,5,6].map(i => (
                                                 <div key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i <= strength.score ? strength.color : 'bg-gray-200'}`} />
                                             ))}
@@ -421,20 +438,22 @@ function SignupPage() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Confirm Password <span className="text-red-500">*</span></label>
+                                <label htmlFor="signup-confirm-password" className="block text-sm font-semibold text-gray-700 mb-1">Confirm Password <span className="text-red-500">*</span></label>
                                 <input
+                                    id="signup-confirm-password"
                                     type="password"
                                     value={form.confirmPassword}
                                     onChange={(e) => updateField('confirmPassword', e.target.value)}
                                     className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm"
                                     placeholder="Re-enter password"
                                     autoComplete="new-password"
+                                    aria-required="true"
                                 />
                                 {form.confirmPassword && form.password !== form.confirmPassword && (
-                                    <p className="text-xs text-red-500 mt-1 font-medium"><i className="fa-solid fa-times-circle mr-1"></i>Passwords do not match</p>
+                                    <p className="text-xs text-red-500 mt-1 font-medium" role="alert"><i className="fa-solid fa-times-circle mr-1"></i>Passwords do not match</p>
                                 )}
                                 {form.confirmPassword && form.password === form.confirmPassword && (
-                                    <p className="text-xs text-green-600 mt-1 font-medium"><i className="fa-solid fa-check-circle mr-1"></i>Passwords match</p>
+                                    <p className="text-xs text-green-600 mt-1 font-medium" role="status"><i className="fa-solid fa-check-circle mr-1"></i>Passwords match</p>
                                 )}
                             </div>
 

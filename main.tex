@@ -1,0 +1,2513 @@
+%=============================================================
+% BLACK BOOK PROJECT REPORT - Bharat E-Vote
+% An E-Voting System Utilizing Multi Layered Security
+% with Blockchain Integration
+% Department of Computer Engineering
+% PES Modern College of Engineering, Pune
+% Savitribai Phule Pune University, 2025-26
+%=============================================================
+
+\documentclass[oneside,a4paper,12pt]{book}
+
+% ===== FONT =====
+\usepackage{mathptmx}
+\usepackage{newtxtext,newtxmath}
+
+% ===== PACKAGES =====
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{array}
+\usepackage[table]{xcolor}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{subcaption}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{titlesec}
+\usepackage{titletoc}
+\usepackage{afterpage}
+\usepackage{fancyhdr}
+\usepackage[titletoc]{appendix}
+\usepackage[nottoc,notlot,notlof,numbib]{tocbibind}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{placeins}
+\usepackage{needspace}
+\usepackage{ragged2e}
+\usepackage{geometry}
+
+% ===== CAPTION POSITIONING =====
+\captionsetup[table]{position=below, skip=6pt}
+\captionsetup[figure]{position=below, skip=6pt}
+
+% ===== CUSTOM FIGURE COMMAND =====
+% Usage: \projectfigure{filename}{caption}{label}{width}
+% Place all images in an 'images/' folder next to main.tex
+% Example: \projectfigure{architecture_diagram.jpeg}{System Architecture Diagram}{fig:arch}{0.95}
+%
+% === PRODUCTION MODE (active --- using actual images) ===
+\newcommand{\projectfigure}[4]{%
+  \begin{figure}[htbp]
+    \centering
+    \includegraphics[width=#4\textwidth, keepaspectratio]{images/#1}
+    \caption{#2}
+    \label{#3}
+  \end{figure}
+}
+%
+% === PLACEHOLDER MODE (uncomment if images are missing) ===
+% \newcommand{\projectfigure}[4]{%
+%   \begin{figure}[H]
+%     \centering
+%     \fbox{\parbox{#4\textwidth}{\centering\vspace{3cm}\textit{#2}\\[5pt]\small\texttt{images/#1}\vspace{3cm}}}
+%     \caption{#2}
+%     \label{#3}
+%   \end{figure}
+% }
+
+\geometry{
+  a4paper,
+  left=30mm,
+  right=25mm,
+  top=25mm,
+  bottom=25mm
+}
+
+% ===== PREVENT TEXT OVERFLOW =====
+\emergencystretch=3em
+% ===== SOLIDITY LANGUAGE DEFINITION =====
+\lstdefinelanguage{Solidity}{
+  keywords={pragma, solidity, contract, is, function, public, internal, view, returns, require, emit, event, struct, mapping, address, bool, uint256, uint8, uint16, bytes32, string, memory, indexed, constant, true, false, if, else, return, import, modifier, constructor},
+  keywordstyle=\color{blue}\bfseries,
+  ndkeywords={SPDX-License-Identifier},
+  ndkeywordstyle=\color{gray}\bfseries,
+  sensitive=true,
+  comment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  commentstyle=\color{green!60!black},
+  stringstyle=\color{red!70!black},
+  morestring=[b]",
+  morestring=[b]'
+}
+
+% ===== CODE LISTING STYLE =====
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue}\bfseries,
+  commentstyle=\color{green!60!black},
+  stringstyle=\color{red!70!black},
+  showstringspaces=false,
+  tabsize=2,
+  language=Solidity
+}
+
+\renewcommand{\appendixname}{Annexure}
+\renewcommand{\bibname}{References}
+\setcounter{secnumdepth}{3}
+
+% ===== HEADER / FOOTER =====
+\setlength{\headheight}{14pt}
+\setlength{\headsep}{8pt}
+\footskip=30pt
+
+\fancypagestyle{mystyle}{
+    \fancyhf{}
+    \fancyhead[L]{\footnotesize\textbf{PESMCOE}}
+    \fancyhead[R]{\footnotesize An E-Voting System with Blockchain Integration}
+    \fancyfoot[L]{\footnotesize Dept.\ of Computer Engg.}
+    \fancyfoot[C]{\footnotesize 2025--26}
+    \fancyfoot[R]{\footnotesize \thepage}
+    \renewcommand{\headrulewidth}{0.5pt}
+    \renewcommand{\footrulewidth}{0.5pt}
+}
+
+% ===== CHAPTER TITLE STYLE =====
+\titleformat{\chapter}[display]
+{\fontsize{16}{15}\filcenter}
+{\vspace*{\fill}
+ \bfseries\LARGE\MakeUppercase{\chaptertitlename}~\thechapter}
+{1pc}
+{\bfseries\LARGE\MakeUppercase}
+[\thispagestyle{empty}\vspace*{\fill}\newpage]
+
+% ===== CHAPTER* TITLE STYLE (for TOC/LOF/LOT --- no page break) =====
+\titleformat{name=\chapter,numberless}[block]
+{\centering\bfseries\fontsize{16}{18}\selectfont}
+{}
+{0pt}
+{\MakeUppercase}
+
+% ===== HYPERREF SETUP =====
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=black,
+  urlcolor=blue
+}
+
+\begin{document}
+\setlength{\parindent}{0mm}
+
+% ===========================================================
+%              FRONT PAGES (NO HEADER / FOOTER)
+% ===========================================================
+\pagestyle{empty}
+\pagenumbering{gobble}
+
+% -------------------- TITLE PAGE --------------------
+\begin{center}
+{A PROJECT REPORT ON \\}
+\vspace*{2\baselineskip}
+
+{\bfseries \fontsize{16}{18}\selectfont An E-Voting System Utilizing Multi Layered Security \\ with Blockchain Integration \\ \vspace*{2\baselineskip}}
+
+{\fontsize{12}{14}\selectfont
+SUBMITTED TO THE SAVITRIBAI PHULE PUNE UNIVERSITY, PUNE \\
+IN THE PARTIAL FULFILLMENT OF THE REQUIREMENTS \\
+FOR THE AWARD OF THE DEGREE \\
+\vspace*{2\baselineskip}
+}
+
+{\bfseries \fontsize{14}{16}\selectfont
+BACHELOR OF ENGINEERING\\
+(Computer Engineering) \\
+\vspace*{1\baselineskip}
+}
+
+{\bfseries \fontsize{14}{16}\selectfont BY \\ \vspace*{1\baselineskip}}
+
+\begin{tabular}{l @{\hspace{2cm}} l}
+Aditya Bhoir & B400310435 \\
+Omkar Ingle & B400310470 \\
+Aftab Pathan & B400310519 \\
+Aryan Shinde & B400310550 \\
+Abhishek Shinde & B400310897 \\
+\end{tabular}
+
+\vspace*{2\baselineskip}
+
+{\bfseries \fontsize{14}{16}\selectfont Under the guidance of \\ \vspace*{1\baselineskip}}
+
+Dr.\ B.\ D.\ Phulpagar\\[10mm]
+
+% === COLLEGE LOGO ===
+\vspace{1cm}
+\includegraphics[height=3cm, keepaspectratio]{images/MCOE_Logo.png}
+\\[6mm]
+
+\fontsize{12}{14}\selectfont
+\textbf{DEPARTMENT OF COMPUTER ENGINEERING}\\[3pt]
+\textbf{PES MODERN COLLEGE OF ENGINEERING}\\[3pt]
+SHIVAJINAGAR, PUNE -- 411005 \\[5mm]
+
+\fontsize{14}{16}\selectfont
+\textbf{SAVITRIBAI PHULE PUNE UNIVERSITY, PUNE}\\
+\textbf{2025--26}
+\end{center}
+
+\clearpage
+
+% -------------------- CERTIFICATE --------------------
+\begin{center}
+% === COLLEGE LOGO ===
+\vspace{0.5cm}
+\includegraphics[height=3cm, keepaspectratio]{images/MCOE_Logo.png}
+\vspace{0.5cm}
+\end{center}
+
+{\bfseries \fontsize{16}{18}\selectfont \centerline{CERTIFICATE}
+\vspace*{2\baselineskip}
+}
+
+\centerline{This is to certify that the Project Entitled}
+\vspace*{0.5\baselineskip}
+
+{\bfseries \fontsize{14}{16}\selectfont
+\begin{center}
+An E-Voting System Utilizing Multi Layered Security \\with Blockchain Integration
+\end{center}
+\vspace*{0.5\baselineskip}
+}
+
+\centerline{Submitted by}
+\vspace*{0.5\baselineskip}
+
+\begin{center}
+\begin{tabular}{l @{\hspace{2cm}} l}
+Aditya Bhoir & B400310435 \\
+Omkar Ingle & B400310470 \\
+Aftab Pathan & B400310519 \\
+Aryan Shinde & B400310550 \\
+Abhishek Shinde & B400310897 \\
+\end{tabular}
+\end{center}
+
+\vspace*{0.5\baselineskip}
+
+is a bonafide work carried out by them under the supervision of Dr.\ B.\ D.\ Phulpagar and it is approved for the partial fulfillment of the requirement of Savitribai Phule Pune University, Pune for the award of the degree of Bachelor of Engineering (Computer Engineering).\\
+
+\vspace*{4\baselineskip}
+
+\begin{tabular}{p{7cm} p{7cm}}
+\centering Dr.\ B.\ D.\ Phulpagar & \centering Prof.\ Dr.\ Mrs.\ S.\ A.\ Itkar \tabularnewline
+\centering Guide & \centering Head \tabularnewline
+\centering Department of Computer & \centering Department of Computer \tabularnewline
+\centering Engineering & \centering Engineering \tabularnewline
+\end{tabular}
+
+\vspace*{4\baselineskip}
+
+\begin{tabular}{p{7cm} p{7cm}}
+\centering Signature of Internal Examiner & \centering Signature of External Examiner \tabularnewline
+\end{tabular}
+
+\clearpage
+
+% -------------------- APPROVAL SHEET --------------------
+\begin{center}
+\textbf{A Project Report}\\[0.3cm]
+\textbf{On}\\[0.5cm]
+{\bfseries \fontsize{16}{18}\selectfont An E-Voting System Utilizing Multi Layered Security \\with Blockchain Integration}\\[0.8cm]
+is successfully completed by
+\end{center}
+
+\begin{center}
+\begin{tabular}{l @{\hspace{2cm}} l}
+Aditya Bhoir & B400310435 \\
+Omkar Ingle & B400310470 \\
+Aftab Pathan & B400310519 \\
+Aryan Shinde & B400310550 \\
+Abhishek Shinde & B400310897 \\
+\end{tabular}
+\end{center}
+
+\vspace*{0.5cm}
+\begin{center}
+at\\[0.3cm]
+DEPARTMENT OF COMPUTER ENGINEERING\\[0.2cm]
+PES MODERN COLLEGE OF ENGINEERING\\[0.2cm]
+SAVITRIBAI PHULE PUNE UNIVERSITY, PUNE\\[0.2cm]
+ACADEMIC YEAR 2025--2026
+\end{center}
+
+\vspace*{5\baselineskip}
+
+\begin{tabular}{p{7cm} p{7cm}}
+\centering Dr.\ B.\ D.\ Phulpagar & \centering Prof.\ Dr.\ Mrs.\ S.\ A.\ Itkar \tabularnewline
+\centering Guide & \centering Head \tabularnewline
+\centering Department of Computer & \centering Department of Computer \tabularnewline
+\centering Engineering & \centering Engineering \tabularnewline
+\end{tabular}
+
+\clearpage
+
+% -------------------- ACKNOWLEDGEMENT --------------------
+\addcontentsline{toc}{chapter}{Acknowledgement}
+\begin{center}
+{\bfseries \fontsize{16}{18}\selectfont ACKNOWLEDGEMENT}
+\end{center}
+\vspace{0.5cm}
+\thispagestyle{empty}
+
+This report documents the design, implementation, and evaluation of Bharat E-Vote --- a secure, decentralized electronic voting platform developed over eight months as our final-year Bachelor of Engineering project. We owe its completion to several individuals whose guidance shaped every phase of this work.
+
+\vspace{0.5cm}
+Firstly, we would like to express our sincere and heartfelt gratitude to our guide Dr.\ B.\ D.\ Phulpagar. His constant guidance, invaluable suggestions, and unwavering support played a pivotal role in the successful completion of this project. His deep expertise in the domain of distributed systems and information security was instrumental in shaping both the technical architecture and the academic rigor of this report.
+
+\vspace{0.3cm}
+We would like to extend our sincere thanks to Prof.\ Dr.\ Mrs.\ S.\ A.\ Itkar, Head of the Department of Computer Engineering, PES Modern College of Engineering, for her kind co-operation, encouragement, and the conducive academic environment she has fostered within the department.
+
+\vspace{0.3cm}
+We also wish to thank our Principal, Prof.\ Dr.\ Mrs.\ K.\ R.\ Joshi, and all faculty members for their wholehearted co-operation and support throughout the duration of this project. We are equally grateful to our laboratory assistants for their valuable help in setting up the development and testing environments.
+
+\vspace{0.3cm}
+Last but not least, the foundation of our confidence and perseverance lies in the blessings and unconditional support of our dear parents and friends, without whom this journey would not have been possible.
+
+\vspace{1cm}
+\begin{flushright}
+Aditya Bhoir\\
+Omkar Ingle\\
+Aftab Pathan\\
+Abhishek Shinde\\
+Aryan Shinde
+\end{flushright}
+
+\clearpage
+
+% -------------------- ABSTRACT --------------------
+\addcontentsline{toc}{chapter}{Abstract}
+\begin{center}
+{\bfseries \fontsize{16}{18}\selectfont ABSTRACT}
+\end{center}
+\vspace{0.5cm}
+\thispagestyle{empty}
+
+\setlength{\parindent}{11mm}
+
+Traditional electronic voting systems suffer from centralized points of failure, lack of transparency, and susceptibility to data tampering. This project presents Bharat E-Vote --- a secure, decentralized electronic voting platform that integrates Blockchain technology with a multi-layered security architecture to ensure tamper-proof, verifiable, and privacy-preserving elections.
+
+The system is built on Ethereum smart contracts written in Solidity for immutable vote recording and automated tallying. A Zero-Knowledge Proof (ZKP) module using Pedersen commitments and Schnorr-style proofs enables privacy-preserving ballot verification in ZKP mode. Security is enforced through multiple defence-in-depth layers including OTP-based Multi-Factor Authentication, keystroke dynamics behavioural biometrics, Cloudflare bot protection, distributed rate limiting, JWT session control, and security header enforcement. An ERC-2771 meta-transaction forwarder enables gasless voting for users without ETH balance.
+
+The backend uses Node.js, Express.js, and Prisma ORM over Supabase PostgreSQL. The frontend is built with React and Vite. The system was validated through 85 automated smart contract tests achieving a 100\% pass rate, and a STRIDE threat model analysis identified mitigation strategies for all six threat categories. Standard-mode voting provides practical ballot privacy through event obfuscation, while full cryptographic ballot secrecy is achieved in ZKP mode. The blockchain serves as the final trust boundary for vote integrity.
+
+\setlength{\parindent}{0mm}
+\clearpage
+
+% -------------------- KEYWORDS --------------------
+\addcontentsline{toc}{chapter}{Keywords}
+\begin{center}
+{\bfseries \fontsize{16}{18}\selectfont KEYWORDS}
+\end{center}
+\vspace{0.5cm}
+\thispagestyle{empty}
+
+Blockchain Technology, Ethereum Smart Contracts, Solidity, Zero-Knowledge Proofs (ZKP), Pedersen Commitments, Schnorr Proofs, Multi-Factor Authentication (MFA), Keystroke Dynamics, ERC-2771 Meta-Transactions, Decentralized Application (dApp), Defence-in-Depth Security, Ballot Privacy, Coercion Deterrence, IPFS, Prisma ORM, React, Node.js, Ethers.js, MetaMask
+
+\clearpage
+
+% -------------------- TOC / LOF / LOT --------------------
+\tableofcontents
+\thispagestyle{empty}
+\clearpage
+
+\listoffigures
+\thispagestyle{empty}
+\clearpage
+
+\listoftables
+\thispagestyle{empty}
+\clearpage
+
+% ===========================================================
+%                    MAIN MATTER
+% ===========================================================
+\setlength{\parindent}{11mm}
+\mainmatter
+\pagestyle{mystyle}
+
+%============================================================
+%                    CHAPTER 1: INTRODUCTION
+%============================================================
+\chapter{Introduction}
+
+\section{Overview}
+When our team began investigating electronic voting platforms for this project, we identified a recurring architectural weakness across existing systems: they all depend on a single trusted party to faithfully record, store, and count votes. Whether the system uses paper ballots managed by polling officers or a software-based EVM controlled by an election commission, the voter has no independent mechanism to verify that their individual ballot was included in the final tally without alteration. This reliance on institutional trust --- rather than mathematical proof --- is the core vulnerability that the Bharat E-Vote project was designed to reduce.
+
+Our analysis of publicly documented incidents revealed three categories of risk in conventional e-voting deployments. First, server-side databases that store vote records can be modified by anyone with administrative access, leaving no cryptographically verifiable audit trail. Second, the tallying logic executes within proprietary, closed-source software where the correctness of the counting algorithm cannot be independently verified by external auditors. Third, voter authentication in most systems relies on a single factor (password or physical ID), which is insufficient for high-stakes electoral processes where the cost of a single compromised credential is the injection of a fraudulent ballot.
+
+Bharat E-Vote addresses each of these weaknesses through a purpose-built architecture. Vote records are stored as immutable state transitions within a Solidity smart contract (\texttt{VotingV2.sol}) deployed on the Ethereum blockchain, where modification requires consensus from a majority of staked ETH under Proof-of-Stake --- making tampering economically infeasible. Tallying logic is implemented as deterministic, publicly auditable smart contract functions (\texttt{getAllCandidates()}, \texttt{getWinner()}) that any citizen can invoke and verify independently. Voter authentication is enforced through a multi-layered defence-in-depth model combining password verification, OTP-based MFA, keystroke dynamics behavioural biometrics, and wallet-based cryptographic identity. Additionally, a Zero-Knowledge Proof module built on Pedersen commitments and Schnorr-style proofs provides ballot secrecy in ZKP mode while enabling universal verifiability.
+
+\section{Motivation}
+The direct motivation for this project emerged from our team's observation that no existing open-source e-voting platform simultaneously satisfies three requirements that we consider non-negotiable for a credible digital election: (a) the voter must be able to confirm, without trusting any third party, that their ballot was counted correctly; (b) no entity --- including the system administrator --- should be able to determine which candidate a specific voter chose; and (c) the system must remain secure even if any single component (frontend, backend API, database, or network) is fully compromised.
+
+During our initial research phase, we examined India's Electronic Voting Machine (EVM) infrastructure, which serves an electorate of approximately 960 million registered voters across 1 million polling stations \cite{eci2024}. While EVMs have significantly reduced ballot-stuffing compared to paper systems, they operate as closed-source, centralized devices where the counting firmware cannot be publicly audited. Our team noted that regardless of whether specific EVM tampering allegations are technically valid, the inability of voters to independently verify results erodes public trust --- and trust erosion is itself a threat to democratic legitimacy.
+
+These observations crystallized into three design imperatives that guided every architectural decision in Bharat E-Vote:
+\begin{enumerate}[leftmargin=1.5cm]
+    \item \textbf{Trustless Verification:} Our system records every vote as an Ethereum blockchain transaction enforced by the \texttt{VotingV2.sol} smart contract. Because smart contract execution is deterministic and publicly replayable, any citizen with an Ethereum node can independently recompute the election results from the on-chain data --- without relying on any authority's declaration.
+    \item \textbf{Defence-in-Depth Security:} Rather than relying on a single authentication gate, Bharat E-Vote implements multiple sequential security layers (detailed in Table~\ref{tab:security_layers}). The design philosophy is that even if an attacker compromises outer layers (bypasses Cloudflare, rate limiting), the blockchain smart contract independently validates every vote against its own on-chain authorization records, serving as an independent final trust boundary.
+    \item \textbf{Privacy-Preserving Accountability:} Our ZKP module (\texttt{ZKPVoting.sol} + \texttt{zkpService.js}) resolves the inherent conflict between ballot secrecy and result verifiability. Using Pedersen commitments, the voter's candidate choice is cryptographically hidden inside a commitment value published on-chain. Using Schnorr proofs, the voter proves they committed to a valid candidate without revealing which one. This allows any auditor to verify that all commitments correspond to valid votes, while no one can determine individual ballot contents.
+\end{enumerate}
+
+\section{Problem Definition and Objectives}
+
+\subsection{Problem Definition}
+Existing electronic voting systems, including India's EVM infrastructure serving $\sim$960 million voters, operate as closed-source centralized devices where the counting process cannot be independently audited by the electorate \cite{eci2024}. This centralization creates three interdependent problems: (1) voters must trust institutional authorities to accurately count and report results, with no mechanism for independent verification; (2) centralized vote storage creates a single point of compromise where a successful attack can alter election outcomes at scale; and (3) the trade-off between ballot secrecy and result auditability remains unresolved --- systems that prioritize secrecy sacrifice verifiability, and vice versa. These problems collectively erode public confidence in electoral outcomes, regardless of whether specific tampering has occurred. Bharat E-Vote addresses this trust deficit by recording votes on a public blockchain, enabling any citizen to independently recompute results, while using cryptographic techniques to balance privacy and accountability.
+
+\subsection{Objectives}
+\begin{enumerate}[leftmargin=1.5cm]
+    \item To authenticate and verify voter identity through multi-factor authentication (OTP + password), keystroke dynamics behavioural biometrics, and wallet-based cryptographic identity via MetaMask.
+    \item To eliminate data tampering by recording all cast votes as immutable transactions on the Ethereum blockchain, where each vote is enforced through smart contract logic following the Checks-Effects-Interactions security pattern.
+    \item To preserve ballot privacy by implementing two complementary modes: (a) in standard mode, the \texttt{VoteCast} event emits an obfuscated hash rather than the raw candidate ID, providing practical privacy against casual observation; (b) in ZKP mode via \texttt{ZKPVoting.sol}, Pedersen commitments hide the vote choice while Schnorr-style proofs allow public verification of ballot validity without revealing the candidate selection. We acknowledge that standard-mode privacy is limited by the on-chain storage of \texttt{lastCandidateId} required for re-voting support.
+    \item To automate result computation through smart contract functions (\texttt{getAllCandidates()}, \texttt{getWinner()}, \texttt{getTotalVotes()}) that execute deterministically on-chain, ensuring 100\% accuracy without human intermediation.
+    \item To provide practical coercion deterrence through a re-voting mechanism that allows voters to change their vote up to three times during the election window --- with only the final vote counted. We note that this mechanism provides a practical deterrent against vote-buying rather than cryptographic coercion resistance, as the publicly incrementing \texttt{voteVersion} field allows an attentive coercer to detect that a re-vote occurred.
+    \item To notify voters and administrators through automated email alerts at key election milestones (24-hour reminder, voting started, 30-minute last call) using a background notification scheduler.
+\end{enumerate}
+
+\section{Project Scope and Limitations}
+
+\subsection{Scope}
+The Bharat E-Vote platform is designed for deployment in institutional and organizational settings where a defined electorate can be pre-registered and authenticated. Target deployment environments include:
+\begin{itemize}[leftmargin=1.5cm]
+    \item \textbf{Corporate Organizations} --- Board elections, shareholder voting, internal policy referendums
+    \item \textbf{Educational Institutions} --- Student council elections, departmental elections, faculty senate votes
+    \item \textbf{Housing Societies and Cooperatives} --- Committee elections, annual general body resolutions
+    \item \textbf{Government Pilot Programs} --- Municipal ward-level digital voting pilots
+\end{itemize}
+
+\vspace{0.3cm}
+The system provides the following capabilities within its scope:
+
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{|p{4cm}|X|}
+\hline
+\textbf{Capability} & \textbf{Description} \\
+\hline
+Voter Registration \& Whitelisting & Admin-managed approved voter list with Aadhaar validation \\
+\hline
+Multi-Factor Authentication & Password + OTP + keystroke dynamics \\
+\hline
+Blockchain Vote Recording & Immutable on-chain storage via Ethereum smart contracts \\
+\hline
+ZKP Privacy Mode & Pedersen commitments + Schnorr proofs for anonymous voting \\
+\hline
+Constituency-Based Ballots & State and constituency code filtering for candidates \\
+\hline
+Coercion-Deterrent Re-Voting & Up to 3 re-votes allowed; only the last vote counts. Provides practical deterrence rather than cryptographic coercion resistance \\
+\hline
+Gasless Meta-Transactions & ERC-2771 forwarder enables voting without ETH balance \\
+\hline
+Real-Time Results & Live vote counts read directly from blockchain \\
+\hline
+Admin Dashboard & Election lifecycle control, audit logs, voter management \\
+\hline
+Automated Notifications & Email reminders at 24h, voting start, and 30-minute last call \\
+\hline
+\end{tabularx}
+\caption{Project Scope --- System Capabilities}
+\label{tab:scope}
+\end{table}
+
+\subsection{Limitations}
+\begin{enumerate}[leftmargin=1.5cm]
+    \item The system currently operates on the Ethereum Sepolia testnet; mainnet deployment would require gas cost optimization and potentially Layer-2 scaling solutions.
+    \item Aadhaar biometric authentication is simulated; production deployment would require integration with the UIDAI API through an authorized Authentication Service Agency (ASA).
+    \item The ZKP implementation uses a semi-trusted setup where the admin registers identity commitments; a fully trustless Merkle-tree-based whitelist is proposed as future work.
+    \item The frontend runs in a standard browser environment; hardware wallet integration (Trezor/Ledger) for ZKP proof generation is identified as a future enhancement.
+    \item \textbf{MetaMask Dependency:} The system requires the MetaMask browser extension for vote casting, which imposes significant barriers for the stated target electorate. Voters must install the extension, create and secure a wallet seed phrase, and understand basic cryptocurrency wallet concepts. While the ERC-2771 gasless voting mechanism removes the ETH balance requirement, it does not remove the MetaMask installation and wallet literacy requirement. This effectively limits the current system to technology-literate user populations. Alternative approaches (e.g., custodial wallet abstraction, WebAuthn-based signing) are identified as future work.
+    \item \textbf{Standard-Mode Ballot Privacy:} In standard mode (\texttt{VotingV2.sol}), the \texttt{lastCandidateId} field is stored on-chain and publicly readable. Full cryptographic ballot secrecy is only achieved in ZKP mode via \texttt{ZKPVoting.sol}.
+    \item \textbf{Coercion Resistance:} The re-voting mechanism provides practical deterrence but not formal cryptographic coercion resistance. The \texttt{voteVersion} increment is publicly visible, allowing a monitoring coercer to detect that a re-vote occurred.
+\end{enumerate}
+
+%============================================================
+%                 CHAPTER 2: LITERATURE SURVEY
+%============================================================
+\chapter{Literature Survey}
+
+\section{Literature Survey Summary}
+
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{3pt}
+\small
+\begin{tabularx}{\textwidth}{|c|p{3.0cm}|p{3cm}|p{2.8cm}|X|}
+\hline
+\textbf{No.} & \textbf{Title} & \textbf{Authors \& Source (Year)} & \textbf{Technique Used} & \textbf{Key Remarks} \\
+\hline
+1 & E-Voting with Blockchain: Decentralisation and Voter Privacy & Hardwick F.S.\ et al., IEEE BCCA (2018) & Ethereum, Blinded Tokens & Proposes decentralized voting with voter privacy via blinded tokens; limited to small-scale proof-of-concept \\
+\hline
+2 & Multi-Factor Authentication: A Survey & Ometov A.\ et al., Cryptography (2018) & Biometric + OTP + Token & Comprehensive survey of MFA factors; identifies usability-security trade-offs in layered authentication \\
+\hline
+3 & CrossBehaAuth: Cross-Scenario Keystroke Dynamics & Ayotte B.\ et al., IEEE TDSC (2023) & Deep Neural Networks & Addresses cross-scenario behavioural biometrics with selective temporal encoding; achieves $\sim$93\% accuracy \\
+\hline
+4 & Blockchain-Based E-Voting System & Hj{\'a}lmarsson et al., IEEE CLOUD (2018) & Solidity Smart Contracts & Implements voting on Ethereum with emphasis on auditability; does not address ballot privacy \\
+\hline
+5 & Temper Proof Data Distribution for Electoral Process & Shaheen S.H.\ et al., IEEE Access (2022) & Blockchain, Verifiability & Universal verifiability framework for electoral data integrity using distributed consensus \\
+\hline
+6 & Secure Voting Using Zero-Knowledge Proofs & Miao Y., Applied Comp.\ Eng.\ (2023) & ZKP + Blockchain & Applies Pedersen commitments and Schnorr proofs to ballot privacy; limited experimental validation \\
+\hline
+7 & Helios: Web-based Open-Audit Voting & Adida B., USENIX Security (2008) & Homomorphic Encryption & Foundational open-audit system; provides voter verifiability but not coercion resistance \\
+\hline
+\end{tabularx}
+\caption{Literature Survey Summary}
+\label{tab:lit_survey}
+\end{table}
+
+\section{E-Voting with Blockchain: Decentralisation and Voter Privacy}
+\textbf{Authors:} Hardwick F.S., Gioulis A., Akram R.N., Markantonakis K. \cite{hardwick2018}
+
+Hardwick et al.\ propose an Ethereum-based voting protocol that uses blinded tokens to separate voter identity from ballot content, achieving a degree of voter privacy. Their system stores each ballot as a blockchain transaction, inheriting the immutability and transparency properties of the Ethereum ledger. The authors identify three practical barriers: gas cost volatility on public networks, the cold-start problem of deploying election-specific infrastructure, and Sybil resistance through binding voter identities to unique Ethereum addresses. Their experimental evaluation is limited to a proof-of-concept with 10 simulated voters, which does not demonstrate scalability.
+
+\textbf{Limitations and Relevance to Bharat E-Vote:} Hardwick et al.'s blinded token mechanism requires a trusted token issuer, introducing a centralized trust dependency that undermines the decentralization objective. Their system also lacks multi-factor authentication --- relying solely on wallet-based identity. Bharat E-Vote extends this work by implementing multi-layered authentication (password, OTP, keystroke dynamics) alongside wallet-based identity, reducing single-point-of-failure risk in voter verification. However, Bharat E-Vote shares the same fundamental gas cost dependency on public Ethereum, which we mitigate through the ERC-2771 meta-transaction forwarder.
+
+\section{Multi-Factor Authentication: A Survey}
+\textbf{Authors:} Ometov A., Bezzateev S., M{\"a}kitalo N., Andreev S., Mikkonen T., Koucheryavy Y. \cite{ometov2018}
+
+Ometov et al.\ survey multi-factor authentication methods spanning knowledge, possession, and inherence factors, but their analysis draws primarily from enterprise and mobile banking deployments rather than election-specific use cases, where the adversarial model and user tolerance for friction differ substantially \cite{ometov2018}. Their headline claim --- that combining three authentication factors reduces unauthorized access probability by approximately two orders of magnitude --- is presented without specifying the threat model or attacker capability assumed. Nonetheless, their taxonomy of factor categories and identification of the usability-security trade-off remain the most comprehensive framework available and directly informed our decision to combine password, OTP, and keystroke dynamics in Bharat E-Vote.
+
+\textbf{Limitations and Relevance to Bharat E-Vote:} Ometov et al.'s analysis of inherence factors focuses predominantly on physical biometrics (fingerprint scanners, cameras), which require specialized hardware not available on standard voter devices. Bharat E-Vote replaces physical biometrics with keystroke dynamics --- a software-only behavioural biometric captured through the standard keyboard, requiring zero additional hardware. We acknowledge the usability-security trade-off identified in this survey: our multi-step MFA flow increases login friction, which is a deliberate design choice prioritizing election integrity over convenience.
+
+\section{CrossBehaAuth: Cross-Scenario Behavioural Biometrics}
+\textbf{Authors:} Ayotte B., Bhatt S., Bhatt G. \cite{ayotte2023}
+
+Ayotte et al.\ address a key challenge in keystroke dynamics authentication: performance degradation when the authentication scenario differs from the enrollment scenario (e.g., different keyboards or environments). Their CrossBehaAuth system uses a deep neural network with selective temporal encoding to achieve approximately 93\% true positive rate with 2.8\% false positives across cross-scenario evaluations. The paper validates that individual typing rhythms are statistically distinguishable even under varying conditions.
+
+\textbf{Limitations and Relevance to Bharat E-Vote:} Ayotte et al.'s system requires substantial training data across scenarios for reliable performance. Our \texttt{KeystrokeDynamics.jsx} component uses a simpler statistical model (mean and standard deviation of flight times) rather than deep learning, which provides faster enrollment but lower cross-scenario robustness. This is a deliberate scope limitation: our system targets institutional elections where voters use consistent devices, reducing the cross-scenario variance that Ayotte et al.\ address. The 92\% accuracy achieved by our statistical approach is compensated by the remaining security layers in our defence-in-depth model.
+
+\section{Blockchain-Based E-Voting System}
+\textbf{Authors:} Hjalmarsson F., Hredharsson G.K., Hamdaqa M., Hjalmtysson G. \cite{hjalmarsson2018}
+
+Hjalmarsson et al.\ demonstrate a Solidity-based voting contract but evaluate it only on a local Ganache test network with four simulated voters --- a deployment scale that leaves open the question of whether their gas cost analysis (approximately 100,000 gas per vote) holds under real network congestion \cite{hjalmarsson2018}. Their three-phase lifecycle model (registration, voting, completed) uses \texttt{require()} state guards effectively, but the paper does not address the fundamental privacy failure of storing the voted candidate ID directly in the voter struct, which means any Etherscan user can trivially correlate voter addresses to ballot choices. This privacy gap was the primary motivation for our ZKP extension.
+
+\textbf{Limitations and Relevance to Bharat E-Vote:} Bharat E-Vote's \texttt{VotingV2.sol} extends their lifecycle model with: (a) a re-voting mechanism (\texttt{MAX\_REVOTES = 3}) for practical coercion deterrence, (b) on-chain constituency matching for electoral district filtering, and (c) ERC-2771 meta-transaction support for gasless voting. We acknowledge that our standard-mode implementation also stores \texttt{lastCandidateId} on-chain for the re-voting mechanism --- full ballot secrecy is only achieved in ZKP mode via \texttt{ZKPVoting.sol}.
+
+\section{Temper Proof Data Distribution for Electoral Process}
+\textbf{Authors:} Shaheen S.H., Yousaf M., Jalil M. \cite{shaheen2022}
+
+Shaheen et al.\ claim universal verifiability through blockchain-based data distribution, but their experimental validation consists of throughput measurements on a private Ethereum network, which does not replicate the latency variability and gas competition of public networks \cite{shaheen2022}. Their reported throughput estimate of 15--30 transactions per second on Ethereum's base layer is consistent with public benchmarks, but the paper does not address how verification latency scales with the number of auditors querying the chain simultaneously. Despite these methodological limitations, their throughput analysis directly informed our decision to target institutional-scale elections (100--10,000 voters) and to design the smart contracts for future Layer-2 migration.
+
+\textbf{Relevance to Bharat E-Vote:} Shaheen et al.'s throughput analysis directly informed our deployment strategy. Bharat E-Vote currently targets institutional elections (100--10,000 voters), where Ethereum's base throughput is sufficient. Our smart contracts inherit from OpenZeppelin's \texttt{ERC2771Context} rather than Ethereum-specific logic, enabling deployment on Layer-2 networks like Polygon zkEVM without modification. This migration path is documented in Future Scope (Section 9.2).
+
+\section{Secure and Privacy-Preserving Voting Using Zero-Knowledge Proofs}
+\textbf{Authors:} Miao Y. \cite{miao2023}
+
+Miao presents a voting protocol combining Pedersen commitments for ballot hiding with Schnorr-style sigma proofs for ballot validity verification. The commitment scheme uses two generators over a prime-order group, and the Fiat-Shamir heuristic transforms the interactive sigma protocol into a non-interactive proof suitable for blockchain submission. The paper provides a theoretical analysis of hiding and binding properties but limited experimental validation --- only 5 simulated voters, with no gas cost measurements or cross-browser benchmarks.
+
+\textbf{Limitations and Relevance to Bharat E-Vote:} Our \texttt{ZKPVoting.sol} implements the same foundational protocol (Pedersen commitments + sigma proofs) but extends it with: (a) deterministic nullifiers for double-vote prevention, (b) admin-registered identity commitments for voter eligibility, and (c) optional IPFS metadata storage. We note that our implementation uses modular exponentiation over $\mathbb{Z}_p^*$ with secp256k1-derived parameters as a proof-of-concept simplification --- a production system would use native elliptic curve point operations for stronger security guarantees (see Section 4.3.1).
+
+\section{Helios: Web-based Open-Audit Voting}
+\textbf{Authors:} Adida B. \cite{adida2008}
+
+Adida's Helios is the foundational work in web-based verifiable voting. It uses homomorphic encryption (ElGamal) to allow votes to be tallied without decrypting individual ballots. Helios provides two key properties: (a) \textbf{voter verifiability} --- each voter can verify their encrypted ballot was included in the tally, and (b) \textbf{universal verifiability} --- any auditor can verify the correctness of the final tally by re-executing the homomorphic decryption. Helios has been deployed in real elections, including student government elections at universities.
+
+\textbf{Limitations and Relevance to Bharat E-Vote:} Helios relies on a centralized bulletin board and a trusted tallying authority for final decryption, which Adida acknowledges as a trust assumption. The system provides a degree of receipt-freeness through its protocol design, though Adida notes this is not formally proven against all coercion models. Bharat E-Vote replaces homomorphic encryption with Pedersen commitments (computationally lighter for browser-based use) and replaces the centralized bulletin board with the Ethereum blockchain. For coercion deterrence, our re-voting mechanism provides practical (though not cryptographic) resistance by allowing voters to change their vote. We acknowledge that this is weaker than formal receipt-freeness --- the publicly incrementing \texttt{voteVersion} field allows a monitoring coercer to detect that a re-vote occurred, though not the specific candidate change.
+
+%============================================================
+%        CHAPTER 3: SOFTWARE REQUIREMENTS SPECIFICATION
+%============================================================
+\chapter{Software Requirements Specification}
+
+The Software Requirements Specification (SRS) document defines the complete set of functional and non-functional requirements for the Bharat E-Vote system. This specification serves as a contractual agreement between the development team and the project stakeholders, providing a baseline against which the final deliverable is validated. All requirements documented herein are derived from the project objectives defined in Chapter 1, the literature survey findings in Chapter 2, and iterative discussions with the project guide.
+
+\section{Assumptions and Dependencies}
+
+The following assumptions underpin the design and development of the Bharat E-Vote system. If any of these assumptions are invalidated during deployment, the corresponding system behaviour may require re-evaluation.
+
+\begin{enumerate}[leftmargin=1.5cm]
+    \item \textbf{Organizational Data Readiness:} It is assumed that the deploying organization maintains an accurate and up-to-date database of all eligible voters. This database must include, at minimum, the voter's full name, email address, and a unique identifier (Voter ID). The system relies on the \texttt{ApprovedVoter} whitelist table --- populated by the administrator --- as the authoritative source of voter eligibility.
+
+    \item \textbf{Administrative Supervision:} The system assumes the presence of a dedicated System Administrator who holds the Ethereum admin wallet (the address that deployed the smart contracts). This administrator is responsible for managing voter eligibility lists, creating elections, adding candidates, and controlling the election lifecycle (start/end voting). The administrator possesses operational control but cannot alter individual votes due to the immutability of blockchain transactions.
+
+    \item \textbf{Infrastructure Availability:} The system requires stable internet connectivity for all users during the voting period. The backend API server (Node.js/Express), the PostgreSQL database (Supabase), the Redis cache (Upstash), and at least one Ethereum node (Hardhat local or Sepolia testnet) must remain operational throughout the election window. Any downtime in these services will prevent new votes from being cast, though previously recorded on-chain votes remain immutable.
+
+    \item \textbf{User Capabilities and Hardware:} Voters are assumed to possess basic digital literacy sufficient to navigate a web-based interface, enter credentials, and confirm a MetaMask wallet transaction. Each voter's device must be equipped with a standard keyboard (for keystroke dynamics capture) and a modern web browser (Chrome, Firefox, Safari, or Edge) with the MetaMask extension installed.
+
+    \item \textbf{Cryptographic Integrity:} The system assumes that the underlying cryptographic primitives --- SHA-256 hashing, bcrypt password hashing (cost factor 12), the secp256k1 elliptic curve used by Ethereum, and the Pedersen commitment scheme parameters (generators \texttt{g} and \texttt{h}) --- remain computationally secure against known attack vectors for the duration of the election.
+
+    \item \textbf{Blockchain Network Stability:} The effectiveness of the system depends on the Ethereum network (Sepolia testnet or local Hardhat node) processing transactions within a predictable timeframe ($\sim$12--15 seconds for Sepolia, $\sim$1 second for Hardhat). The smart contracts are assumed to execute deterministically, and the network consensus mechanism is assumed to be resistant to 51\% attacks. Under Ethereum's Proof-of-Stake consensus, a 51\% attack requires controlling a majority of staked ETH (currently valued at over \$30 billion), making it economically infeasible.
+\end{enumerate}
+
+\section{Functional Requirements}
+
+\subsection{User Authentication and Registration}
+This module ensures secure voter onboarding and identity verification through a multi-step process:
+\begin{enumerate}[label=\alph*., leftmargin=1.5cm]
+    \item \textbf{Voter Registration:} New voters submit their personal details (full name, email, Voter ID, Aadhaar number, father's name, gender, date of birth, mobile number, state code, constituency code, and residential address) through the \texttt{/api/v1/auth/register} endpoint. All inputs are sanitized against XSS attacks before storage.
+
+    \item \textbf{Whitelist Enforcement:} Before registration is accepted, the system verifies that the voter's email exists in the \texttt{ApprovedVoter} table with status \texttt{WHITELIST}. If the email is not found, registration is rejected with error code \texttt{NOT\_WHITELISTED}. If the status is \texttt{BLACKLIST}, registration is rejected with code \texttt{BLACKLISTED}.
+
+    \item \textbf{Duplicate Prevention:} The system enforces uniqueness constraints on \texttt{email}, \texttt{voter\_id}, and \texttt{aadhaar\_number} at the database level (Prisma \texttt{@unique} constraints). Duplicate submissions return HTTP 409 (Conflict).
+
+    \item \textbf{Password Security:} Passwords are hashed using bcrypt with a cost factor of 12 before storage. Plain-text passwords are never persisted or logged.
+\end{enumerate}
+
+\textbf{Two-Step MFA Login:} Login proceeds in two phases:
+
+\textbf{Step 1 (Password Verification):} The voter submits their email/Voter ID and password. If valid, a 6-digit OTP is generated, hashed with bcrypt, and stored in the \texttt{MfaToken} table with a 5-minute expiry. The OTP is sent to the voter's registered email via the Resend email service. A \texttt{preAuthToken} (JWT, 10-minute expiry) is returned to the client.
+
+\textbf{Step 2 (OTP Verification):} The voter submits the \texttt{preAuthToken} and the received OTP. The system verifies the OTP against the stored hash, checks expiry, and enforces a maximum of 5 failed attempts. Upon successful verification, a final JWT (20-minute expiry) is issued with single-active-session enforcement.
+
+\textbf{Single Active Session:} Only one active session per voter is permitted at any time. The \texttt{active\_session\_token} and \texttt{active\_session\_expires} fields in the \texttt{User} table enforce this constraint. A login attempt while an active session exists returns HTTP 403.
+
+\subsection{Blockchain Integration and Vote Recording}
+This module governs the interaction between the application layer and the Ethereum blockchain:
+\begin{enumerate}[label=\roman*., leftmargin=1.5cm]
+    \item \textbf{Smart Contract Deployment:} Three Solidity contracts are deployed via the Hardhat framework: \texttt{VotingV2.sol} (primary voting logic), \texttt{ZKPVoting.sol} (Zero-Knowledge Proof voting extension), and \texttt{MinimalForwarder.sol} (ERC-2771 meta-transaction forwarder for gasless voting).
+
+    \item \textbf{Vote Immutability:} Once a vote is cast via the \texttt{vote()} function, it is recorded as a permanent state change on the blockchain. The transaction is included in a block and becomes part of the immutable ledger.
+
+    \item \textbf{Secret Ballot Enforcement:} The \texttt{Voter} struct does NOT contain a \texttt{votedCandidateId} field. Only \texttt{hasVoted} (boolean), \texttt{lastCandidateId} (for re-voting decrements), and \texttt{voteVersion} are stored. The \texttt{VoteCast} event emits an obfuscated hash --- \texttt{keccak256(candidateId, timestamp, prevrandao)} --- not the raw candidate ID.
+
+    \item \textbf{Admin Isolation:} The contract enforces \texttt{require(\_msgSender() != admin)} in the \texttt{vote()} function, preventing the admin wallet from casting votes.
+\end{enumerate}
+
+\subsection{Secure Vote Casting with Proctored Window}
+This feature provides a tamper-resistant voting environment:
+\begin{itemize}[leftmargin=1.5cm]
+    \item \textbf{Proctored Window:} The \texttt{ProctorGuard.jsx} component activates during the vote casting process, implementing tab-switch detection, copy-paste prevention, session timeout enforcement, and screenshot deterrence through CSS overlay techniques.
+
+    \item \textbf{Constituency Filtering:} When a voter accesses the ballot, only candidates matching their \texttt{stateCode} and \texttt{constituencyCode} are displayed. This filtering is enforced both at the frontend and at the smart contract level.
+
+    \item \textbf{Re-Voting Support:} Authorized voters may change their vote up to 3 times (\texttt{MAX\_REVOTES = 3}). Each re-vote decrements the previous candidate's count and increments the new candidate's count. The re-voting window closes 30 minutes before \texttt{votingEndTime}.
+
+    \item \textbf{Vote Receipt:} After successful vote casting, the voter receives a cryptographic receipt hash --- \texttt{keccak256(voterAddress, chainId, "voted", voteVersion)} --- which proves participation without revealing the candidate chosen.
+\end{itemize}
+
+\subsection{Zero-Knowledge Proof Voting Mode}
+When ZKP mode is enabled by the admin (\texttt{setZKPMode(true)}), votes are cast through the \texttt{ZKPVoting.sol} contract using the following protocol:
+\begin{itemize}[leftmargin=1.5cm]
+    \item \textbf{Identity Commitment:} The voter generates a secret locally in the browser. The hash of this secret (\texttt{keccak256(secret)}) is registered on-chain by the admin as the voter's \texttt{identityCommitment}.
+
+    \item \textbf{Pedersen Commitment:} The voter computes $C = \text{hash}(g^{\text{candidateId}} \cdot h^{\text{randomness}} \mod p)$ locally using the \texttt{zkpService.js} client-side module. The commitment hides the candidate choice.
+
+    \item \textbf{Nullifier Generation:} A deterministic nullifier \texttt{hash(secret, electionId)} is computed to prevent double voting without linking the voter's identity to the vote.
+
+    \item \textbf{Proof Generation:} A Schnorr-style sigma proof is generated locally, proving knowledge of the commitment opening without revealing the candidate ID or randomness.
+
+    \item \textbf{On-Chain Verification:} The \texttt{submitEncryptedVote()} function verifies: (a) the voter's identity commitment is registered, (b) the nullifier has not been used, and (c) the ZK proof passes \texttt{\_verifyVoteProof()}. Only then is the vote recorded.
+
+    \item \textbf{IPFS Metadata:} Encrypted vote metadata is optionally pinned to IPFS, with the content-addressed hash stored alongside the vote commitment for archival purposes.
+\end{itemize}
+
+\subsection{Keystroke Dynamics Analysis}
+This module provides behavioural biometric verification:
+\begin{itemize}[leftmargin=1.5cm]
+    \item \textbf{Enrollment Phase:} During the voter's first several logins, the \texttt{KeystrokeDynamics.jsx} component captures typing timing data (key hold durations, inter-key flight times) and transmits it to the backend. The backend accumulates samples and computes a statistical profile (mean speed, standard deviation) stored in the \texttt{KeystrokeProfile} table.
+
+    \item \textbf{Verification Phase:} Once the \texttt{is\_enrolled} flag is set, subsequent login attempts compare the current typing pattern against the enrolled profile. A distance score is computed; scores exceeding the threshold increment the \texttt{flagged\_count} and generate an admin alert.
+
+    \item \textbf{Continuous Monitoring:} Unlike traditional single-point authentication, keystroke dynamics provides session-level identity assurance --- any significant deviation in typing behaviour during a session can trigger re-authentication.
+\end{itemize}
+
+\subsection{Result Computation and Verification}
+\begin{itemize}[leftmargin=1.5cm]
+    \item \textbf{On-Chain Tallying:} Vote counts are maintained as \texttt{voteCount} fields within the \texttt{Candidate} struct on-chain. The \texttt{getAllCandidates()} function returns an array of all candidates with their current vote counts. The \texttt{getWinner()} function iterates through all candidates and returns the one with the highest \texttt{voteCount}.
+
+    \item \textbf{Vote Percentage:} The frontend \texttt{ResultsPage.jsx} computes $\text{Vote\%}(C) = (\text{Votes}(C) / \text{TotalVotes}) \times 100$ for display in bar charts and pie charts using the Recharts library.
+
+    \item \textbf{PDF Report Generation:} Administrators can export election results as PDF documents using the jsPDF library, including candidate-wise breakdowns and participation statistics.
+
+    \item \textbf{Post-Election Email:} Upon election completion, automated result notification emails are dispatched to all registered voters with a summary of the election outcome.
+\end{itemize}
+
+\subsection{Election Lifecycle Management}
+The admin dashboard (\texttt{AdminPanel.jsx}) provides complete control over the election lifecycle:
+\begin{itemize}[leftmargin=1.5cm]
+    \item \textbf{Election Creation:} Admins create elections with a name, description, instructions, start time, end time, and custom rules (JSON).
+    \item \textbf{Candidate Management:} Candidates are added with full details (name, party name, party symbol, state code, constituency code). A mandatory NOTA (None of the Above) candidate is automatically injected.
+    \item \textbf{Voter Authorization:} Admins authorize voters on-chain via \texttt{authorizeVoter()} or in batch via \texttt{authorizeVotersBatch()} (max 100 per transaction). Voter whitelist management is available through CSV upload.
+    \item \textbf{Timeline Control:} Voting start and end times are set via \texttt{setVotingTimeline()}. The admin can start (\texttt{startVoting()}) and end (\texttt{endVoting()}) the election manually.
+    \item \textbf{Audit Logging:} Every admin action is logged to the \texttt{AdminAuditLog} table with timestamp, admin email, action type, details, and IP address.
+\end{itemize}
+
+\subsection{Automated Email Notifications}
+The \texttt{electionNotifier.js} background service polls active elections and dispatches emails at three critical milestones:
+
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{|p{3.5cm}|p{4.5cm}|X|}
+\hline
+\textbf{Trigger} & \textbf{Timing} & \textbf{Email Type} \\
+\hline
+\texttt{REMINDER\_24H} & 24 hours before election start & Reminder to all registered voters \\
+\hline
+\texttt{VOTING\_STARTED} & When voting phase begins & Notification with ballot link \\
+\hline
+\texttt{LAST\_CALL\_30M} & 30 minutes before election end & Urgent last-call reminder \\
+\hline
+\end{tabularx}
+\caption{Automated Email Notification Triggers}
+\label{tab:notifications}
+\end{table}
+
+Each notification type is sent only once per election, tracked via the \texttt{ElectionNotification} table with a \texttt{@@unique([election\_id, type])} constraint.
+
+\section{External Interface Requirements}
+
+\subsection{User Interfaces}
+The system provides three distinct user interfaces:
+
+\textbf{1. Voter Interface (12 Pages):}
+
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{|p{3cm}|p{3.5cm}|X|}
+\hline
+\textbf{Page} & \textbf{Component} & \textbf{Purpose} \\
+\hline
+Landing Page & \texttt{LandingPage.jsx} & National portal homepage with citizen services grid \\
+\hline
+Registration & \texttt{SignupPage.jsx} & New voter registration with Aadhaar validation \\
+\hline
+Login & \texttt{LoginPage.jsx} & Password + OTP two-step MFA login \\
+\hline
+Dashboard & \texttt{DashboardPage.jsx} & Voter home with election status and profile \\
+\hline
+Voting & \texttt{VotingPage.jsx} & Proctored ballot with candidate cards \\
+\hline
+Results & \texttt{ResultsPage.jsx} & Live vote counts with charts and graphs \\
+\hline
+Verify Vote & \texttt{VerifyVotePage.jsx} & ZKP vote verification and receipt lookup \\
+\hline
+Technology & \texttt{TechnologyPage.jsx} & Technical documentation for examiners \\
+\hline
+Help & \texttt{HelpPage.jsx} & FAQ and voter assistance \\
+\hline
+Admin Login & \texttt{AdminLoginPage.jsx} & Separate admin authentication portal \\
+\hline
+Admin Panel & \texttt{AdminPanel.jsx} & Full election management dashboard \\
+\hline
+404 & \texttt{NotFoundPage.jsx} & Custom error page \\
+\hline
+\end{tabularx}
+\caption{Voter Interface Pages}
+\label{tab:voter_pages}
+\end{table}
+
+\textbf{2. Administrator Interface:} The admin panel provides tabbed sections for: Election Management, Candidate Management, Voter Authorization, Audit Logs, Violation Data, and System Monitoring.
+
+\textbf{3. Auditor Interface:} The audit logs tab provides filterable, searchable records of all admin actions with transaction hashes linked to the blockchain explorer, CSV/JSON export capability, and timestamp correlation.
+
+\subsection{Hardware Interfaces}
+
+\textbf{Client-Side Requirements:}
+\begin{itemize}[leftmargin=1.5cm]
+    \item Desktop or laptop with minimum dual-core processor and 4GB RAM
+    \item Standard keyboard for keystroke dynamics capture
+    \item Modern web browser (Chrome 90+, Firefox 88+, Safari 14+, Edge 90+) with MetaMask extension
+    \item Stable internet connection (minimum 2 Mbps)
+\end{itemize}
+
+\textbf{Server-Side Requirements:}
+\begin{itemize}[leftmargin=1.5cm]
+    \item Node.js application server (v16+)
+    \item PostgreSQL database (Supabase cloud or self-hosted)
+    \item Redis instance for OTP caching and rate limiting (Upstash cloud or Docker)
+    \item Ethereum node access (Hardhat local node or Sepolia/mainnet RPC provider)
+\end{itemize}
+
+\section{Non-Functional Requirements}
+
+\subsection{Performance Requirements}
+\begin{enumerate}[leftmargin=1.5cm]
+    \item Login authentication (password verification + OTP generation) shall complete within 3 seconds under normal load.
+    \item Vote casting (frontend submission $\rightarrow$ MetaMask confirmation $\rightarrow$ blockchain finality) shall complete within 30 seconds on Sepolia testnet and within 2 seconds on Hardhat local node.
+    \item API response time for read operations (candidate list, voter status, results) shall remain below 200ms, monitored via Sentry Performance.
+    \item The system shall support a minimum of 100 concurrent authenticated users without degradation.
+    \item Database query response time shall remain below 100ms for indexed queries, enforced through Prisma connection pooling (connection\_limit=3 on Supabase free tier).
+\end{enumerate}
+
+\subsection{Security Requirements}
+The system implements a multi-layered defence-in-depth security architecture:
+
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{|c|p{3.5cm}|X|}
+\hline
+\textbf{Layer} & \textbf{Technology} & \textbf{Purpose} \\
+\hline
+L1 & Cloudflare Turnstile & Block automated attacks and bot-driven vote stuffing \\
+\hline
+L2 & express-rate-limit & Per-IP throttling (200 req/15min API, 20 req/15min auth) \\
+\hline
+L3 & Upstash Redis & Sliding window rate limit across multiple server instances \\
+\hline
+L4 & Password + OTP + JWT & Three-factor identity verification \\
+\hline
+L5 & Keystroke Dynamics & Continuous session-level identity assurance \\
+\hline
+L6 & Smart Contract RBAC & On-chain admin/voter role enforcement \\
+\hline
+L7 & Express middleware & Payload size limiting (10KB), XSS sanitization \\
+\hline
+L8 & Helmet.js & CSP, HSTS (1 year), X-Frame-Options, X-Content-Type-Options \\
+\hline
+\end{tabularx}
+\caption{Multi-Layered Defence-in-Depth Security Architecture}
+\label{tab:security_layers}
+\end{table}
+
+\subsection{Software Quality Attributes}
+
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{|p{3cm}|p{3cm}|X|}
+\hline
+\textbf{Attribute} & \textbf{Target} & \textbf{Implementation} \\
+\hline
+Reliability & 99.9\% uptime & Supabase managed PostgreSQL with automatic failover \\
+\hline
+Usability & WCAG AA & aria-labels, keyboard navigation, 200\% zoom support \\
+\hline
+Maintainability & Modular arch. & Separation of concerns (contracts / backend / frontend) \\
+\hline
+Portability & Cross-browser & Tested on Chrome, Firefox, Safari, Edge; responsive CSS \\
+\hline
+Testability & >80\% coverage & 85 automated tests across VotingV2 and ZKPVoting contracts \\
+\hline
+Integrity & Immutable records & Blockchain-backed storage; every state change emits an event \\
+\hline
+Transparency & Public audit & All smart contract source code verified; events queryable \\
+\hline
+Internationalization & Multi-language & i18next integration with language detection \\
+\hline
+\end{tabularx}
+\caption{Software Quality Attributes}
+\label{tab:quality}
+\end{table}
+
+\section{System Requirements}
+
+\subsection{Database Requirements}
+
+\textbf{Primary Database --- Supabase PostgreSQL:} The system uses a PostgreSQL database hosted on Supabase, accessed through Prisma ORM. The schema comprises 14 relational models:
+
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{|p{3.5cm}|p{3.5cm}|X|}
+\hline
+\textbf{Model} & \textbf{Purpose} & \textbf{Key Fields} \\
+\hline
+\texttt{User} & Voter profiles & fullname, email, voter\_id, aadhaar\_number, wallet\_address \\
+\hline
+\texttt{Election} & Election config & name, description, start\_time, end\_time, status \\
+\hline
+\texttt{ElectionCandidate} & Candidates/election & candidate\_name, party\_name, state\_code \\
+\hline
+\texttt{ElectionVoter} & Voter enrollment & election\_id, user\_id, has\_voted \\
+\hline
+\texttt{Vote} & Vote audit records & voter\_id, election\_id, tx\_hash, voted\_at \\
+\hline
+\texttt{AdminAuditLog} & Admin action trail & admin\_email, action, details, ip\_address \\
+\hline
+\texttt{LoginHistory} & Login attempts & voter\_id, ip\_address, device\_info, status \\
+\hline
+\texttt{MfaToken} & OTP storage & otp\_hash, purpose, expires\_at, attempts \\
+\hline
+\texttt{KeystrokeProfile} & Typing biometrics & hold\_times, flight\_times, mean\_speed \\
+\hline
+\texttt{ApprovedVoter} & Voter whitelist & email, status (WHITELIST/BLACKLIST) \\
+\hline
+\texttt{QrVoteTicket} & QR-code tickets & ticket\_token, expires\_at, used \\
+\hline
+\texttt{ElectionNotification} & Notification tracking & election\_id, type, sent\_count \\
+\hline
+\texttt{State} & Indian state codes & code, name, total\_seats \\
+\hline
+\texttt{Constituency} & Constituency codes & code, state\_code, name, voters\_count \\
+\hline
+\end{tabularx}
+\caption{Database Schema Models}
+\label{tab:db_models}
+\end{table}
+
+\textbf{Blockchain Database --- Ethereum Distributed Ledger:} All vote records, candidate data, and voter authorization status are stored on-chain as smart contract state variables and emitted as indexed events.
+
+\textbf{Caching Layer --- Upstash Redis:} Used for OTP temporary storage with auto-TTL (5-minute expiry), distributed rate limiting counters, and session caching.
+
+\subsection{Software Requirements}
+
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{|p{4cm}|p{4.5cm}|X|}
+\hline
+\textbf{Category} & \textbf{Technology} & \textbf{Version} \\
+\hline
+Blockchain Framework & Hardhat & \^{}2.19.0 \\
+\hline
+Smart Contract Language & Solidity & \^{}0.8.19 \\
+\hline
+Blockchain Library & Ethers.js & \^{}6.9.0 \\
+\hline
+Backend Runtime & Node.js & v16+ \\
+\hline
+Backend Framework & Express.js & \^{}4.18.2 \\
+\hline
+ORM & Prisma Client & \^{}6.4.1 \\
+\hline
+Database & PostgreSQL (Supabase) & 14+ \\
+\hline
+Cache & Upstash Redis & Cloud \\
+\hline
+Frontend Framework & React & \^{}18.2.0 \\
+\hline
+Build Tool & Vite & \^{}8.0.2 \\
+\hline
+CSS Framework & TailwindCSS & \^{}3.4.0 \\
+\hline
+Wallet Provider & MetaMask & Latest \\
+\hline
+Email Service & Resend / Nodemailer & Latest \\
+\hline
+Error Monitoring & Sentry & \^{}10.46.0 \\
+\hline
+Analytics & PostHog & \^{}1.363.6 \\
+\hline
+Bot Protection & Cloudflare Turnstile & Latest \\
+\hline
+Testing Framework & Hardhat Toolbox (Chai + Mocha) & \^{}4.0.0 \\
+\hline
+\end{tabularx}
+\caption{Software Requirements}
+\label{tab:sw_req}
+\end{table}
+
+\subsection{Hardware Requirements}
+
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{|p{4cm}|X|}
+\hline
+\textbf{Component} & \textbf{Specification} \\
+\hline
+Developer Workstation & Intel i5/AMD Ryzen 5 or above, 8GB RAM, 256GB SSD \\
+\hline
+Application Server & 2+ vCPU, 4GB RAM, 20GB SSD (Render/Railway or VPS) \\
+\hline
+Database Server & Supabase free tier (500MB storage, 50K monthly active users) \\
+\hline
+Redis Instance & Upstash free tier (10K commands/day) \\
+\hline
+Blockchain Node & Hardhat local node or Alchemy/Infura Sepolia RPC \\
+\hline
+Client Devices & Dual-core processor, 4GB RAM, standard keyboard, modern browser \\
+\hline
+Network & Minimum 2 Mbps for voters; 10 Mbps for servers \\
+\hline
+\end{tabularx}
+\caption{Hardware Requirements}
+\label{tab:hw_req}
+\end{table}
+
+\section{Analysis Models: SDLC Model to be Applied}
+
+The Bharat E-Vote system was developed using the \textbf{Incremental Model} of the Software Development Life Cycle (SDLC). This model was chosen because the project involves multiple independent modules (authentication, voting, blockchain, ZKP, admin dashboard) that can be designed, developed, tested, and delivered in sequential increments.
+
+\subsection{Why Incremental Model?}
+The Incremental Model was selected over Agile (Scrum) and Spiral alternatives after evaluating three project-specific constraints \cite{pressman2020}. First, our team of five had no prior blockchain development experience, making fixed-length sprints impractical --- each increment's duration was driven by the learning curve for that module's technology stack (e.g., Solidity required three weeks of ramp-up before productive development). Second, the smart contract layer is immutable once deployed, requiring each blockchain increment to be fully tested in isolation before integration --- a constraint incompatible with Agile's tolerance for iterative refactoring across sprints. Third, the ZKP cryptographic module had uncertain feasibility at project inception, making it a high-risk increment best deferred to later in the timeline.
+
+The four properties of the Incremental Model that proved essential were:
+\begin{enumerate}[leftmargin=1.5cm]
+    \item \textbf{Early Delivery:} Core voting functionality was delivered in the first increment, allowing early stakeholder feedback before advanced features (ZKP, keystroke dynamics) were implemented.
+    \item \textbf{Risk Reduction:} Each increment underwent independent testing, ensuring that defects were caught early before they could propagate across modules.
+    \item \textbf{Flexibility:} New requirements identified during development (e.g., re-voting mechanism, election notifications) were incorporated as additional increments without disrupting completed modules.
+    \item \textbf{Parallel Development:} Team members could work on separate increments concurrently (e.g., frontend and smart contracts developed in parallel).
+\end{enumerate}
+
+\subsection{Increment Breakdown}
+
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{|c|p{3.5cm}|X|}
+\hline
+\textbf{Increment} & \textbf{Module} & \textbf{Key Deliverables} \\
+\hline
+1 & Core Authentication & Voter registration, password hashing, JWT session management \\
+\hline
+2 & Smart Contracts & VotingV2.sol, deployment scripts, Hardhat test suite \\
+\hline
+3 & Vote Casting \& Results & Ballot interface, MetaMask integration, result visualization \\
+\hline
+4 & Admin Dashboard & Election lifecycle management, candidate CRUD, audit logs \\
+\hline
+5 & MFA \& Security & OTP two-step login, rate limiting, Helmet.js, Turnstile \\
+\hline
+6 & ZKP Privacy & ZKPVoting.sol, Pedersen commitments, Schnorr proofs \\
+\hline
+7 & Advanced Features & Keystroke dynamics, QR tickets, meta-transactions, i18n \\
+\hline
+8 & Testing \& Docs & 85 unit tests, STRIDE threat model, project report \\
+\hline
+\end{tabularx}
+\caption{Incremental Development Breakdown}
+\label{tab:increments}
+\end{table}
+
+Each increment followed the standard phases: Requirements Analysis $\rightarrow$ Design $\rightarrow$ Implementation $\rightarrow$ Testing $\rightarrow$ Integration. Once an increment was completed and tested, it was integrated into the main system and the next increment began.
+
+%============================================================
+%                 CHAPTER 4: SYSTEM DESIGN
+%============================================================
+\chapter{System Design}
+
+The system design chapter presents the architectural blueprint of the Bharat E-Vote platform, covering the overall system architecture, smart contract design, mathematical models underlying the cryptographic protocols, database schema, and UML diagrams.
+
+\section{System Architecture}
+
+The Bharat E-Vote system follows a three-tier decentralized architecture comprising a React frontend, a Node.js backend, and an Ethereum blockchain layer. Unlike traditional client-server architectures where the database is the final authority, in Bharat E-Vote the blockchain smart contract is the ultimate trust boundary.
+
+\projectfigure{System_Architecture_Diagram.jpeg}{System Architecture Diagram}{fig:arch}{0.95}
+
+\textbf{Data Flow Summary:}
+\begin{enumerate}[leftmargin=1.5cm]
+    \item Voter authenticates via backend (password $\rightarrow$ OTP $\rightarrow$ JWT).
+    \item Voter connects MetaMask wallet on the frontend.
+    \item Frontend calls smart contract \texttt{vote()} via Ethers.js through MetaMask.
+    \item Smart contract validates voter authorization, constituency match, and records the vote on-chain.
+    \item Frontend reads results directly from blockchain via \texttt{getAllCandidates()}.
+    \item Backend serves voter profiles, election metadata, and audit logs from Supabase.
+\end{enumerate}
+
+\section{Smart Contract Architecture}
+
+Three Solidity contracts form the blockchain layer:
+
+\subsection{VotingV2.sol --- Primary Election Logic}
+
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{|p{4cm}|p{2.5cm}|X|}
+\hline
+\textbf{Function} & \textbf{Visibility} & \textbf{Purpose} \\
+\hline
+\texttt{addCandidate()} & Admin only & Adds a candidate with name, party, and constituency details \\
+\hline
+\texttt{authorizeVoter()} & Admin only & Authorizes a single voter with state and constituency codes \\
+\hline
+\texttt{authorizeVotersBatch()} & Admin only & Batch authorizes multiple voters (max 100 per transaction) \\
+\hline
+\texttt{startVoting()} & Admin only & Activates the election (requires at least one candidate) \\
+\hline
+\texttt{endVoting()} & Admin only & Terminates the election and prevents further voting \\
+\hline
+\texttt{vote()} & Authorized voter & Casts or re-casts a vote (max 3 re-votes; maintains ballot secrecy) \\
+\hline
+\texttt{setVotingTimeline()} & Admin only & Configures voting start and end timestamps \\
+\hline
+\texttt{getAllCandidates()} & Public view & Retrieves all candidates with vote counts \\
+\hline
+\texttt{getWinner()} & Public view & Returns the candidate with the highest votes \\
+\hline
+\texttt{getVoteReceipt()} & Public view & Provides a cryptographic receipt hash for verification \\
+\hline
+\end{tabularx}
+\caption{VotingV2.sol --- Function Summary}
+\label{tab:votingv2}
+\end{table}
+
+\textbf{Key Design Decisions:}
+\begin{itemize}[leftmargin=1.5cm]
+    \item \texttt{lastCandidateId} is stored in the \texttt{Voter} struct to support the re-voting mechanism (decrement old candidate, increment new). This field is readable on-chain, constituting a \textbf{known trade-off}: the re-voting mechanism requires storing the last voted candidate, which means standard-mode voting provides \textbf{practical ballot privacy} rather than cryptographic ballot secrecy. Full ballot secrecy is achieved in ZKP mode via \texttt{ZKPVoting.sol}, where only cryptographic commitments are stored.
+    \item \texttt{VoteCast} event emits \texttt{keccak256(candidateId, timestamp, prevrandao)} rather than the raw candidate ID. \textbf{Limitation:} With a small candidate set (e.g., $<$10 candidates), the obfuscated hash can be brute-forced in fewer than $n$ hash operations using the publicly known \texttt{timestamp} and \texttt{prevrandao} values. This obfuscation provides a deterrent against casual observation but does not constitute cryptographic hiding.
+    \item \texttt{vote()} re-voting logic decrements the old candidate's count before incrementing the new one, following the Checks-Effects-Interactions pattern to prevent reentrancy
+    \item \texttt{admin} address is explicitly blocked from casting votes via \texttt{require(\_msgSender() != admin)}
+\end{itemize}
+
+\subsection{ZKPVoting.sol --- Zero-Knowledge Proof Extension}
+
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{|p{4cm}|p{2.5cm}|X|}
+\hline
+\textbf{Function} & \textbf{Visibility} & \textbf{Purpose} \\
+\hline
+\texttt{registerVoter()} & Admin only & Registers voter's identity commitment on-chain \\
+\hline
+\texttt{submitEncryptedVote()} & Public & Submits vote using ZKP (commitment, nullifier, proof) \\
+\hline
+\texttt{\_verifyVoteProof()} & Internal & Verifies ZK proof validity (Schnorr sigma protocol) \\
+\hline
+\texttt{getVoteCommitment()} & Public view & Retrieves stored vote commitment for auditing \\
+\hline
+\end{tabularx}
+\caption{ZKPVoting.sol --- Function Summary}
+\label{tab:zkpvoting}
+\end{table}
+
+\textbf{Cryptographic Parameters (matching zkpService.js):}
+\begin{itemize}[leftmargin=1.5cm]
+    \item \texttt{PRIME} = \texttt{0xFFFFFFFFF...D0364141} (secp256k1 curve order)
+    \item \texttt{GEN\_G} = \texttt{0x79BE667E...16F81798} (generator G)
+    \item \texttt{GEN\_H} = \texttt{0xC6047F94...5C709EE5} (generator H)
+\end{itemize}
+
+\subsection{MinimalForwarder.sol --- Meta-Transactions}
+Implements ERC-2771 for gasless voting. The voter signs a \texttt{ForwardRequest} off-chain using EIP-712 typed data; a relayer submits the transaction and pays gas. The target contract extracts the real sender from the appended calldata.
+
+\section{Mathematical Models}
+
+\subsection{Pedersen Commitment Scheme}
+\label{sec:pedersen}
+The Pedersen commitment scheme allows a voter to commit to their candidate choice without revealing it, while enabling later verification.
+
+\textbf{Setup:} Following Pedersen~\cite{pedersen1991}, let $p$ be a large prime (secp256k1 curve order, $p = \texttt{0xFFFFFFFF...D0364141}$), and let $g$, $h$ be two generators of the multiplicative group $\mathbb{Z}_p^*$ such that no one knows $\log_g(h)$.
+
+\textbf{Implementation Note:} The parameter values (\texttt{GEN\_G}, \texttt{GEN\_H}) are derived from the secp256k1 elliptic curve generator point coordinates. However, the commitment arithmetic in our implementation uses \textbf{modular exponentiation} (\texttt{modPow}) over $\mathbb{Z}_p^*$ rather than native elliptic curve point operations ($v \cdot G + r \cdot H$). This is a proof-of-concept simplification that preserves the algebraic properties (hiding and binding) of the Pedersen scheme. A production deployment would use native elliptic curve operations via a library such as \texttt{libsodium} or \texttt{circom} for improved security margins and standardized parameter generation \cite{pedersen1991}.
+
+\textbf{Commitment Phase:}
+\[
+C = g^v \cdot h^r \pmod{p}
+\]
+Where:
+\begin{itemize}[leftmargin=1.5cm]
+    \item $v$ = candidate ID (the secret vote value)
+    \item $r$ = random blinding factor (generated via Web Crypto API)
+    \item $C$ = the commitment (published on-chain)
+\end{itemize}
+
+\textbf{Properties:}
+\begin{itemize}[leftmargin=1.5cm]
+    \item \textbf{Computationally Hiding:} Given $C$, an adversary cannot determine $v$ because $r$ is randomly chosen from a 256-bit field
+    \item \textbf{Computationally Binding:} The voter cannot open the commitment to a different value $v'$ because finding $r'$ such that $g^v \cdot h^r = g^{v'} \cdot h^{r'}$ requires solving the discrete logarithm problem
+\end{itemize}
+
+\subsection{Schnorr-Style Zero-Knowledge Proof}
+The voter must prove they know the values $(v, r)$ that open commitment $C$ without revealing them.
+
+\textbf{Protocol (Non-Interactive Sigma Protocol via Fiat-Shamir):}
+
+\textbf{Important Note on Implementation Scope:} The protocol described below represents a \textbf{simplified commitment-verification scheme} adapted from the classical Schnorr sigma protocol. In a formally correct Schnorr proof, the prover computes announcement values $A_1 = g^{k_v} \bmod p$, $A_2 = h^{k_r} \bmod p$, and the challenge is derived as $e = H(C, N, A_1, A_2)$. The verifier then reconstructs the announcements from the responses. Our implementation uses a simplified hash-based verification where the prover and verifier compute the challenge from the same inputs, which is suitable for the proof-of-concept scope but would require formal verification for production deployment \cite{schnorr1991}.
+
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{|c|c|X|}
+\hline
+\textbf{Step} & \textbf{Actor} & \textbf{Action} \\
+\hline
+Announcement & Prover (Voter) & Select random nonces $k_v, k_r \in \mathbb{Z}_p^*$ \\
+\hline
+Challenge & Prover (Fiat-Shamir) & Compute $e = H(C, N, k_v, k_r, n) \bmod p$ \\
+\hline
+Response & Prover (Voter) & Compute $s_v = (k_v - e \cdot v) \bmod p$, $s_r = (k_r - e \cdot r) \bmod p$ \\
+\hline
+Verification & Verifier (Contract) & Recompute $k_v' = s_v + e \cdot v$, $k_r' = s_r + e \cdot r$; check $e == H(C, N, k_v', k_r', n) \bmod p$ \\
+\hline
+\end{tabularx}
+\caption{Simplified Commitment-Verification Protocol Steps}
+\label{tab:schnorr}
+\end{table}
+
+\textbf{On-Chain Verification:} The smart contract verifies the proof by checking that the submitted challenge $e$, responses $(s_v, s_r)$, and the commitment $C$ are internally consistent. Since the verifier does not possess the secret values $(v, r)$, the contract performs a hash-based consistency check rather than a full announcement reconstruction. This provides a degree of assurance that the prover knows the opening of the commitment, while acknowledging that the verification is weaker than a formally proven Schnorr sigma protocol.
+
+\subsection{Nullifier and Identity Commitment}
+\begin{itemize}[leftmargin=1.5cm]
+    \item \textbf{Nullifier:} $N = H(\text{voterSecret}, \text{electionId})$ --- deterministic per voter per election. Prevents double-voting: if \texttt{nullifierUsed[N] == true}, the vote is rejected.
+    \item \textbf{Identity Commitment:} $IC = H(\text{voterSecret})$ --- registered on-chain by admin. Proves voter eligibility without revealing the secret.
+\end{itemize}
+
+\subsection{OTP Generation and Expiry}
+
+\projectfigure{otp_model.jpeg}{OTP Generation and Expiry Model}{fig:otp_model}{0.85}
+
+\[
+\text{OTP} = \lfloor \text{Random}() \times 900000 \rfloor + 100000 \quad \text{// 6-digit: [100000, 999999]}
+\]
+\[
+\text{isValid} = (T_{\text{current}} - T_{\text{generated}}) \leq 300 \quad \text{// 5-minute expiry window}
+\]
+
+The OTP is hashed with bcrypt before storage in the \texttt{MfaToken} table, ensuring that even database access cannot reveal the OTP value. If the difference between the current time and the generation time exceeds 300 seconds, the OTP is expired and the voter must request a new one.
+
+\subsection{Password Hashing using Bcrypt}
+
+\projectfigure{bcrypt_model.jpeg}{Password Hashing using Bcrypt}{fig:bcrypt_model}{0.85}
+
+\[
+\text{Hash} = \text{Bcrypt}(\text{Password} \| \text{Salt}, \text{CostFactor}=12)
+\]
+\[
+\text{isMatch} = \text{Bcrypt.compare}(\text{EnteredPassword}, \text{StoredHash})
+\]
+
+Cost factor 12 ensures approximately $2^{12} = 4{,}096$ iterations of the Blowfish cipher, making brute-force attacks computationally infeasible.
+
+\subsection{Vote Percentage Calculation}
+
+\projectfigure{vote_percentage.jpeg}{Vote Percentage Calculation Model}{fig:vote_pct}{0.85}
+
+\[
+\text{Vote\%}(C) = \frac{\text{Votes}(C)}{\text{TotalVotes}} \times 100
+\]
+\[
+\text{Winner} = \arg\max_{C} \{\text{Votes}(C)\}
+\]
+
+The candidate with the highest Vote\% is declared the winner of the election. In case of a tie, the system flags the result for manual review by the administrator.
+
+\section{Database Schema Design}
+
+The Prisma schema defines 14 interconnected models spanning voter identity, election management, vote recording, and audit logging. Figure~\ref{fig:db_schema} illustrates the complete entity-relationship structure with primary keys, foreign keys, and cardinality.
+
+\projectfigure{database_schema.jpeg}{Database Schema --- Entity Relationship Diagram}{fig:db_schema}{0.95}
+
+\textbf{Key Constraints:}
+\begin{itemize}[leftmargin=1.5cm]
+    \item \texttt{User.email}, \texttt{User.voter\_id}, \texttt{User.aadhaar\_number} --- unique
+    \item \texttt{ElectionVoter} --- \texttt{@@unique([election\_id, user\_id])} prevents duplicate enrollment
+    \item \texttt{ElectionNotification} --- \texttt{@@unique([election\_id, type])} prevents duplicate emails
+    \item \texttt{Vote} --- \texttt{@@unique([voter\_id, election\_id])} enforces one-vote-per-election
+\end{itemize}
+
+\section{Data Flow Diagrams}
+
+\subsection{DFD Level 0 --- Context Diagram}
+
+\projectfigure{dfd_level0.jpeg}{Data Flow Diagram Level 0 (Context Diagram)}{fig:dfd0}{0.90}
+
+Actors: Voter, Admin, Auditor, Ethereum Network, Supabase Database.
+
+\subsection{DFD Level 1 --- System Decomposition}
+
+\projectfigure{dfd_level1.jpeg}{Data Flow Diagram Level 1}{fig:dfd1}{0.95}
+
+\subsection{DFD Level 2 --- Vote Casting Decomposition}
+
+\projectfigure{dfd_level2.jpeg}{Data Flow Diagram Level 2 (Vote Casting)}{fig:dfd2}{0.95}
+
+\section{UML Diagrams}
+
+\subsection{Use Case Diagram}
+
+\projectfigure{use_case_diagram.jpeg}{Use Case Diagram --- Bharat E-Vote}{fig:usecase}{0.90}
+
+\subsection{Sequence Diagram --- Vote Casting Flow}
+
+\projectfigure{sequence_diagram.jpeg}{Sequence Diagram --- Vote Casting Flow}{fig:sequence}{0.90}
+
+\subsection{State Diagram --- Election Lifecycle}
+
+\projectfigure{state_diagram.jpeg}{State Diagram --- Election Lifecycle}{fig:state}{0.85}
+
+The election transitions through the following states:
+\begin{center}
+DRAFT $\xrightarrow{\texttt{addCandidate()}}$ PREPARED $\xrightarrow{\texttt{startVoting()}}$ ACTIVE $\xrightarrow{\texttt{endVoting()}}$ CLOSED
+\end{center}
+
+\subsection{Class Diagram (Smart Contract)}
+
+\projectfigure{class_diagram.jpeg}{Class Diagram --- Smart Contracts}{fig:class}{0.95}
+
+%============================================================
+%                 CHAPTER 5: PROJECT PLAN
+%============================================================
+\chapter{Project Plan}
+
+\section{Project Estimate}
+
+\subsection{Reconciled Estimates}
+Estimating the Bharat E-Vote project required accounting for three non-standard cost drivers: Ethereum testnet deployment overhead (gas fees, contract verification tooling), ZKP cryptographic module integration (requiring dedicated research time for Pedersen commitment and Schnorr proof implementation), and a five-member team with no prior blockchain development experience. The estimates below are derived from a structured analysis of the project scope, available team capabilities, and the chosen technology stack.
+
+Reconciled estimates represent a consolidated view of the project's overall scope derived by combining multiple independent estimation approaches. For Bharat E-Vote, the following estimation methods were applied and their results reconciled:
+\begin{itemize}[leftmargin=1.5cm]
+    \item \textbf{Expert Judgment:} Based on team members' prior experience with Node.js backend systems and database-driven applications.
+    \item \textbf{Analogous Estimation:} Referenced similar government-scale authentication and voting systems to benchmark expected effort.
+    \item \textbf{Bottom-Up Estimation:} Individual modules (Authentication, Voter Registration, Ballot Management, Result Computation, Admin Dashboard) were estimated separately and aggregated.
+\end{itemize}
+
+\subsection{Human Resources}
+\begin{itemize}[leftmargin=1.5cm]
+    \item \textbf{Number of people:} 5
+    \item \textbf{Skills:} Blockchain Development, Database Management, Security \& AI, Full-Stack Development
+    \item \textbf{Geographic restrictions:} The Bharat E-Vote project is developed and maintained within India. All team members are based in Pune, Maharashtra. The system itself is designed to comply with Indian data protection and election laws, including the relevant provisions under the IT Act, 2000 and CERT-In guidelines. The application infrastructure is deployed on cloud services that offer data residency within Indian regions to ensure regulatory compliance and minimize latency for Indian voters.
+    \item \textbf{Client:} The primary client and end-beneficiary of the Bharat E-Vote system is the Election Commission of India (ECI) or equivalent state/institutional election bodies. The system is designed to replace paper-based or legacy digital voting mechanisms with a transparent, auditable, and secure electronic voting process. Institutional clients such as universities, housing societies or cooperative bodies may also use the platform for internal elections.
+    \item \textbf{Stakeholders:}
+    \begin{itemize}
+        \item Election Commission / Institutional Administrators: Primary users who configure elections, manage candidates, and monitor results
+        \item Registered Voters: Citizens or members who authenticate and cast their votes securely
+        \item Development Team: Responsible for building, maintaining, and improving the platform
+        \item Academic Supervisors \& Evaluators: Oversee the project from an academic perspective
+    \end{itemize}
+\end{itemize}
+
+\subsection{Development Resources}
+\textbf{Software:}
+\begin{enumerate}[leftmargin=1.5cm]
+    \item Node.js
+    \item Prisma ORM
+    \item VS Code
+    \item JWT (jsonwebtoken)
+\end{enumerate}
+
+\textbf{Hardware:} Developer workstations, Supabase cloud database, Redis instance (Upstash or Docker), stable internet connection.
+
+\section{Risk Management}
+Bharat E-Vote's deployment against critical election infrastructure demands systematic risk anticipation. Three risk domains were identified during the project planning phase: blockchain-specific risks (smart contract vulnerabilities, testnet deprecation, gas volatility), infrastructure risks (third-party service outage, database compromise), and user-facing risks (wallet compromise, MetaMask dependency failures). Each risk was assessed for probability and impact, with mitigation strategies defined before development commenced.
+
+\subsection{Risk Identification}
+\begin{enumerate}[leftmargin=1.5cm]
+    \item Smart Contract Vulnerability Risk
+    \item Blockchain Network Risk (51\% Attack / Testnet Deprecation)
+    \item MetaMask Dependency Risk
+    \item Gas Price Volatility
+    \item Private Key Loss / Compromise
+    \item Third-Party Service Dependency
+\end{enumerate}
+
+\subsection{Risk Analysis}
+\begin{enumerate}[leftmargin=1.5cm]
+    \item \textbf{Smart Contract Vulnerability Risk:} Once deployed, smart contracts are immutable. A vulnerability in \texttt{VotingV2.sol} (e.g., reentrancy, integer overflow) could allow vote manipulation with no patch mechanism. \textit{Mitigation:} The contract follows the Checks-Effects-Interactions pattern, uses Solidity \^{}0.8.19 with built-in overflow protection, and was validated through 85 automated tests covering all public functions and edge cases.
+
+    \item \textbf{Blockchain Network Risk (51\% Attack / Testnet Deprecation):} On the Sepolia testnet, the validator set is smaller than mainnet, theoretically lowering the threshold for consensus attacks. Additionally, Ethereum Foundation may deprecate Sepolia in favour of newer testnets. \textit{Mitigation:} The smart contracts are deployment-agnostic (no Sepolia-specific logic) and can be migrated to any EVM-compatible chain. For production, mainnet deployment under Proof-of-Stake consensus requires controlling a majority of staked ETH (currently $>$\$30B) to execute a 51\% attack, making it economically infeasible.
+
+    \item \textbf{MetaMask Dependency Risk:} The system requires MetaMask for wallet-based authentication and transaction signing. If MetaMask introduces breaking API changes, experiences downtime, or is removed from browser extension stores, the voting flow is disrupted. \textit{Mitigation:} The frontend uses the generic EIP-1193 provider interface (\texttt{window.ethereum}), which is compatible with alternative wallets (Coinbase Wallet, WalletConnect, Rabby).
+
+    \item \textbf{Gas Price Volatility:} On Ethereum mainnet, gas prices fluctuate unpredictably. A gas price spike during an active election could make vote transactions prohibitively expensive. \textit{Mitigation:} The ERC-2771 meta-transaction forwarder (\texttt{MinimalForwarder.sol}) enables gasless voting where a relayer pays gas on behalf of voters. Additionally, the contract is deployable on Layer-2 networks (Polygon, Optimism) with 100x lower gas costs.
+
+    \item \textbf{Private Key Loss / Compromise:} If a voter loses access to their MetaMask wallet or their private key is compromised, they cannot authenticate to the smart contract. A compromised key could allow an attacker to cast a fraudulent vote. \textit{Mitigation:} The re-voting mechanism (\texttt{MAX\_REVOTES = 3}) allows the legitimate voter to override a fraudulent vote if they regain access. The multi-layered authentication model means that wallet compromise alone is insufficient --- the attacker must also possess the password, OTP, and matching keystroke profile.
+
+    \item \textbf{Third-Party Service Dependency:} The system depends on Supabase (database), Upstash (Redis), and Resend (email). Outage of any service during an election disrupts operations. \textit{Mitigation:} Previously recorded on-chain votes remain immutable regardless of backend status. Critical services use managed cloud providers with SLA guarantees. Environment variables allow rapid migration to alternative providers (self-hosted PostgreSQL, Docker Redis, Nodemailer SMTP).
+\end{enumerate}
+
+\subsection{Overview of Risk Mitigation, Monitoring, Management}
+
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{|X|p{2cm}|p{2cm}|p{2cm}|p{2.5cm}|}
+\hline
+\textbf{Risk} & \textbf{Category} & \textbf{Probability} & \textbf{Impact} & \textbf{RMMM} \\
+\hline
+Smart contract exploit (reentrancy, overflow) & Technical & 20\% & Catastrophic & Mitigation \\
+\hline
+51\% attack on Sepolia testnet & Technical & 10\% & Critical & Monitoring \\
+\hline
+MetaMask API breaking change & Technical & 30\% & Major & Mitigation \\
+\hline
+Gas price spike during election & Financial & 40\% & Major & Mitigation \\
+\hline
+Voter private key compromise & Security & 35\% & Critical & Mitigation \\
+\hline
+Supabase / Upstash service outage & Operational & 25\% & Major & Monitoring \\
+\hline
+\end{tabularx}
+\caption{Risk Identification and RMMM}
+\label{tab:risk}
+\end{table}
+
+\section{Project Schedule}
+The project schedule outlines the sequence of tasks, their durations, and the overall timeline for delivering the Bharat E-Vote system. The schedule follows an iterative development approach, allowing for continuous feedback and incremental improvements throughout the project lifecycle.
+
+\subsection{Project Task Set}
+\begin{enumerate}[leftmargin=1.5cm]
+    \item Requirement Gathering and Analysis (T1)
+    \item System Architecture and Database Schema Design (T2)
+    \item Environment Setup (Node.js, Redis, Prisma) (T3)
+    \item Voter Registration \& Profile Management Module (T4)
+    \item Authentication Module (OTP + JWT) (T5)
+    \item Admin Dashboard Development (T6)
+    \item User Acceptance Testing (T7)
+\end{enumerate}
+
+\subsection{Task Network}
+
+\projectfigure{task_network.jpeg}{Task Network Diagram}{fig:tasknet}{0.90}
+
+\section{Team Organization}
+Effective team organization is essential for the smooth execution of the Bharat E-Vote project. The team follows a structured hierarchy with clearly defined roles, responsibilities, and communication channels to ensure accountability and efficient coordination.
+
+\subsection{Team Structure}
+The team structure for the project is identified. Roles are defined:
+\begin{itemize}[leftmargin=1.5cm]
+    \item \textbf{Aditya Bhoir:} Project Lead, Full-Stack Development and Documentation
+    \item \textbf{Omkar Ingle:} UI/UX Design, Database Management
+    \item \textbf{Aftab Pathan:} Frontend Development, Documentation
+    \item \textbf{Abhishek Shinde:} Database and DevOps, Environment Configuration and Documentation
+    \item \textbf{Aryan Shinde:} Quality Assurance, Testing and Documentation
+\end{itemize}
+
+\subsection{Management Reporting and Communication}
+\begin{itemize}[leftmargin=1.5cm]
+    \item The team is always in contact with the project guide.
+    \item The team members also collaborate in-person and work together to improve efficiency. Additionally, chat groups, emails, and online meetings are used for communication.
+\end{itemize}
+
+%============================================================
+%            CHAPTER 6: PROJECT IMPLEMENTATION
+%============================================================
+\chapter{Project Implementation}
+
+\section{Overview of Project Modules}
+The Bharat E-Vote system is organized into eight functional modules, each responsible for a distinct aspect of the election lifecycle.
+
+\subsection{Voter Registration Module}
+The voter registration module is implemented in \texttt{authController.js} and exposed via the \texttt{/api/v1/auth/register} POST endpoint. For the functional requirements specification, see Section~3.2.1. The implementation proceeds as follows: (1) all incoming string fields are passed through a custom \texttt{sanitize()} function that replaces \texttt{<}, \texttt{>}, \texttt{\&}, \texttt{"}, and \texttt{'} with their HTML entity equivalents to prevent stored XSS; (2) the voter's email is looked up via \texttt{prisma.approvedVoter.findUnique(\{where: \{email\}\})} and rejected if the status is not \texttt{WHITELIST}; (3) the password is hashed using \texttt{bcrypt.hash(password, 12)}; (4) the user record is created via \texttt{prisma.user.create()} with Prisma-level \texttt{@unique} constraints on \texttt{email}, \texttt{voter\_id}, and \texttt{aadhaar\_number} enforcing duplicate prevention at the database level (HTTP~409 on violation); (5) a JWT token (30-minute expiry) is issued and a \texttt{LoginHistory} entry with status \texttt{REGISTERED} is created; (6) the response returns \texttt{\{success: true, token, user: \{id, fullname, email, voterId\}\}}.
+
+\subsection{Multi-Factor Authentication Module}
+Authentication proceeds in two mandatory steps:
+
+\textbf{Step 1 --- Password Verification (\texttt{/api/v1/auth/login}):} The voter submits their email/Voter ID and password. The system enforces a single-active-session constraint. Password is verified using \texttt{bcrypt.compare()}. A 6-digit OTP is generated, hashed with bcrypt (cost factor 10), and stored in the \texttt{MfaToken} table with 5-minute expiry. A \texttt{preAuthToken} JWT (10-minute expiry) is returned.
+
+\textbf{Step 2 --- OTP Verification (\texttt{/api/v1/auth/mfa/verify-otp}):} The voter submits the \texttt{preAuthToken} and the 6-digit OTP. Maximum 5 failed attempts are allowed. Upon success, a final JWT (20-minute expiry) is issued containing \texttt{\{id, email, voterId, role, mfa: true\}}.
+
+\subsection{Ballot and Candidate Management Module}
+Administered through the \texttt{AdminPanel.jsx} interface. Elections are created with name, description, voting instructions, start/end times, and custom rules stored as JSON. Candidates are added via \texttt{addCandidate()} on the smart contract. A mandatory NOTA candidate is auto-injected. Admins authorize voters on-chain using \texttt{authorizeVoter()} or batch-authorize up to 100 voters. All admin actions are logged to the \texttt{AdminAuditLog} table.
+
+\subsection{Vote Casting Module (Standard Mode)}
+The standard voting flow through \texttt{VotingV2.sol}:
+\begin{enumerate}[leftmargin=1.5cm]
+    \item Voter navigates to \texttt{VotingPage.jsx} and enters the proctored voting window.
+    \item Candidates are filtered by the voter's \texttt{stateCode} and \texttt{constituencyCode}.
+    \item Voter selects a candidate and confirms their choice.
+    \item Frontend calls \texttt{voting.vote(candidateId)} via Ethers.js, triggering a MetaMask transaction.
+    \item Smart contract executes checks: \texttt{votingActive}, \texttt{isAuthorized}, admin block, valid candidate, constituency match, re-vote limit.
+    \item State is updated: candidate vote count incremented, voter marked as \texttt{hasVoted}.
+    \item \texttt{VoteCast} event emitted with obfuscated candidate ID.
+    \item Vote receipt hash generated: \texttt{keccak256(voterAddress, chainId, "voted", voteVersion)}.
+\end{enumerate}
+
+\subsection{ZKP Vote Casting Module (Privacy Mode)}
+When ZKP mode is enabled, votes are cast through \texttt{ZKPVoting.sol}:
+
+\textbf{Client-Side (Browser --- zkpService.js):}
+\begin{itemize}[leftmargin=1.5cm]
+    \item Generate identity commitment: $IC = \texttt{keccak256}(\text{voterSecret})$
+    \item Generate nullifier: $N = \texttt{keccak256}(\text{voterSecret}, \text{electionId})$
+    \item Generate Pedersen commitment: $C = \text{hash}(g^{\text{candidateId}} \cdot h^{\text{randomness}} \mod p)$
+    \item Generate Schnorr proof: $\pi = (\text{challenge}, \text{response}\_v, \text{response}\_r, \text{candidatesCount})$
+\end{itemize}
+
+\textbf{On-Chain (\texttt{submitEncryptedVote()}):} Verify identity commitment is registered, verify nullifier not used, verify ZK proof via \texttt{\_verifyVoteProof()}, store commitment on-chain, mark nullifier as used. All cryptographic operations occur in the voter's browser. The candidate choice never leaves the browser in plaintext.
+
+\subsection{Result Computation and Visualization Module}
+\begin{itemize}[leftmargin=1.5cm]
+    \item \textbf{On-Chain:} \texttt{getAllCandidates()} returns all candidates with \texttt{voteCount}. \texttt{getWinner()} returns the highest-voted candidate. \texttt{getTotalVotes()} returns the sum of all votes.
+    \item \textbf{Frontend:} \texttt{ResultsPage.jsx} displays results as bar charts and pie charts using Recharts.
+    \item \textbf{PDF Export:} Admins generate PDF reports using jsPDF.
+    \item \textbf{Post-Election Email:} The \texttt{electionNotifier.js} service dispatches result emails to all voters.
+\end{itemize}
+
+\subsection{Admin Dashboard and Audit Module}
+The \texttt{AdminPanel.jsx} component provides a tabbed interface:
+
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{|p{3cm}|X|}
+\hline
+\textbf{Tab} & \textbf{Functionality} \\
+\hline
+Elections & Create, activate, and close elections; configure timelines \\
+\hline
+Candidates & Add candidates with party details; automatic NOTA inclusion \\
+\hline
+Voters & Authorize voters (single or batch); manage whitelist \\
+\hline
+Results & View real-time vote counts; export results as PDF \\
+\hline
+Audit Logs & View and filter logs of all admin actions with timestamps and IPs \\
+\hline
+\end{tabularx}
+\caption{Admin Dashboard Tabs}
+\label{tab:admin_tabs}
+\end{table}
+
+\subsection{Election Notification Scheduler}
+The \texttt{electionNotifier.js} background service runs on a configurable polling interval and triggers automated emails: 24-Hour Reminder, Voting Started, and 30-Minute Last Call. Each notification is tracked in the \texttt{ElectionNotification} table with a unique constraint on \texttt{(election\_id, type)} to prevent duplicate sends.
+
+\section{Tools and Technologies Used}
+
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{|p{3cm}|p{3.5cm}|X|}
+\hline
+\textbf{Category} & \textbf{Technology} & \textbf{Purpose} \\
+\hline
+Smart Contracts & Solidity \^{}0.8.19 & On-chain voting logic and ZKP verification \\
+\hline
+Blockchain Framework & Hardhat \^{}2.19.0 & Compilation, deployment, testing, local node \\
+\hline
+Blockchain Library & Ethers.js v6 & Frontend interaction with smart contracts \\
+\hline
+Backend Runtime & Node.js v16+ & Server-side JavaScript execution \\
+\hline
+Backend Framework & Express.js \^{}4.18.2 & REST API routing and middleware \\
+\hline
+ORM & Prisma \^{}6.4.1 & Type-safe database access and migrations \\
+\hline
+Database & PostgreSQL (Supabase) & Application data storage \\
+\hline
+Cache & Redis (Upstash) & OTP caching, rate limiting, sessions \\
+\hline
+Frontend & React \^{}18.2.0 & Component-based user interface \\
+\hline
+Build Tool & Vite \^{}8.0.2 & Dev server and production builds \\
+\hline
+Styling & TailwindCSS \^{}3.4.0 & Utility-first responsive design \\
+\hline
+Wallet & MetaMask & Ethereum transaction signing \\
+\hline
+Auth & JWT (jsonwebtoken) & Stateless authentication \\
+\hline
+Password & bcryptjs & Secure password hashing \\
+\hline
+Security & Helmet.js & HTTP security headers \\
+\hline
+Bot Protection & Cloudflare Turnstile & Automated abuse prevention \\
+\hline
+Email & Resend / Nodemailer & OTPs and election notifications \\
+\hline
+Monitoring & Sentry \^{}10.46.0 & Runtime error and performance tracking \\
+\hline
+Analytics & PostHog \^{}1.363.6 & User behavior and session replay \\
+\hline
+i18n & i18next & Multi-language support \\
+\hline
+Charts & Recharts & Election result visualization \\
+\hline
+Reports & jsPDF & Downloadable PDF reports \\
+\hline
+\end{tabularx}
+\caption{Tools and Technologies Used}
+\label{tab:tools}
+\end{table}
+
+\textit{Note:} For the complete software requirements specification with version constraints, see Table~\ref{tab:sw_req} in Chapter~3.
+
+\section{Algorithm and Protocol Details}
+
+\subsection{Pedersen Commitment Scheme}
+\textbf{Purpose:} Allow a voter to commit to their candidate choice without revealing it.
+
+\textbf{Algorithm Steps:}
+\begin{enumerate}[leftmargin=1.5cm]
+    \item Convert candidateId to BigInt: $v \leftarrow \text{BigInt}(\text{candidateId})$
+    \item Generate random blinding factor: $r \leftarrow \text{randomFieldElement()}$ (256-bit random from Web Crypto API, reduced $\mod (p-1)$)
+    \item Compute $g^v \mod p$: $gv \leftarrow \text{modPow}(g, v, p)$
+    \item Compute $h^r \mod p$: $hr \leftarrow \text{modPow}(h, r, p)$
+    \item Compute raw commitment: $C_{\text{raw}} \leftarrow (gv \times hr) \mod p$
+    \item Hash the commitment: $C \leftarrow \text{SHA-256}(C_{\text{raw}})$
+    \item \textbf{RETURN} $(C, r)$
+\end{enumerate}
+
+\textbf{Security Properties:}
+\begin{itemize}[leftmargin=1.5cm]
+    \item \textbf{Computationally Hiding:} Given $C$, determining $v$ requires solving the Discrete Logarithm Problem --- computationally infeasible for 256-bit keys.
+    \item \textbf{Computationally Binding:} Finding $(v', r') \neq (v, r)$ such that $g^v \cdot h^r = g^{v'} \cdot h^{r'}$ requires knowing $\log_g(h)$, which is unknown by construction.
+\end{itemize}
+
+\subsection{Schnorr-Style Sigma Protocol (Simplified Commitment Verification)}
+\textbf{Purpose:} Prove knowledge of $(v, r)$ that open commitment $C$ without revealing them. As noted in Table~\ref{tab:schnorr}, this is a simplified adaptation of the classical Schnorr sigma protocol.
+
+\textbf{Prover (Browser --- zkpService.js):}
+\begin{enumerate}[label=\alph*., leftmargin=1.5cm]
+    \item Generate random nonces: $k_v \leftarrow \text{randomFieldElement}()$, $k_r \leftarrow \text{randomFieldElement}()$
+    \item Compute challenge via Fiat-Shamir heuristic: $e \leftarrow H(C, N, k_v, k_r, \text{candidatesCount}) \mod p$
+    \item Compute responses: $s_v \leftarrow (k_v - e \cdot v) \mod p$, $s_r \leftarrow (k_r - e \cdot r) \mod p$
+    \item \textbf{RETURN} $\pi = (e, s_v, s_r, \text{candidatesCount})$
+\end{enumerate}
+
+\textbf{Verifier (Smart Contract --- \_verifyVoteProof):}
+\begin{enumerate}[leftmargin=1.5cm]
+    \item Extract $(e, s_v, s_r, n)$ from proof
+    \item Verify $n == \text{candidatesCount}$ (prevents cross-election replay)
+    \item Verify $e \neq 0$, $s_v \neq 0$, $s_r \neq 0$ (reject degenerate proofs)
+    \item Perform hash-based consistency check on the proof components against the commitment and nullifier
+    \item If all checks pass $\rightarrow$ proof is \textbf{ACCEPTED}; else $\rightarrow$ \textbf{REJECT}
+\end{enumerate}
+
+\textbf{Implementation Limitation:} The on-chain verifier performs a simplified consistency check rather than reconstructing announcement values ($A_1 = g^{s_v} \cdot C^e \bmod p$) as in a formally correct Schnorr sigma protocol. This design was chosen to reduce on-chain gas costs (modular exponentiation is expensive in Solidity). A production deployment should use precompiled contracts (EIP-197) or off-chain proof verification with on-chain commitment of the verification result.
+
+\subsection{ERC-2771 Meta-Transaction Protocol}
+\textbf{Purpose:} Enable gasless voting --- voters sign transactions off-chain; a relayer pays gas.
+\begin{enumerate}[leftmargin=1.5cm]
+    \item VOTER signs the ForwardRequest using EIP-712 typed data signing
+    \item RELAYER calls \texttt{MinimalForwarder.execute(request, signature)}
+    \item \texttt{MinimalForwarder.verify()}: Recover signer via \texttt{ecrecover}, check signer $==$ request.from, check nonce
+    \item Increment nonce: \texttt{\_nonces[from]++}
+    \item Forward call with original sender appended to calldata per ERC-2771 standard
+    \item Target contract extracts original sender from last 20 bytes of calldata
+\end{enumerate}
+
+\subsection{OTP-Based Multi-Factor Authentication}
+
+\textbf{Step 1 --- Password Phase:}
+\begin{enumerate}[leftmargin=1.5cm]
+    \item Lookup user by email or voter\_id
+    \item Check single-active-session constraint
+    \item Verify password: \texttt{bcrypt.compare(input, storedHash)}
+    \item Generate OTP: $\lfloor \text{random}() \times 900000 \rfloor + 100000$
+    \item Hash OTP: \texttt{bcrypt.hash(otp, 10)} --- \textbf{Note:} OTP hashing uses cost factor 10 (lower than the password cost factor of 12) because OTPs are short-lived (5-minute expiry) and must be verified quickly. The reduced cost factor is a deliberate trade-off: the short TTL provides temporal security, reducing the need for the higher computational cost used for long-lived password hashes.
+    \item Store in MfaToken table with 5-min expiry
+    \item Send OTP via email (Resend API)
+    \item Return preAuthToken (JWT, 10-min, step=mfa\_pending)
+\end{enumerate}
+
+\textbf{Step 2 --- OTP Phase:}
+\begin{enumerate}[leftmargin=1.5cm]
+    \item Verify preAuthToken JWT
+    \item Lookup latest unverified MfaToken for user
+    \item Check attempts $< 5$
+    \item Verify OTP: \texttt{bcrypt.compare(input, storedHash)}
+    \item Generate session token: \texttt{crypto.randomUUID()}
+    \item Store active\_session\_token with 20-min expiry
+    \item Issue final JWT: \texttt{\{id, email, voterId, role, mfa:true\}}
+    \item Log LOGIN SUCCESS in LoginHistory
+\end{enumerate}
+
+\subsection{Keystroke Dynamics Behavioral Biometric}
+
+\textbf{Enrollment:}
+\begin{enumerate}[leftmargin=1.5cm]
+    \item Capture \texttt{hold\_times[]}: duration each key is pressed (keydown $\rightarrow$ keyup)
+    \item Capture \texttt{flight\_times[]}: interval between consecutive keyups and keydowns
+    \item Compute \texttt{mean\_speed} $= \text{avg}(\text{flight\_times})$
+    \item Compute \texttt{std\_deviation} $= \text{stddev}(\text{flight\_times})$
+    \item Store profile in \texttt{KeystrokeProfile} table
+\end{enumerate}
+
+\textbf{Verification:}
+\begin{enumerate}[leftmargin=1.5cm]
+    \item Capture current typing sample
+    \item Compute current mean\_speed and std\_deviation
+    \item Calculate distance $= |\text{current\_mean} - \text{enrolled\_mean}| / \text{enrolled\_std}$
+    \item If distance $>$ threshold: \texttt{flagged\_count++} $\rightarrow$ alert admin
+    \item Else: authentication passes silently
+\end{enumerate}
+
+\subsection{Vote Casting --- Checks-Effects-Interactions Pattern}
+The \texttt{vote()} function in \texttt{VotingV2.sol} follows the Checks-Effects-Interactions pattern to prevent reentrancy:
+
+\begin{lstlisting}[language=Solidity, caption={Vote Function --- Checks-Effects-Interactions Pattern}]
+function vote(uint256 _candidateId) public {
+    // === CHECKS ===
+    require(votingActive, "Voting is not active");
+    require(voters[sender].isAuthorized, "Not authorized");
+    require(sender != admin, "Admin cannot vote");
+    require(_candidateId >= 1 && _candidateId <= candidatesCount);
+    // Constituency validation, re-vote limit, timeline...
+
+    // === EFFECTS (state changes BEFORE external calls) ===
+    if (voters[sender].hasVoted) {
+        candidates[voters[sender].lastCandidateId].voteCount--;
+    }
+    candidates[_candidateId].voteCount++;
+    voters[sender].hasVoted = true;
+    voters[sender].lastCandidateId = _candidateId;
+    voters[sender].voteVersion++;
+
+    // === INTERACTIONS (events AFTER state changes) ===
+    emit VoteCast(obfuscatedId, block.timestamp,
+                  voters[sender].voteVersion);
+}
+\end{lstlisting}
+
+This ordering ensures that even if a reentrant call were possible, the state has already been updated before any external interaction occurs.
+
+%============================================================
+%                 CHAPTER 7: TESTING
+%============================================================
+\chapter{Testing}
+
+For an election platform, testing is not merely a quality assurance activity --- it is a trust-building exercise. Every untested path is a potential vector for vote manipulation, identity fraud, or system failure.
+
+\section{Types of Testing}
+
+\subsection{Unit Testing}
+Unit testing validates individual functions and components in isolation. For Bharat E-Vote, unit testing is performed at two levels:
+
+\textbf{Smart Contract Unit Tests:} 85 automated tests written using Hardhat's testing framework (Chai + Mocha) validate every public function of \texttt{VotingV2.sol} and \texttt{ZKPVoting.sol}. Tests are executed on a local Hardhat node with deterministic block times.
+
+\textbf{Backend Unit Tests:} Individual API endpoints are tested for correct response codes, input validation, and error handling using Postman collections and manual verification.
+
+\subsection{Integration Testing}
+Integration testing verifies that multiple modules work correctly together:
+\begin{itemize}[leftmargin=1.5cm]
+    \item \textbf{Frontend $\leftrightarrow$ Backend:} Registration form submission, login flow (password $\rightarrow$ OTP), and profile retrieval are tested end-to-end.
+    \item \textbf{Frontend $\leftrightarrow$ Blockchain:} Vote casting via MetaMask, result retrieval via \texttt{getAllCandidates()}, and receipt verification are validated.
+    \item \textbf{Backend $\leftrightarrow$ Database:} Prisma ORM queries, unique constraint enforcement, and transaction rollback behavior are verified.
+\end{itemize}
+
+\subsection{System Testing}
+Complete end-to-end flows are tested in a staging environment:
+\begin{enumerate}[leftmargin=1.5cm]
+    \item Admin creates election $\rightarrow$ adds candidates $\rightarrow$ authorizes voters $\rightarrow$ starts voting
+    \item Voter registers $\rightarrow$ logs in (MFA) $\rightarrow$ connects wallet $\rightarrow$ casts vote $\rightarrow$ views receipt
+    \item Admin ends voting $\rightarrow$ results are displayed $\rightarrow$ winner is declared $\rightarrow$ PDF generated
+\end{enumerate}
+
+\subsection{Security Testing}
+Security testing validates the multi-layered defence-in-depth architecture through the STRIDE threat model (detailed in Section 7.3). As noted in the STRIDE analysis, this security assessment was conducted by the development team; independent penetration testing was not performed.
+
+\section{Smart Contract Test Results}
+
+The Bharat E-Vote smart contracts were validated through 85 comprehensive automated tests. All tests passed successfully.
+
+\subsection{VotingV2.sol Test Results (72 Tests)}
+
+\FloatBarrier
+\needspace{8\baselineskip}
+\renewcommand{\arraystretch}{1.15}
+\footnotesize
+\begin{longtable}{|c|p{8.5cm}|c|c|}
+\caption{VotingV2.sol Test Results (Tests 1--72)}
+\label{tab:test_v2} \\
+\hline
+\textbf{No.} & \textbf{Test Case} & \textbf{Category} & \textbf{Result} \\
+\hline
+\endfirsthead
+\multicolumn{4}{c}%
+{\tablename\ \thetable\ -- \textit{Continued from previous page}} \\
+\hline
+\textbf{No.} & \textbf{Test Case} & \textbf{Category} & \textbf{Result} \\
+\hline
+\endhead
+\hline \multicolumn{4}{r}{\textit{Continued on next page}} \\
+\endfoot
+\hline
+\endlastfoot
+1 & Should have correct admin address & Deployment & \textcolor{green!60!black}{PASS} \\
+\hline
+2 & Should start with zero candidates & Deployment & \textcolor{green!60!black}{PASS} \\
+\hline
+3 & Should not have voting active initially & Deployment & \textcolor{green!60!black}{PASS} \\
+\hline
+4 & Should add a candidate successfully & Candidate Mgmt & \textcolor{green!60!black}{PASS} \\
+\hline
+5 & Should increment candidates count & Candidate Mgmt & \textcolor{green!60!black}{PASS} \\
+\hline
+6 & Should revert if non-admin adds candidate & Access Control & \textcolor{green!60!black}{PASS} \\
+\hline
+7 & Should revert if empty candidate name & Validation & \textcolor{green!60!black}{PASS} \\
+\hline
+8 & Should authorize a voter & Voter Auth & \textcolor{green!60!black}{PASS} \\
+\hline
+9 & Should revert if non-admin authorizes & Access Control & \textcolor{green!60!black}{PASS} \\
+\hline
+10 & Should batch authorize multiple voters & Voter Auth & \textcolor{green!60!black}{PASS} \\
+\hline
+11 & Should revert batch $>$ 100 voters & Validation & \textcolor{green!60!black}{PASS} \\
+\hline
+12 & Should start voting successfully & Election Lifecycle & \textcolor{green!60!black}{PASS} \\
+\hline
+13 & Should revert start if no candidates & Validation & \textcolor{green!60!black}{PASS} \\
+\hline
+14 & Should revert start by non-admin & Access Control & \textcolor{green!60!black}{PASS} \\
+\hline
+15 & Should cast a vote successfully & Vote Casting & \textcolor{green!60!black}{PASS} \\
+\hline
+16 & Should increment candidate vote count & Vote Casting & \textcolor{green!60!black}{PASS} \\
+\hline
+17 & Should mark voter as hasVoted & Vote Casting & \textcolor{green!60!black}{PASS} \\
+\hline
+18 & Should emit VoteCast event & Vote Casting & \textcolor{green!60!black}{PASS} \\
+\hline
+19 & Should revert vote if not authorized & Access Control & \textcolor{green!60!black}{PASS} \\
+\hline
+20 & Should revert vote if voting not active & State Guard & \textcolor{green!60!black}{PASS} \\
+\hline
+21 & Should revert if admin tries to vote & Admin Isolation & \textcolor{green!60!black}{PASS} \\
+\hline
+22 & Should revert vote for invalid candidate & Validation & \textcolor{green!60!black}{PASS} \\
+\hline
+23 & Should handle re-voting correctly & Re-Voting & \textcolor{green!60!black}{PASS} \\
+\hline
+24 & Should decrement old candidate on re-vote & Re-Voting & \textcolor{green!60!black}{PASS} \\
+\hline
+25 & Should increment new candidate on re-vote & Re-Voting & \textcolor{green!60!black}{PASS} \\
+\hline
+26 & Should enforce MAX\_REVOTES limit & Re-Voting & \textcolor{green!60!black}{PASS} \\
+\hline
+27 & Should revert if re-voting same candidate & Validation & \textcolor{green!60!black}{PASS} \\
+\hline
+28 & Should end voting successfully & Election Lifecycle & \textcolor{green!60!black}{PASS} \\
+\hline
+29 & Should revert end by non-admin & Access Control & \textcolor{green!60!black}{PASS} \\
+\hline
+30 & Should revert vote after election ends & State Guard & \textcolor{green!60!black}{PASS} \\
+\hline
+31 & Should get all candidates with counts & Results & \textcolor{green!60!black}{PASS} \\
+\hline
+32 & Should get correct winner & Results & \textcolor{green!60!black}{PASS} \\
+\hline
+33 & Should get total votes & Results & \textcolor{green!60!black}{PASS} \\
+\hline
+34 & Should generate valid vote receipt & Receipt & \textcolor{green!60!black}{PASS} \\
+\hline
+35 & Should enforce constituency matching & Constituency & \textcolor{green!60!black}{PASS} \\
+\hline
+36 & Should revert vote for wrong constituency & Constituency & \textcolor{green!60!black}{PASS} \\
+\hline
+% (Table continues directly from 36 to 37)
+37 & Should set voting timeline correctly & Timeline & \textcolor{green!60!black}{PASS} \\
+\hline
+38 & Should revert vote before start time & Timeline & \textcolor{green!60!black}{PASS} \\
+\hline
+39 & Should revert vote after end time & Timeline & \textcolor{green!60!black}{PASS} \\
+\hline
+40 & Should handle concurrent voters & Concurrency & \textcolor{green!60!black}{PASS} \\
+\hline
+41 & Should handle 50 voters sequentially & Load & \textcolor{green!60!black}{PASS} \\
+\hline
+42 & Should maintain vote integrity under load & Load & \textcolor{green!60!black}{PASS} \\
+\hline
+43 & Should emit obfuscated VoteCast event & Privacy & \textcolor{green!60!black}{PASS} \\
+\hline
+44 & VoteCast hash should not reveal candidateId & Privacy & \textcolor{green!60!black}{PASS} \\
+\hline
+45 & Should not store votedCandidateId on-chain & Privacy & \textcolor{green!60!black}{PASS} \\
+\hline
+46 & Should handle NOTA candidate correctly & NOTA & \textcolor{green!60!black}{PASS} \\
+\hline
+47 & Should allow voting for NOTA & NOTA & \textcolor{green!60!black}{PASS} \\
+\hline
+48 & Should reject empty string candidate name & Validation & \textcolor{green!60!black}{PASS} \\
+\hline
+49 & Should reject candidate with zero state code & Validation & \textcolor{green!60!black}{PASS} \\
+\hline
+50 & Should reject candidate with zero constituency code & Validation & \textcolor{green!60!black}{PASS} \\
+\hline
+51 & Should handle maximum uint256 candidate ID edge case & Edge Case & \textcolor{green!60!black}{PASS} \\
+\hline
+52 & Should reject vote when election time has expired & Timeline & \textcolor{green!60!black}{PASS} \\
+\hline
+53 & Should reject vote before election start time & Timeline & \textcolor{green!60!black}{PASS} \\
+\hline
+54 & Should correctly handle timeline boundary conditions & Timeline & \textcolor{green!60!black}{PASS} \\
+\hline
+55 & Should emit CandidateAdded event with correct args & Events & \textcolor{green!60!black}{PASS} \\
+\hline
+56 & Should emit VoterAuthorized event correctly & Events & \textcolor{green!60!black}{PASS} \\
+\hline
+57 & Should emit VotingStarted event & Events & \textcolor{green!60!black}{PASS} \\
+\hline
+58 & Should emit VotingEnded event & Events & \textcolor{green!60!black}{PASS} \\
+\hline
+59 & Should emit TimelineSet event with timestamps & Events & \textcolor{green!60!black}{PASS} \\
+\hline
+60 & Should verify gas cost of vote() is below 150k & Gas & \textcolor{green!60!black}{PASS} \\
+\hline
+61 & Should verify gas cost of addCandidate() is below 200k & Gas & \textcolor{green!60!black}{PASS} \\
+\hline
+62 & Should verify gas cost of authorizeVoter() is below 100k & Gas & \textcolor{green!60!black}{PASS} \\
+\hline
+63 & Should verify gas cost of re-vote is below 120k & Gas & \textcolor{green!60!black}{PASS} \\
+\hline
+64 & Should not allow authorizing already authorized voter & Edge Case & \textcolor{green!60!black}{PASS} \\
+\hline
+65 & Should return correct total votes across all candidates & Tally & \textcolor{green!60!black}{PASS} \\
+\hline
+66 & Should return correct winner with tie-breaking logic & Tally & \textcolor{green!60!black}{PASS} \\
+\hline
+67 & Should handle election with single candidate & Edge Case & \textcolor{green!60!black}{PASS} \\
+\hline
+68 & Should handle election with no votes cast & Edge Case & \textcolor{green!60!black}{PASS} \\
+\hline
+69 & Should reject vote for candidate in different constituency & Constituency & \textcolor{green!60!black}{PASS} \\
+\hline
+70 & Should accept vote for candidate in same constituency & Constituency & \textcolor{green!60!black}{PASS} \\
+\hline
+71 & Should correctly generate vote receipt hash & Receipt & \textcolor{green!60!black}{PASS} \\
+\hline
+72 & Should handle meta-transaction forwarded vote & ERC-2771 & \textcolor{green!60!black}{PASS} \\
+\hline
+\end{longtable}
+
+\subsection{ZKPVoting.sol Test Results (13 Tests)}
+
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.15}
+\small
+\begin{tabularx}{\textwidth}{|c|X|c|c|}
+\hline
+\textbf{No.} & \textbf{Test Case} & \textbf{Category} & \textbf{Result} \\
+\hline
+1 & Should deploy with correct parameters & Deployment & \textcolor{green!60!black}{PASS} \\
+\hline
+2 & Should register voter commitment & Registration & \textcolor{green!60!black}{PASS} \\
+\hline
+3 & Should reject duplicate commitment & Validation & \textcolor{green!60!black}{PASS} \\
+\hline
+4 & Should accept valid ZKP vote & ZKP Voting & \textcolor{green!60!black}{PASS} \\
+\hline
+5 & Should reject used nullifier & Double-Vote & \textcolor{green!60!black}{PASS} \\
+\hline
+6 & Should reject invalid proof & ZKP Verify & \textcolor{green!60!black}{PASS} \\
+\hline
+7 & Should reject unregistered voter & Access Control & \textcolor{green!60!black}{PASS} \\
+\hline
+8 & Should store commitment on-chain & Storage & \textcolor{green!60!black}{PASS} \\
+\hline
+9 & Should emit EncryptedVoteCast event & Events & \textcolor{green!60!black}{PASS} \\
+\hline
+10 & Should toggle ZKP mode & Admin Control & \textcolor{green!60!black}{PASS} \\
+\hline
+11 & Should reject ZKP vote when mode disabled & State Guard & \textcolor{green!60!black}{PASS} \\
+\hline
+12 & Should handle multiple ZKP voters & Multi-Voter & \textcolor{green!60!black}{PASS} \\
+\hline
+13 & Should verify proof components individually & Unit Verify & \textcolor{green!60!black}{PASS} \\
+\hline
+\end{tabularx}
+\caption{ZKPVoting.sol Test Results}
+\label{tab:test_zkp}
+\end{table}
+
+\subsection{Test Execution Summary}
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{|X|c|c|c|c|}
+\hline
+\textbf{Contract} & \textbf{Total} & \textbf{Passed} & \textbf{Failed} & \textbf{Pass Rate} \\
+\hline
+VotingV2.sol & 72 & 72 & 0 & 100\% \\
+\hline
+ZKPVoting.sol & 13 & 13 & 0 & 100\% \\
+\hline
+\textbf{Total} & \textbf{85} & \textbf{85} & \textbf{0} & \textbf{100\%} \\
+\hline
+\end{tabularx}
+\caption{Test Execution Summary}
+\label{tab:test_summary}
+\end{table}
+
+\section{STRIDE Threat Model}
+
+The STRIDE threat model provides a systematic approach to identifying and categorizing security threats. Each threat category is analyzed with the specific countermeasures implemented in Bharat E-Vote. \textbf{Note:} This analysis was conducted by the development team as a self-assessment exercise. The countermeasures listed represent identified mitigation strategies; independent adversarial testing (penetration testing, formal verification) was not performed and would be required to confirm the effectiveness of these mitigations in a production environment.
+
+\FloatBarrier
+\needspace{10\baselineskip}
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\small
+\newcolumntype{R}{>{\RaggedRight\arraybackslash}p{2.5cm}}
+\newcolumntype{M}{>{\RaggedRight\arraybackslash}p{3.5cm}}
+\begin{tabularx}{\textwidth}{|R|M|M|X|}
+\hline
+\textbf{Category} & \textbf{Threat} & \textbf{Attack Vector} & \textbf{Countermeasure} \\
+\hline
+\textbf{Spoofing} & Identity impersonation & Stolen credentials, session hijack & MFA (password + OTP), keystroke dynamics, single-active-session \\
+\hline
+\textbf{Tampering} & Vote manipulation & Database alteration, smart contract exploit & Blockchain immutability, Checks-Effects-Interactions pattern \\
+\hline
+\textbf{Repudiation} & Denying vote cast & Voter claims they did not vote & On-chain receipt hash, AdminAuditLog, LoginHistory \\
+\hline
+\textbf{Info.\ Disclosure} & Revealing vote choice & Event log analysis, database leak & Obfuscated VoteCast event hash. \textbf{Limitation:} In standard mode, \texttt{lastCandidateId} is stored on-chain; full secrecy requires ZKP mode \\
+\hline
+\textbf{Denial of Service} & System unavailability & DDoS, API flooding & Cloudflare, rate limiting, Redis distributed throttling \\
+\hline
+\textbf{Elevation of Privilege} & Unauthorized admin access & JWT manipulation, role escalation & JWT signature verification, on-chain admin check, RBAC \\
+\hline
+\end{tabularx}
+\caption{STRIDE Threat Model Analysis}
+\label{tab:stride}
+\end{table}
+
+\section{Security Layer Testing}
+
+Each security layer was individually tested:
+
+\FloatBarrier
+\needspace{10\baselineskip}
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{|c|>{\RaggedRight\arraybackslash}p{3.2cm}|X|>{\RaggedRight\arraybackslash}p{2.2cm}|>{\RaggedRight\arraybackslash}p{2cm}|}
+\hline
+\textbf{Layer} & \textbf{Technology} & \textbf{Test Method} & \textbf{Result} & \textbf{Coverage} \\
+\hline
+L1 & Cloudflare Turnstile & Automated requests without token & BLOCKED & 100\% \\
+\hline
+L2 & express-rate-limit & 250 requests in 15 minutes & RATE LIMITED & 100\% \\
+\hline
+L3 & Redis rate limit & Distributed test from 3 IPs & THROTTLED & 100\% \\
+\hline
+L4 & Password + OTP & Invalid credentials, expired OTP & REJECTED & 100\% \\
+\hline
+L5 & Keystroke Dynamics & Anomalous typing pattern & FLAGGED & 92\% \\
+\hline
+L6 & Smart Contract RBAC & Non-admin calling admin functions & REVERTED & 100\% \\
+\hline
+L7 & Payload validation & Oversized body, XSS payloads & BLOCKED & 100\% \\
+\hline
+L8 & Helmet.js headers & Missing CSP, HSTS check & ENFORCED & 100\% \\
+\hline
+\end{tabularx}
+\caption{Security Layer Test Results}
+\label{tab:security_test}
+\end{table}
+
+\newpage
+\section{Test Screenshots}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth,height=12cm]{images/test_output_part1.png}
+\caption{Voting Contract Tests (Part 1)}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth,height=12cm]{images/test_output_part2.png}
+\caption{ZKP Voting Tests (Part 2)}
+\end{subfigure}
+\caption{Smart Contract Test Execution Output --- 85 Passing}
+\label{fig:test85}
+\end{figure}
+
+%============================================================
+%        CHAPTER 8: RESULTS AND DISCUSSION
+%============================================================
+\chapter{Results and Discussion}
+
+\section{System Output Screenshots}
+
+\subsection{Landing Page}
+\projectfigure{landing_page.png}{Bharat E-Vote Landing Page}{fig:landing}{0.95}
+
+The landing page presents a national portal interface with the Ashoka Pillar emblem, citizen service grid, and prominent ``Vote Now'' call-to-action. The design follows the Indian Government NIC portal aesthetic with saffron, white, and green color accents.
+
+\subsection{Voter Registration}
+
+\begin{figure}[htbp]
+\centering
+\begin{subfigure}[b]{0.85\textwidth}
+\centering
+\includegraphics[width=\textwidth, keepaspectratio]{images/reg_step1_identity.png}
+\caption{Step 1: Identity}
+\end{subfigure}
+
+\vspace{0.5cm}
+
+\begin{subfigure}[b]{0.85\textwidth}
+\centering
+\includegraphics[width=\textwidth, keepaspectratio]{images/reg_step2_details.png}
+\caption{Step 2: Details}
+\end{subfigure}
+
+\vspace{0.5cm}
+
+\begin{subfigure}[b]{0.85\textwidth}
+\centering
+\includegraphics[width=\textwidth, keepaspectratio]{images/reg_step3_security.png}
+\caption{Step 3: Security}
+\end{subfigure}
+\caption{Voter Registration --- Three-Step Form Flow}
+\label{fig:register}
+\end{figure}
+
+The registration process is divided into three sequential steps: (1) Identity verification collects full name, email, Voter ID, and Aadhaar number; (2) Details captures father's name, gender, date of birth, mobile number, state code, constituency code, and residential address; (3) Security sets the account password with strength validation. Whitelist enforcement is applied before form submission.
+
+\subsection{Multi-Factor Authentication Login}
+\projectfigure{mfa_step1.png}{MFA Login --- Step 1 (Password)}{fig:mfa1}{0.85}
+
+\projectfigure{mfa_step2.png}{MFA Login --- Step 2 (OTP Verification)}{fig:mfa2}{0.85}
+
+The two-step login flow shows the password entry screen followed by the OTP input screen. A countdown timer displays the remaining OTP validity period (5 minutes). Upon successful MFA verification, the voter is redirected to a personalized dashboard displaying their profile, connected wallet address, current election status, and navigation links to the voting, results, and verification pages.
+
+\subsection{Election Results}
+\projectfigure{election_results.png}{Election Results --- Bar Chart and Pie Chart}{fig:results}{0.95}
+
+The results page displays real-time vote counts read directly from the blockchain, rendered as interactive bar charts and pie charts using Recharts. Results are only visible after the admin ends the election.
+
+\subsection{Admin Panel --- System Dashboard}
+\projectfigure{admin_dashboard.png}{Admin Panel --- Constituency Operations Center}{fig:admin_dash}{0.95}
+
+The system dashboard presents the administrator with a comprehensive operational overview: eligible voter count, cast ballots, turnout index, blockchain validation status, active elections, and pending approvals. A recent activity feed and quick action shortcuts enable efficient election management.
+
+\subsection{Admin Panel --- Election Management}
+\projectfigure{admin_elections.png}{Admin Panel --- Dynamic Election Controller}{fig:admin_elect}{0.95}
+
+The election engine provides a form for creating new elections with name, description, and time window configuration. Below the creation form, the Election Lifecycle Management section displays all elections with their current status and action buttons (Approve \& Start Voting, End Election).
+
+\subsection{Admin Panel --- Voter Whitelists}
+\projectfigure{admin_whitelist.png}{Admin Panel --- Electoral Roll Management}{fig:admin_whitelist}{0.95}
+
+The voter whitelist panel provides three mechanisms for voter authorization: (1) direct smart contract wallet authorization with state and constituency codes, (2) manual voter addition by email, name, voter ID, and whitelist status, and (3) bulk CSV import for large-scale electoral roll onboarding.
+
+\subsection{Admin Panel --- Audit Logs}
+\projectfigure{admin_audit.png}{Admin Panel --- Immutable Event Trails}{fig:admin_audit}{0.95}
+
+The security audits page displays an immutable audit trail of all administrative actions with timestamps, admin identity, and action type. Export functionality (CSV and JSON) enables external forensic analysis.
+
+\subsection{ZKP Vote Verification}
+\projectfigure{zkp_verification.png}{ZKP Vote Verification Page}{fig:zkp_verify}{0.95}
+
+The verification page allows voters to enter their secret and election ID to regenerate the nullifier and verify that their vote commitment exists on-chain.
+
+\section{Discussion of Results}
+
+\subsection{System Performance}
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{|X|p{3cm}|p{3cm}|p{2cm}|}
+\hline
+\textbf{Metric} & \textbf{Target} & \textbf{Achieved} & \textbf{Status} \\
+\hline
+Login Authentication Time & $<$ 3 seconds & 1.8 seconds & Met \\
+\hline
+Vote Casting (Hardhat) & $<$ 2 seconds & 0.8 seconds & Met \\
+\hline
+Vote Casting (Sepolia) & $<$ 30 seconds & 12--18 seconds & Met \\
+\hline
+API Response (Read) & $<$ 200ms & 85--150ms & Met \\
+\hline
+Concurrent Users & $\geq$ 100 & 100 tested & Met \\
+\hline
+Smart Contract Tests & 100\% pass & 85/85 pass & Met \\
+\hline
+\end{tabularx}
+\caption{System Performance Results}
+\label{tab:performance}
+\end{table}
+
+\textbf{Concurrent User Testing Methodology:} Concurrent user testing was conducted manually using a custom Node.js script (\texttt{test-10-voters-results.js}) that simulated 100 simultaneous authenticated sessions, each casting one vote over a 5-minute window on a local Hardhat node. The test verified that all 100 votes were correctly recorded on-chain with zero transaction failures. A formal load testing tool (e.g., k6 or JMeter) was not used; this is acknowledged as a limitation --- the manual test validates functional correctness under concurrency but does not measure latency percentiles or error rates under sustained load.
+
+\subsection{Security Effectiveness}
+The multi-layered defence-in-depth architecture was assessed against the STRIDE threat model (Table~\ref{tab:stride}). This assessment was conducted by the development team as a self-evaluation; independent adversarial testing was not performed. Key findings from self-assessment:
+\begin{itemize}[leftmargin=1.5cm]
+    \item \textbf{Zero successful spoofing attacks} under MFA + keystroke dynamics protection during internal testing
+    \item \textbf{Zero vote tampering incidents} due to blockchain immutability --- votes cannot be altered once confirmed on-chain
+    \item \textbf{Practical ballot privacy} in standard mode through event obfuscation; \textbf{full ballot secrecy} in ZKP mode via Pedersen commitments. Limitation: standard-mode privacy is bounded by the small candidate set brute-force attack and on-chain \texttt{lastCandidateId} storage.
+    \item \textbf{Rate limiting} successfully blocked all simulated DDoS attempts during internal load testing
+    \item \textbf{Smart contract RBAC} prevented all unauthorized privilege escalation attempts in automated tests
+\end{itemize}
+
+\subsection{Comparison with Existing Systems}
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{|X|c|c|c|c|}
+\hline
+\textbf{Feature} & \textbf{Paper EVM} & \textbf{India EVM \cite{eci2024}} & \textbf{Helios \cite{adida2008}} & \textbf{Bharat E-Vote} \\
+\hline
+Decentralized & No & No & Partial & \textbf{Yes} \\
+\hline
+Voter Verifiability & No & No & Yes & \textbf{Yes} \\
+\hline
+Ballot Privacy & Yes & Yes & Yes & \textbf{Yes (ZKP)} \\
+\hline
+Tamper Proof & No & Partial & Partial & \textbf{Yes (Blockchain)} \\
+\hline
+Coercion Resistance & No & No & Partial & \textbf{Practical (Re-Voting)} \\
+\hline
+Multi-Factor Auth & No & No & No & \textbf{Yes (MFA + Biometrics)} \\
+\hline
+Open Source & No & No & Yes & \textbf{Yes} \\
+\hline
+Gasless Voting & N/A & N/A & N/A & \textbf{Yes (ERC-2771)} \\
+\hline
+\end{tabularx}
+\caption{Comparison with Existing Voting Systems}
+\label{tab:comparison}
+\end{table}
+
+\textit{Note:} India EVM characteristics are derived from publicly available Election Commission of India documentation \cite{eci2024}. Helios characteristics are based on the original Helios protocol specification by Adida \cite{adida2008}. Paper-based EVM characteristics represent traditional manual counting systems. Helios is marked as ``Partial'' for coercion resistance because Adida discusses receipt-freeness properties but acknowledges they are not formally proven against all coercion models. Bharat E-Vote's coercion resistance is marked as ``Practical'' because the re-voting mechanism deters coercion but the public \texttt{voteVersion} increment allows detection of re-votes by a monitoring coercer.
+
+%============================================================
+%     CHAPTER 9: CONCLUSION AND FUTURE SCOPE
+%============================================================
+\chapter{Conclusion and Future Scope}
+
+\section{Architectural Boundaries and Limitations (Proof-of-Concept Scope)}
+As a Bachelor of Engineering prototype, the Bharat E-Vote system makes two deliberate architectural trade-offs to balance advanced cryptographic theory with practical implementation constraints within the academic timeline:
+
+\begin{enumerate}
+    \item \textbf{Simulated Zero-Knowledge Proofs (ZKP):} While the ZKP module successfully demonstrates the conceptual flow of decoupling voter identity from ballot choice via Pedersen Commitments and Nullifiers, the underlying math uses a simulated Schnorr-like challenge-response mechanism within \texttt{ZKPVoting.sol}. A true production-grade system would require implementing an advanced SNARK protocol (e.g., Groth16 via Circom) and an on-chain verifier contract, which falls outside the scope of this project's constraints.
+    \item \textbf{Web2 Centralized Onboarding:} The system successfully utilizes Ethereum as the immutable ledger for vote tallying. However, voter eligibility (the "Approved Voter" whitelist) relies on a centralized PostgreSQL database managed by administrators. In a fully decentralized architecture, this onboarding pipeline would be replaced by an On-Chain Decentralized Identity (DID) standard (e.g., Polygon ID or ERC-735) to remove the centralized database dependency entirely.
+\end{enumerate}
+These boundaries were established to prioritize a stable, end-to-end voting lifecycle demonstration while charting clear pathways for future cryptographic hardening.
+
+\section{Conclusion}
+This project set out to answer a specific engineering question: can a web-based voting platform be constructed where the integrity of election results is guaranteed by mathematics rather than institutional trust? After 8 months of iterative development across 8 increments, our implementation and testing results confirm that this is achievable within the scope of institutional-scale elections.
+
+The Bharat E-Vote platform, as delivered, consists of three Solidity smart contracts (\texttt{VotingV2.sol} with 72 passing tests, \texttt{ZKPVoting.sol} with 13 passing tests, and \texttt{MinimalForwarder.sol}), a Node.js/Express backend with 15 REST API endpoints secured by multiple defence layers, a React frontend with 12 purpose-built pages, and a PostgreSQL schema comprising 14 relational models. The total test count of 85 automated smart contract tests --- all passing at 100\% --- validates every public function, access control path, state transition, and edge case in the voting logic.
+
+Measured performance data (Table~\ref{tab:performance}) confirms that the system meets all defined targets: login authentication completes in 1.8 seconds (target: $<$ 3s), vote casting on Hardhat local node completes in 0.8 seconds (target: $<$ 2s), and Sepolia testnet finality occurs within 12--18 seconds (target: $<$ 30s). API read operations respond in 85--150ms (target: $<$ 200ms).
+
+The STRIDE threat model analysis (Table~\ref{tab:stride}) identifies mitigation strategies for each of the six threat categories, with at least two independent countermeasures per category. The security layer testing (Table~\ref{tab:security_test}) demonstrates effectiveness across all layers, with keystroke dynamics achieving 92\% accuracy consistent with the literature \cite{ayotte2023}. The comparison with existing systems (Table~\ref{tab:comparison}) shows that Bharat E-Vote is the only platform in our survey that simultaneously provides decentralized verification, ZKP-based ballot privacy, practical coercion deterrence through re-voting, and gasless meta-transaction support. We acknowledge that the STRIDE analysis and security testing represent self-assessment; independent adversarial testing would be required to validate these claims for production deployment.
+
+The project fulfills all six objectives defined in Chapter 1:
+\begin{enumerate}[leftmargin=1.5cm]
+    \item Multi-factor voter authentication with behavioural biometrics
+    \item Immutable blockchain-based vote recording
+    \item Privacy-preserving ZKP ballot verification
+    \item Automated on-chain result computation
+    \item Practical coercion deterrence via re-voting mechanism
+    \item Automated election lifecycle notifications
+\end{enumerate}
+
+\section{Future Scope}
+The following enhancements are identified for future development:
+
+\begin{enumerate}[leftmargin=1.5cm]
+    \item \textbf{Layer-2 Scaling:} Migration to Polygon zkEVM or Optimism rollups to reduce gas costs by 100x and increase throughput to 10,000+ votes per second, enabling national-scale elections.
+
+    \item \textbf{Merkle Tree Whitelist:} Replace the admin-managed identity commitment registration with a Merkle tree-based whitelist where voter commitments form the leaves. Voters prove membership via Merkle proofs without admin interaction, achieving a fully trustless setup.
+
+    \item \textbf{Post-Quantum Cryptography:} Replace secp256k1-based Pedersen commitments with lattice-based schemes (CRYSTALS-Dilithium, CRYSTALS-Kyber) to ensure long-term security against quantum computing attacks.
+
+    \item \textbf{UIDAI Aadhaar Integration:} Integrate with the UIDAI biometric authentication API through an authorized Authentication Service Agency (ASA) for production-grade voter identity verification using fingerprint and iris biometrics.
+
+    \item \textbf{Hardware Wallet Support:} Enable ZKP proof generation on hardware wallets (Trezor, Ledger) for enhanced private key security and air-gapped cryptographic operations.
+
+    \item \textbf{Mobile Application:} Develop native Android and iOS applications using React Native, with NFC-based Aadhaar card reading for streamlined voter registration.
+
+    \item \textbf{AI-Powered Anomaly Detection:} Implement machine learning models to analyze voting patterns in real-time, detecting coordinated vote manipulation and bot-driven attacks beyond what static rate limiting can catch.
+
+    \item \textbf{Decentralized Identity (DID):} Integrate W3C Decentralized Identifier standards for self-sovereign voter identity, eliminating dependence on centralized identity providers.
+
+    \item \textbf{Cross-Chain Interoperability:} Enable multi-chain election deployment where votes can be cast on different blockchains (Ethereum, Polygon, Solana) and aggregated through cross-chain bridges.
+
+    \item \textbf{Formal Verification:} Apply formal verification tools (Certora, Mythril) to mathematically prove smart contract correctness, ensuring zero exploitable vulnerabilities.
+\end{enumerate}
+
+%============================================================
+%                    REFERENCES
+%============================================================
+\begin{thebibliography}{20}
+
+\bibitem{hardwick2018} Hardwick F.S., Gioulis A., Akram R.N., Markantonakis K., ``E-Voting with Blockchain: An E-Voting Protocol with Decentralisation and Voter Privacy,'' \textit{Proc.\ IEEE International Conference on Blockchain (BCCA)}, pp.~1--8, 2018, DOI:~10.1109/BCCA.2018.8824813.
+
+\bibitem{ometov2018} Ometov A., Bezzateev S., M{\"a}kitalo N., Andreev S., Mikkonen T., Koucheryavy Y., ``Multi-Factor Authentication: A Survey,'' \textit{Cryptography}, vol.~2, no.~1, pp.~1--31, 2018, DOI:~10.3390/cryptography2010001.
+
+\bibitem{ayotte2023} Ayotte B., Bhatt S., Bhatt G., ``CrossBehaAuth: Cross-Scenario Behavioral Biometrics Authentication Using Keystroke Dynamics,'' \textit{IEEE Transactions on Dependable and Secure Computing}, vol.~20, no.~3, pp.~2031--2045, 2023, DOI:~10.1109/TDSC.2022.3179929.
+
+\bibitem{hjalmarsson2018} Hj{\'a}lmarsson F.\TH., Hre{\dh}arsson G.K., Hamdaqa M., Hj{\'a}lmt{\'y}sson G., ``Blockchain-Based E-Voting System,'' \textit{Proc.\ IEEE International Conference on Cloud Computing (CLOUD)}, pp.~983--986, 2018, DOI:~10.1109/CLOUD.2018.00151.
+
+\bibitem{shaheen2022} Shaheen S.H., Yousaf M., Jalil M., ``Temper Proof Data Distribution for Universal Verifiability and Accuracy in Electoral Process using Blockchain,'' \textit{IEEE Access}, vol.~10, pp.~5765--5782, 2022, DOI:~10.1109/ACCESS.2022.3141539.
+
+\bibitem{miao2023} Miao Y., ``Secure and Privacy-Preserving Voting System Using Zero-Knowledge Proofs,'' \textit{Applied and Computational Engineering}, vol.~8, pp.~181--187, 2023, DOI:~10.54254/2755-2721/8/20230181.
+
+\bibitem{adida2008} Adida B., ``Helios: Web-based Open-Audit Voting,'' \textit{Proceedings of the 17th USENIX Security Symposium}, pp.~335--348, 2008. Available: \url{https://www.usenix.org/legacy/events/sec08/tech/full_papers/adida/adida.pdf}.
+
+\bibitem{ethereum2024} Ethereum Foundation, ``Solidity Documentation v0.8.x,'' \url{https://docs.soliditylang.org/}, 2024.
+
+\bibitem{hardhat2024} Nomic Foundation, ``Hardhat Development Environment,'' \url{https://hardhat.org/docs}, 2024.
+
+\bibitem{openzeppelin2024} OpenZeppelin, ``Contracts Library --- ERC2771Context and MinimalForwarder,'' \url{https://docs.openzeppelin.com/contracts/}, 2024.
+
+\bibitem{pedersen1991} Pedersen T.P., ``Non-Interactive and Information-Theoretic Secure Verifiable Secret Sharing,'' \textit{Advances in Cryptology --- CRYPTO '91}, Springer LNCS~576, pp.~129--140, 1991, DOI:~10.1007/3-540-46766-1\_9.
+
+\bibitem{schnorr1991} Schnorr C.P., ``Efficient Signature Generation by Smart Cards,'' \textit{Journal of Cryptology}, vol.~4, no.~3, pp.~161--174, 1991, DOI:~10.1007/BF00196725.
+
+\bibitem{prisma2024} Prisma, ``Prisma ORM Documentation,'' \url{https://www.prisma.io/docs}, 2024.
+
+\bibitem{supabase2024} Supabase Inc., ``Supabase Documentation --- PostgreSQL Backend as a Service,'' \url{https://supabase.com/docs}, 2024.
+
+\bibitem{react2024} Meta Platforms, ``React Documentation,'' \url{https://react.dev/}, 2024.
+
+\bibitem{vite2024} Evan You, ``Vite --- Next Generation Frontend Tooling,'' \url{https://vitejs.dev/}, 2024.
+
+\bibitem{eci2024} Election Commission of India, ``General Elections --- Statistical Report,'' \url{https://eci.gov.in/statistical-report/statistical-reports/}, 2024.
+
+\bibitem{pressman2020} Pressman R.S., Maxim B.R., \textit{Software Engineering: A Practitioner's Approach}, 9th ed., McGraw-Hill Education, 2020, ISBN:~978-1259872976.
+
+\end{thebibliography}
+
+%============================================================
+%                    ANNEXURES
+%============================================================
+\begin{appendices}
+
+\chapter{Smart Contract Source Code}
+
+\section{VotingV2.sol --- Key Excerpts}
+
+\begin{lstlisting}[language=Solidity, caption={VotingV2.sol --- Contract Structure}]
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
+
+contract VotingV2 is ERC2771Context {
+    address public admin;
+    bool public votingActive;
+    uint256 public candidatesCount;
+    uint256 public constant MAX_REVOTES = 3;
+
+    struct Candidate {
+        uint256 id;
+        string name;
+        string partyName;
+        string partySymbol;
+        uint256 voteCount;
+        uint8 stateCode;
+        uint16 constituencyCode;
+    }
+
+    struct Voter {
+        bool isAuthorized;
+        bool hasVoted;
+        uint256 lastCandidateId;
+        uint256 voteVersion;
+        uint8 stateCode;
+        uint16 constituencyCode;
+    }
+
+    mapping(uint256 => Candidate) public candidates;
+    mapping(address => Voter) public voters;
+
+    event VoteCast(bytes32 indexed obfuscatedId,
+                   uint256 timestamp,
+                   uint256 voteVersion);
+    // ... additional events and functions
+}
+\end{lstlisting}
+
+\section{ZKPVoting.sol --- Key Excerpts}
+
+\begin{lstlisting}[language=Solidity, caption={ZKPVoting.sol --- ZKP Verification}]
+// NOTE: This verifier performs a hash-consistency
+// check over response values rather than
+// reconstructing announcement values
+// (A1 = g^s_v * C^e mod p) as in a formally
+// correct Schnorr sigma protocol. A production
+// implementation would compute announcement
+// values from responses and verify against the
+// commitment. This simplified version is a
+// proof-of-concept (see Section 6.3.2).
+function _verifyVoteProof(
+    bytes32 _commitment,
+    bytes32 _nullifier,
+    uint256[4] memory _proof
+) internal view returns (bool) {
+    uint256 challenge = _proof[0];
+    uint256 responseV = _proof[1];
+    uint256 responseR = _proof[2];
+    uint256 candidateCount = _proof[3];
+
+    require(candidateCount == candidatesCount,
+            "Invalid candidates count");
+    require(challenge != 0 && responseV != 0
+            && responseR != 0, "Invalid proof");
+
+    // Simplified: hashes response values directly
+    // instead of reconstructing announcements.
+    // Prover hashes (C, N, k_v, k_r, n); this
+    // verifier hashes (C, N, s_v, s_r, n).
+    // These differ, so this check verifies
+    // hash-consistency, not proof correctness.
+    uint256 recomputedChallenge = uint256(
+        keccak256(abi.encodePacked(
+            _commitment, _nullifier,
+            responseV, responseR, candidateCount
+        ))
+    ) % PRIME;
+
+    return recomputedChallenge == challenge;
+}
+\end{lstlisting}
+
+\chapter{Database Schema and API Endpoints}
+
+\section{Database Schema (Prisma)}
+
+\begin{lstlisting}[caption={schema.prisma --- Key Models}]
+model User {
+  id              String   @id @default(uuid())
+  fullname        String
+  email           String   @unique
+  voter_id        String   @unique
+  aadhaar_number  String   @unique
+  password_hash   String
+  wallet_address  String?
+  state_code      Int?
+  constituency_code Int?
+  role            Role     @default(VOTER)
+  created_at      DateTime @default(now())
+}
+
+model Election {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  status      ElectionStatus @default(DRAFT)
+  start_time  DateTime?
+  end_time    DateTime?
+  contract_address String?
+  created_at  DateTime @default(now())
+}
+
+model Vote {
+  id          String   @id @default(uuid())
+  voter_id    String
+  election_id String
+  tx_hash     String?
+  voted_at    DateTime @default(now())
+  @@unique([voter_id, election_id])
+}
+\end{lstlisting}
+
+\section{API Endpoint Reference}
+
+\begin{table}[htbp]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\footnotesize
+\begin{tabularx}{\textwidth}{|p{1.2cm}|p{5.5cm}|X|}
+\hline
+\textbf{Method} & \textbf{Endpoint} & \textbf{Description} \\
+\hline
+POST & \texttt{/api/v1/auth/register} & Register a new voter \\
+\hline
+POST & \texttt{/api/v1/auth/login} & Step 1: Password verification \\
+\hline
+POST & \texttt{/api/v1/auth/mfa/verify-otp} & Step 2: OTP verification \\
+\hline
+GET & \texttt{/api/v1/auth/profile} & Get authenticated voter profile \\
+\hline
+POST & \texttt{/api/v1/auth/logout} & Terminate active session \\
+\hline
+POST & \texttt{/api/v1/auth/forgot-password} & Initiate password reset \\
+\hline
+POST & \texttt{/api/v1/auth/reset-password} & Complete password reset with token \\
+\hline
+POST & \texttt{/api/v1/admin/login} & Admin authentication \\
+\hline
+GET & \texttt{/api/v1/admin/audit-logs} & Retrieve admin audit logs \\
+\hline
+POST & \texttt{/api/v1/admin/whitelist} & Manage voter whitelist (CSV upload) \\
+\hline
+POST & \texttt{/api/v1/keystroke/enroll} & Submit keystroke timing data \\
+\hline
+POST & \texttt{/api/v1/keystroke/verify} & Verify keystroke pattern \\
+\hline
+GET & \texttt{/api/v1/elections} & List all elections \\
+\hline
+GET & \texttt{/api/v1/states} & Get Indian state codes \\
+\hline
+GET & \texttt{/api/v1/constituencies/:code} & Get constituencies by state \\
+\hline
+\end{tabularx}
+\caption{API Endpoint Reference}
+\label{tab:api}
+\end{table}
+
+\chapter{Plagiarism Report}
+
+*(Insert the Turnitin/Urkund plagiarism report screenshots below. Ensure the plagiarism percentage is below the university-mandated threshold of 30\%.)*
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.95\textwidth, keepaspectratio]{images/plagiarism_report_1.png}
+    \caption{Plagiarism Report --- Part 1}
+    \label{fig:plagiarism_1}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.95\textwidth, keepaspectratio]{images/plagiarism_report_2.png}
+    \caption{Plagiarism Report --- Part 2}
+    \label{fig:plagiarism_2}
+\end{figure}
+
+\end{appendices}
+
+\end{document}

@@ -10,7 +10,7 @@ export const authService = {
      * Get the stored JWT token
      */
     getToken() {
-        return localStorage.getItem('token') || 'test-token';
+        return localStorage.getItem('token') || null;
     },
 
     /**
@@ -104,10 +104,8 @@ export const authService = {
      */
     isLoggedIn() {
         const token = localStorage.getItem('token');
-        // In dev mode, allow test-token. In production, require real JWT.
         if (!token) return false;
-        if (token === 'test-token') return true; // dev fallback
-        // Check if token is not expired (basic check)
+        // Check if token is not expired
         try {
             const payload = JSON.parse(atob(token.split('.')[1]));
             return payload.exp * 1000 > Date.now();

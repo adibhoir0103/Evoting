@@ -40,17 +40,12 @@ async function main() {
     const [admin, voter1, maliciousHacker] = await hre.ethers.getSigners();
     
     // 1. Get Contract Instances
-    const Voting = await hre.ethers.getContractFactory("Voting");
-    const deploymentInfoPath = path.join(__dirname, '..', 'deployment-info.json');
+    const Voting = await hre.ethers.getContractFactory("VotingV2");
+    console.log("📦 Deploying a fresh VotingV2 contract for hardcore testing...");
+    const votingContract = await Voting.deploy();
+    await votingContract.waitForDeployment();
     
-    if (!fs.existsSync(deploymentInfoPath)) {
-        throw new Error("Missing deployment-info.json. Please deploy contracts first.");
-    }
-    
-    const deploymentInfo = JSON.parse(fs.readFileSync(deploymentInfoPath, 'utf8'));
-    const votingContract = Voting.attach(deploymentInfo.address);
-    
-    console.log(`✅ Attached to Voting Contract at: ${votingContract.target}`);
+    console.log(`✅ Deployed fresh Voting Contract at: ${votingContract.target}`);
 
     // 2. Admin Setup: Add Candidate & Authorize
     console.log("\n[PHASE 1: ELECTION COMMISSION SETUP]");
@@ -72,7 +67,7 @@ async function main() {
     await simulateZeroKnowledgeProof(voter1.address, 1, "bharat-evote-2026");
     
     console.log("⏳ Submitting encrypted vote transaction to Blockchain...");
-    const voteTx = await votingContract.connect(voter1).vote(1);
+    const voteTx = await votingContract.connect(voter1).vote(1, 123456789);
     const receipt = await voteTx.wait();
     console.log(`✅ Blockchain transaction confirmed! Block #${receipt.blockNumber} | Hash: ${voteTx.hash}`);
 
@@ -84,20 +79,27 @@ async function main() {
         console.log(`❌ Backend Error:`, backendRes);
     }
 
-    // 5. Hardcore Attack Vector 1: Double Voting
-    console.log("\n[PHASE 3: THREAT VECTOR - DOUBLE VOTING]");
-    console.log("🚨 Legitimate voter attempting to cast a SECOND ballot...");
+    // 5. Hardcore Attack Vector 1: Double Voting (Coercion Resistance Test)
+    console.log("\n[PHASE 3: THREAT VECTOR - COERCION RESISTANCE (MAX 3 REVOTES)]");
+    console.log("🚨 Legitimate voter attempting to cast a 2nd, 3rd, and 4th ballot...");
     try {
-        await votingContract.connect(voter1).vote(1);
-        console.error("❌ CRITICAL IMMUTABILITY FAILURE: Double vote unexpectedly succeeded on blockchain.");
+        await (await votingContract.connect(voter1).vote(1, 123456789)).wait(); // Vote 2 (Revote 1)
+        console.log("✅ Revote 1 succeeded (Coercion Resistance).");
+        await (await votingContract.connect(voter1).vote(1, 123456789)).wait(); // Vote 3 (Revote 2)
+        console.log("✅ Revote 2 succeeded (Coercion Resistance).");
+        await (await votingContract.connect(voter1).vote(1, 123456789)).wait(); // Vote 4 (Revote 3)
+        console.log("✅ Revote 3 succeeded (Coercion Resistance). Limit reached.");
+        
+        await votingContract.connect(voter1).vote(1, 123456789); // Vote 5 should fail!
+        console.error("❌ CRITICAL IMMUTABILITY FAILURE: Voter exceeded the MAX_REVOTES limit.");
     } catch (e) {
-        console.log(`✅ Blockchain successfully REJECTED double vote: ${e.message.split('revert')[1] || "Blockchain Reverted"}`);
+        console.log(`✅ Blockchain successfully REJECTED vote beyond MAX_REVOTES: ${e.message.split('revert')[1] || "Blockchain Reverted"}`);
     }
 
     console.log("🚨 Voter attempting to ping backend /vote/record again with new or same hash...");
     const doubleVoteBackendRes = await simulateBackendRecord("0xFakeHashToAttemptDoubleVoteTrigger");
     if (doubleVoteBackendRes.status === 400 || doubleVoteBackendRes.status === 500) {
-        console.log(`✅ Backend successfully REJECTED duplicate status update:`, doubleVoteBackendRes.data.error || doubleVoteBackendRes.data);
+        console.log(`✅ Backend successfully REJECTED duplicate status update:`, doubleVoteBackendRes.data?.error || doubleVoteBackendRes.error);
     } else {
         console.log(`❌ CRITICAL BACKEND FAILURE: Backend accepted second vote record:`, doubleVoteBackendRes);
     }
@@ -106,7 +108,7 @@ async function main() {
     console.log("\n[PHASE 4: THREAT VECTOR - UNAUTHORIZED ACCOUNT ENTRY]");
     console.log(`🚨 Unregistered hacker (${maliciousHacker.address}) attempting to intercept voting logic...`);
     try {
-        await votingContract.connect(maliciousHacker).vote(1);
+        await votingContract.connect(maliciousHacker).vote(1, 987654321);
         console.error("❌ CRITICAL ZERO-TRUST FAILURE: Hacker successfully cast vote.");
     } catch (e) {
         console.log(`✅ Blockchain successfully REJECTED unauthorized entry: ${e.message.split('revert')[1] || "Blockchain Reverted"}`);

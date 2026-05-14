@@ -45,6 +45,17 @@ function LoginPage({ onLogin }) {
 
     const otpRefs = useRef([]);
 
+    // Escape key for modal
+    useEffect(() => {
+        const handleEsc = (e) => {
+            if (e.key === 'Escape' && forgotMode) {
+                setForgotMode(false);
+            }
+        };
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, [forgotMode]);
+
     // OTP Countdown Timer
     useEffect(() => {
         if (!mfaStep || otpCountdown <= 0) return;
@@ -407,7 +418,7 @@ function LoginPage({ onLogin }) {
 
                         {/* Error */}
                         {otpError && (
-                            <div className="mb-5 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 animate-shake">
+                            <div className="mb-5 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 animate-shake" role="alert" aria-live="assertive">
                                 <i className="fa-solid fa-circle-exclamation text-red-500 mt-0.5"></i>
                                 <p className="text-sm text-red-700 font-medium">{otpError}</p>
                             </div>
@@ -537,7 +548,7 @@ function LoginPage({ onLogin }) {
 
                     {/* Error */}
                     {error && (
-                        <div className="mb-5 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 animate-shake">
+                        <div className="mb-5 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 animate-shake" role="alert" aria-live="assertive">
                             <i className="fa-solid fa-circle-exclamation text-red-500 mt-0.5"></i>
                             <p className="text-sm text-red-700 font-medium">{error}</p>
                         </div>
@@ -547,10 +558,11 @@ function LoginPage({ onLogin }) {
                     <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
                         <div className="p-6 sm:p-8 space-y-5">
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Email or Voter ID</label>
+                                <label htmlFor="login-identifier" className="block text-sm font-semibold text-gray-700 mb-1">Email or Voter ID</label>
                                 <div className="relative">
                                     <i className="fa-solid fa-user absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
                                     <input
+                                        id="login-identifier"
                                         type="text"
                                         value={identifier}
                                         onChange={(e) => { setIdentifier(e.target.value); setError(''); }}
@@ -558,15 +570,17 @@ function LoginPage({ onLogin }) {
                                         placeholder="voter@example.com or ABC1234567"
                                         autoFocus
                                         autoComplete="username"
+                                        aria-required="true"
                                     />
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Password</label>
+                                <label htmlFor="login-password" className="block text-sm font-semibold text-gray-700 mb-1">Password</label>
                                 <div className="relative">
                                     <i className="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
                                     <input
+                                        id="login-password"
                                         type="password"
                                         value={password}
                                         onChange={(e) => { setPassword(e.target.value); setError(''); }}
@@ -576,6 +590,7 @@ function LoginPage({ onLogin }) {
                                         className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm"
                                         placeholder="Enter your password"
                                         autoComplete="current-password"
+                                        aria-required="true"
                                     />
                                 </div>
                                 <KeystrokeIndicator isCapturing={passwordFocused} />
@@ -610,9 +625,9 @@ function LoginPage({ onLogin }) {
                     {/* ===== FORGOT PASSWORD MODAL ===== */}
                     {forgotMode && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4" onClick={() => setForgotMode(false)}>
-                            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+                            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="forgot-password-title">
                                 <div className="bg-gradient-to-r from-primary to-blue-700 px-6 py-5 text-white">
-                                    <h2 className="text-lg font-bold flex items-center gap-2">
+                                    <h2 id="forgot-password-title" className="text-lg font-bold flex items-center gap-2">
                                         <i className="fa-solid fa-key"></i> Reset Password
                                     </h2>
                                     <p className="text-blue-100 text-sm mt-1">
@@ -622,13 +637,13 @@ function LoginPage({ onLogin }) {
 
                                 <div className="p-6 space-y-4">
                                     {forgotError && (
-                                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2" role="alert" aria-live="assertive">
                                             <i className="fa-solid fa-circle-exclamation text-red-500 mt-0.5"></i>
                                             <p className="text-sm text-red-700 font-medium">{forgotError}</p>
                                         </div>
                                     )}
                                     {forgotSuccess && (
-                                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-start gap-2">
+                                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-start gap-2" role="status" aria-live="polite">
                                             <i className="fa-solid fa-check-circle text-green-500 mt-0.5"></i>
                                             <p className="text-sm text-green-700 font-medium">{forgotSuccess}</p>
                                         </div>
@@ -637,16 +652,18 @@ function LoginPage({ onLogin }) {
                                     {forgotStep === 1 ? (
                                         <form onSubmit={handleForgotSubmitEmail} className="space-y-4">
                                             <div>
-                                                <label className="block text-sm font-semibold text-gray-700 mb-1">Email Address</label>
+                                                <label htmlFor="forgot-email" className="block text-sm font-semibold text-gray-700 mb-1">Email Address</label>
                                                 <div className="relative">
                                                     <i className="fa-solid fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
                                                     <input
+                                                        id="forgot-email"
                                                         type="email"
                                                         value={forgotEmail}
                                                         onChange={e => { setForgotEmail(e.target.value); setForgotError(''); }}
                                                         className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm"
                                                         placeholder="voter@example.com"
                                                         autoFocus
+                                                        aria-required="true"
                                                     />
                                                 </div>
                                             </div>
@@ -663,8 +680,9 @@ function LoginPage({ onLogin }) {
                                                 </div>
                                             )}
                                             <div>
-                                                <label className="block text-sm font-semibold text-gray-700 mb-1">OTP Code</label>
+                                                <label htmlFor="forgot-otp" className="block text-sm font-semibold text-gray-700 mb-1">OTP Code</label>
                                                 <input
+                                                    id="forgot-otp"
                                                     type="text"
                                                     value={forgotOtp}
                                                     onChange={e => { setForgotOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setForgotError(''); }}
@@ -672,26 +690,31 @@ function LoginPage({ onLogin }) {
                                                     placeholder="000000"
                                                     maxLength={6}
                                                     autoFocus
+                                                    aria-required="true"
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-semibold text-gray-700 mb-1">New Password</label>
+                                                <label htmlFor="forgot-new-password" className="block text-sm font-semibold text-gray-700 mb-1">New Password</label>
                                                 <input
+                                                    id="forgot-new-password"
                                                     type="password"
                                                     value={forgotNewPassword}
                                                     onChange={e => { setForgotNewPassword(e.target.value); setForgotError(''); }}
                                                     className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm"
                                                     placeholder="Min 8 characters"
+                                                    aria-required="true"
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-semibold text-gray-700 mb-1">Confirm Password</label>
+                                                <label htmlFor="forgot-confirm-password" className="block text-sm font-semibold text-gray-700 mb-1">Confirm Password</label>
                                                 <input
+                                                    id="forgot-confirm-password"
                                                     type="password"
                                                     value={forgotConfirmPassword}
                                                     onChange={e => { setForgotConfirmPassword(e.target.value); setForgotError(''); }}
                                                     className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm"
                                                     placeholder="Re-enter password"
+                                                    aria-required="true"
                                                 />
                                             </div>
                                             <button type="submit" disabled={forgotLoading} className="w-full py-3 rounded-xl text-sm font-bold text-white bg-green-600 hover:bg-green-700 shadow-lg transition disabled:opacity-50 flex items-center justify-center gap-2">

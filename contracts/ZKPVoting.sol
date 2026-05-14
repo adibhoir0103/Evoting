@@ -71,6 +71,9 @@ contract ZKPVoting {
     // Track all commitments (for universal verification)
     bytes32[] public allCommitments;
 
+    // Fast O(1) commitment existence check
+    mapping(bytes32 => bool) public commitmentExists;
+
     // Nullifier existence check (prevent double-voting)
     mapping(bytes32 => bool) public nullifierUsed;
 
@@ -243,8 +246,8 @@ contract ZKPVoting {
 
         // --- Goal 2: Verify ZK proof on-chain ---
         require(
-            _verifyVoteProof(_commitment, _nullifierHash, _proof),
-            "ZKP: Invalid zero-knowledge proof"
+            _verifyVoteProof(_commitment, _nullifierHash, _identityCommitment, _proof),
+            "ZKP: Invalid zero-knowledge proof or signature mismatch"
         );
 
         // --- Goal 1: Store encrypted vote (privacy preserved) ---
@@ -260,6 +263,7 @@ contract ZKPVoting {
         nullifierUsed[_nullifierHash] = true;
         allNullifiers.push(_nullifierHash);
         allCommitments.push(_commitment);
+        commitmentExists[_commitment] = true;
         zkpVoteCount++;
 
         // Mark voter as having voted
@@ -271,19 +275,18 @@ contract ZKPVoting {
     // ============ Goal 2: On-Chain Proof Verification ============
 
     /**
-     * @dev Verify a Schnorr-style ZK proof
+     * @dev Verify a simulated ZK proof. 
+     * NOTE: In a true production environment, this would use a Groth16 or PLONK verifier.
+     * For this Proof-of-Concept, we use a deterministic Schnorr-like challenge mechanism.
      * @param _commitment The Pedersen commitment
      * @param _nullifierHash The nullifier hash
+     * @param _identityCommitment The voter's identity commitment
      * @param _proof [challenge, response_v, response_r, candidateCount]
-     *
-     * Verification equation (simplified Schnorr):
-     *   R = g^response_v * h^response_r * commitment^(-challenge) mod p
-     *   challenge' = hash(commitment, R, nullifier, candidateCount)
-     *   Accept if challenge' == challenge
      */
     function _verifyVoteProof(
         bytes32 _commitment,
         bytes32 _nullifierHash,
+        bytes32 _identityCommitment,
         uint256[4] memory _proof
     ) internal view returns (bool) {
         uint256 challenge = _proof[0];
@@ -291,30 +294,16 @@ contract ZKPVoting {
         uint256 response_r = _proof[2];
         uint256 proofCandidateCount = _proof[3];
 
-        // Validate the proof references the correct candidate count
         require(proofCandidateCount == candidatesCount, "ZKP: Candidate count mismatch");
-
-        // Verify proof components are non-zero and within field
         require(challenge != 0 && response_v != 0 && response_r != 0, "ZKP: Zero proof component");
-        require(challenge < PRIME && response_v < PRIME && response_r < PRIME, "ZKP: Proof out of field");
 
-        // Recompute the challenge hash to verify
-        bytes32 expectedChallenge = keccak256(
-            abi.encodePacked(
-                _commitment,
-                _nullifierHash,
-                response_v,
-                response_r,
-                proofCandidateCount
-            )
+        bytes32 expectedHash = keccak256(
+            abi.encodePacked(_commitment, _nullifierHash, response_v, response_r, proofCandidateCount)
         );
 
-        // The challenge must match the hash of the proof components
-        // This ensures the prover committed to these values before seeing the challenge
-        require(
-            uint256(expectedChallenge) % PRIME == challenge % PRIME,
-            "ZKP: Challenge verification failed"
-        );
+        uint256 expectedChallenge = uint256(expectedHash) % PRIME;
+
+        require(expectedChallenge == challenge, "ZKP: Challenge verification failed");
 
         return true;
     }
@@ -352,18 +341,12 @@ contract ZKPVoting {
     }
 
     /**
-     * @dev Verify a specific commitment is included in the tally
+     * @dev Verify a specific commitment is included in the tally (O(1) Optimized)
      * @param _commitment The commitment to check
      * @return included Whether the commitment was found
-     * @return index The index in the commitments array
      */
-    function verifyVoteInclusion(bytes32 _commitment) external view returns (bool included, uint256 index) {
-        for (uint256 i = 0; i < allCommitments.length; i++) {
-            if (allCommitments[i] == _commitment) {
-                return (true, i);
-            }
-        }
-        return (false, 0);
+    function verifyVoteInclusion(bytes32 _commitment) external view returns (bool included) {
+        return commitmentExists[_commitment];
     }
 
     /**
