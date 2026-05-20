@@ -22,6 +22,10 @@ function LoginPage({ onLogin }) {
     const [keystrokeResult, setKeystrokeResult] = useState(null);
     const [turnstileToken, setTurnstileToken] = useState('');
 
+    // Demo Safety State
+    const [demoMode, setDemoMode] = useState(false);
+    const [ksFailCount, setKsFailCount] = useState(0);
+
     // MFA State
     const [mfaStep, setMfaStep] = useState(false);
     const [preAuthToken, setPreAuthToken] = useState('');
@@ -49,15 +53,23 @@ function LoginPage({ onLogin }) {
 
     const otpRefs = useRef([]);
 
-    // Escape key for modal
+    // Escape key for modal & Demo Bypass hotkey
     useEffect(() => {
-        const handleEsc = (e) => {
+        const handleKeyDown = (e) => {
             if (e.key === 'Escape' && forgotMode) {
                 setForgotMode(false);
             }
+            // Hidden Demo Bypass: Ctrl + Shift + K
+            if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'k') {
+                setDemoMode(prev => {
+                    const next = !prev;
+                    toast(next ? '🔓 Demo Bypass Mode ACTIVATED' : '🔒 Demo Bypass Mode DEACTIVATED', { icon: next ? '⚠️' : '🛡️' });
+                    return next;
+                });
+            }
         };
-        window.addEventListener('keydown', handleEsc);
-        return () => window.removeEventListener('keydown', handleEsc);
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
     }, [forgotMode]);
 
     // OTP Countdown Timer
@@ -136,17 +148,9 @@ function LoginPage({ onLogin }) {
                 throw new Error(data.error || 'Login failed');
             }
 
-            // MFA flow: password verified, now need OTP
+            // MFA flow: password verified
             if (data.mfaRequired) {
-                setPreAuthToken(data.preAuthToken);
-                setMaskedEmail(data.email);
-                setPendingUser(data.user);
-                setMfaStep(true);
-                setOtpCountdown(300);
-                setOtpDigits(['', '', '', '', '', '']);
-                setDemoOtp(data.otpDemo || '');
-
-                // Keystroke verification (non-blocking, during MFA wait)
+                // Keystroke verification (Blocking step for security)
                 if (keystrokeData.keyCount >= 4) {
                     try {
                         const ksRes = await fetch(`${API_URL}/auth/keystroke/verify`, {
@@ -163,15 +167,32 @@ function LoginPage({ onLogin }) {
                         setKeystrokeResult(ksData);
 
                         if (ksData.enrolled && !ksData.verified) {
-                            toast('⚠️ Keystroke pattern differs from your profile. Logged for security.', {
-                                duration: 5000, icon: '🔒',
-                                style: { background: '#fef3c7', color: '#92400e', fontWeight: 600 }
-                            });
+                            if (!demoMode && ksFailCount < 2) {
+                                setKsFailCount(prev => prev + 1);
+                                setError(`Biometric anomaly detected! Your typing pattern does not match. (Attempt ${ksFailCount + 1}/3)`);
+                                resetKeystroke();
+                                setLoading(false);
+                                return; // Block progression
+                            } else {
+                                toast('⚠️ Biometric verification bypassed via Graceful Degradation. Proceeding with High-Risk Audit Log.', {
+                                    duration: 6000, icon: '🚨',
+                                    style: { background: '#fef2f2', color: '#991b1b', fontWeight: 600 }
+                                });
+                            }
                         }
                     } catch (ksErr) {
                         console.warn('Keystroke verification skipped:', ksErr.message);
                     }
                 }
+
+                setPreAuthToken(data.preAuthToken);
+                setMaskedEmail(data.email);
+                setPendingUser(data.user);
+                setMfaStep(true);
+                setOtpCountdown(300);
+                setOtpDigits(['', '', '', '', '', '']);
+                setDemoOtp(data.otpDemo || '');
+                setKsFailCount(0); // reset on success
 
                 toast.success('OTP sent to your email!', { icon: '📧' });
                 // Focus first OTP input

@@ -61,6 +61,8 @@ model User {
 
   votes            Vote[]
   election_voters  ElectionVoter[]
+  state            State?   @relation(fields: [state_code], references: [code])
+  constituency     Constituency? @relation(fields: [constituency_code], references: [code])
 
   @@index([state_code, constituency_code])
 }
@@ -91,6 +93,8 @@ model ElectionCandidate {
   constituency_code Int     @default(0)
 
   election         Election @relation(fields: [election_id], references: [id], onDelete: Cascade)
+  state            State?   @relation(fields: [state_code], references: [code])
+  constituency     Constituency? @relation(fields: [constituency_code], references: [code])
 
   @@index([state_code, constituency_code])
 }
@@ -151,6 +155,9 @@ model State {
   code        Int      @unique
   name        String
   total_seats Int      @default(0)
+
+  users       User[]
+  candidates  ElectionCandidate[]
 }
 
 model Constituency {
@@ -159,6 +166,9 @@ model Constituency {
   state_code  Int
   name        String
   voters_count Int     @default(0)
+
+  users       User[]
+  candidates  ElectionCandidate[]
 }
 
 model SupportTicket {

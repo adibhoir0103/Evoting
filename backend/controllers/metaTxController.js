@@ -4,16 +4,27 @@
  */
 
 const logger = require('../lib/logger');
+const queueService = require('../services/queueService');
 const serverLog = logger.child('server');
 
 exports.relayMetaTx = async (req, res) => {
-    const { request, signature } = req.body;
-    if (!request || !signature) return res.status(400).json({ error: 'Forward request and signature are required' });
+    try {
+        const { request, signature } = req.body;
+        
+        if (!request || !signature) {
+            return res.status(400).json({ error: 'Forward request and signature are required' });
+        }
 
-    res.json({
-        message: 'Meta-transaction relay endpoint ready',
-        status: 'received',
-        request: { from: request.from, to: request.to, nonce: request.nonce },
-        note: 'In production, this relayer submits the tx on-chain and pays gas'
-    });
+        // Add to queue to ensure sequential processing and prevent Nonce collisions
+        const result = await queueService.addTxToQueue(request, signature);
+
+        res.json({
+            message: 'Meta-transaction queued for relay successfully',
+            status: 'queued',
+            ...result
+        });
+    } catch (error) {
+        serverLog.error('Error queueing meta-transaction:', error);
+        res.status(500).json({ error: 'Internal Server Error during relay' });
+    }
 };
