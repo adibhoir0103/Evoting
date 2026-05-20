@@ -5,6 +5,8 @@
 
 const prisma = require('../lib/prisma');
 const ipfsService = require('../services/ipfsService');
+const logger = require('../lib/logger');
+const voteLog = logger.child('vote');
 
 exports.recordVote = async (req, res) => {
     const { txHash } = req.body;
@@ -34,9 +36,9 @@ exports.recordVote = async (req, res) => {
             timestamp: new Date().toISOString()
         });
         ipfsHash = ipfsResult.ipfsHash;
-        console.log(`📌 Vote IPFS pinned: ${ipfsHash}`);
+        voteLog.info(`Vote IPFS pinned: ${ipfsHash}`);
     } catch (ipfsErr) {
-        console.warn('IPFS pinning failed (non-blocking):', ipfsErr.message);
+        voteLog.warn('IPFS pinning failed (non-blocking)', { error: ipfsErr.message });
     }
 
     res.json({ message: 'Vote securely recorded', ipfsHash: ipfsHash || null });

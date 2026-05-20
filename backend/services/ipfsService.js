@@ -11,6 +11,8 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const logger = require('../lib/logger');
+const ipfsLog = logger.child('ipfs');
 
 // Pinata API configuration
 const PINATA_API_KEY = process.env.PINATA_API_KEY || '';
@@ -166,7 +168,7 @@ const ipfsService = {
                 timestamp: result.Timestamp
             };
         } catch (err) {
-            console.error('Pinata pinning failed, falling back to local:', err.message);
+            ipfsLog.warn('Pinata pinning failed, falling back to local', { error: err.message });
             return this._pinToLocal(data, name);
         }
     },
@@ -179,7 +181,7 @@ const ipfsService = {
             }
             return response.json();
         } catch (err) {
-            console.error('Pinata retrieval failed, trying local:', err.message);
+            ipfsLog.warn('Pinata retrieval failed, trying local', { error: err.message });
             return this._getFromLocal(ipfsHash);
         }
     },
@@ -218,7 +220,7 @@ const ipfsService = {
         };
 
         fs.writeFileSync(filePath, JSON.stringify(stored, null, 2));
-        console.log(`📌 IPFS Mock: Pinned ${name} → ${cid}`);
+        ipfsLog.debug(`IPFS Mock: Pinned ${name} → ${cid}`);
 
         return {
             ipfsHash: cid,

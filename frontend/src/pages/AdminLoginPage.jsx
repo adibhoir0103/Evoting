@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { API_URL } from '../config/api';
+import { Turnstile } from '@marsidev/react-turnstile';
+
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'; // test key by default
 
 function AdminLoginPage({ onAdminLogin }) {
     const navigate = useNavigate();
@@ -10,6 +13,7 @@ function AdminLoginPage({ onAdminLogin }) {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState('');
 
     // MFA state
     const [mfaRequired, setMfaRequired] = useState(false);
@@ -25,7 +29,7 @@ function AdminLoginPage({ onAdminLogin }) {
             const response = await fetch(`${API_URL}/admin/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify({ email, password, turnstileToken })
             });
 
             const data = await response.json();
@@ -178,6 +182,13 @@ function AdminLoginPage({ onAdminLogin }) {
                                     <><i className="fa-solid fa-right-to-bracket mr-2"></i>Login as Admin</>
                                 )}
                             </button>
+                            <div className="flex justify-center mt-4">
+                                <Turnstile
+                                    siteKey={TURNSTILE_SITE_KEY}
+                                    onSuccess={(token) => setTurnstileToken(token)}
+                                    options={{ theme: 'light' }}
+                                />
+                            </div>
                         </form>
                     )}
 

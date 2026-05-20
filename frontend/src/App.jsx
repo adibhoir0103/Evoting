@@ -175,6 +175,25 @@ function App() {
         if (userData.walletAddress) {
             checkAdminStatus(userData.walletAddress);
         }
+
+        // ── Sentry: Tag errors with user identity ──
+        Sentry.setUser({
+            id: userData.id,
+            email: userData.email,
+            username: userData.voterId,
+        });
+
+        // ── PostHog: Link anonymous session to real identity ──
+        posthog.identify(userData.id, {
+            email: userData.email,
+            name: userData.fullname,
+            voter_id: userData.voterId,
+            has_voted: userData.hasVoted || false,
+        });
+        posthog.capture('login_success', {
+            method: 'mfa_otp',
+            has_wallet: !!userData.walletAddress,
+        });
     };
 
     const handleLogout = () => {

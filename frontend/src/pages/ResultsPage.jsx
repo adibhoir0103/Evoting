@@ -27,7 +27,7 @@ function ResultsPage() {
             try {
                 if (window.ethereum) await service.connectWallet();
             } catch (e) {
-                console.log("Viewing in read-only mode");
+                // Read-only mode — no wallet needed
             }
 
             const [candidates, active] = await Promise.all([

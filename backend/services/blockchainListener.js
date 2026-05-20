@@ -1,5 +1,7 @@
 const { ethers } = require('ethers');
 const Sentry = require('@sentry/node');
+const logger = require('../lib/logger');
+const bcLog = logger.child('blockchain');
 
 /**
  * Enterprise Blockchain WebSocket Listener
@@ -25,7 +27,7 @@ class BlockchainEventListener {
 
     async init() {
         if (!this.rpcUrl) {
-            console.log('⏭️ Skipping WebSocket EVM Listener in Production (No RPC_URL provided).');
+            bcLog.info('Skipping WebSocket EVM Listener (No RPC_URL provided)');
             return;
         }
 
@@ -42,22 +44,22 @@ class BlockchainEventListener {
 
             this.contract = new ethers.Contract(this.contractAddress, VotingABI, this.provider);
 
-            console.log(`✅ Event-Driven Engine attached to EVM on ${this.rpcUrl}`);
+            bcLog.info(`Event-Driven Engine attached to EVM on ${this.rpcUrl}`);
             
             // Hook 1: Standard Transparent Voting
             this.contract.on("VoteCast", async (voterAddress, candidateId, event) => {
-                console.log(`[EVM TRIGGER] VoteCast detected off-chain -> Voter: ${voterAddress}`);
+                bcLog.info(`VoteCast detected off-chain -> Voter: ${voterAddress}`);
                 // Background execution (e.g. invalidate read-caches here)
             });
 
             // Hook 2: Zero-Knowledge Commitment Hash Emissions
             this.contract.on("ZKPVoteCast", async (nullifierHash, commitment, event) => {
-                console.log(`[EVM TRIGGER] Zero-Knowledge Vote appended! Nullifier: ${nullifierHash}`);
+                bcLog.info(`Zero-Knowledge Vote appended! Nullifier: ${nullifierHash}`);
                 // Real-time metrics/caches updated gracefully
             });
 
         } catch (error) {
-            console.error('⚠️ Blockchain WebSocket Listener failed to initialize (OK in dev if no node running):', error.message);
+            bcLog.warn('Blockchain WebSocket Listener failed to initialize (OK in dev if no node running)', { error: error.message });
             if (process.env.SENTRY_DSN) Sentry.captureException(error, { tags: { worker: 'blockchain_websockets' } });
         }
     }

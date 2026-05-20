@@ -3,12 +3,15 @@ import VotingArtifact from '../contracts/Voting.json';
 import contractAddress from '../contracts/contract-address.json';
 
 // Environment detection: if VITE_API_URL points to localhost, we use local Hardhat node
-const _apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+const _apiUrl = import.meta.env.VITE_API_URL || '/api/v1';
 const IS_LOCAL = _apiUrl.includes('localhost') || _apiUrl.includes('127.0.0.1');
 const LOCAL_RPC = 'http://127.0.0.1:8545';
 const SEPOLIA_RPC = 'https://eth-sepolia.g.alchemy.com/v2/XbNu_qjjYV_V-FGBmkc3K';
 const LOCAL_CHAIN_ID = '0x539';   // 1337
 const SEPOLIA_CHAIN_ID = '0xaa36a7'; // 11155111
+
+// Dev-only logger — stripped from production browser console
+const devLog = (...args) => { if (import.meta.env.DEV) console.log(...args); };
 
 /**
  * Blockchain service to interact with the Voting smart contract
@@ -123,7 +126,7 @@ export class BlockchainService {
                 this.signer
             );
 
-            console.log('✅ Wallet connected:', accounts[0]);
+            devLog('✅ Wallet connected:', accounts[0]);
             return accounts[0];
         } catch (error) {
             console.error('Error connecting wallet:', error);
@@ -153,7 +156,7 @@ export class BlockchainService {
         try {
             const currentAccount = await this.getCurrentAccount();
             const adminAddress = await this.contract.admin();
-            console.log('Current account:', currentAccount, 'Admin address:', adminAddress);
+            devLog('Current account:', currentAccount, 'Admin address:', adminAddress);
             return currentAccount.toLowerCase() === adminAddress.toLowerCase();
         } catch (error) {
             console.error('Error checking admin status:', error);
@@ -179,9 +182,9 @@ export class BlockchainService {
         try {
             await this.ensureConnection();
             const tx = await this.contract.addCandidate(candidateName, partyName, partySymbol, stateCode, constituencyCode);
-            console.log('⏳ Transaction sent:', tx.hash);
+            devLog('⏳ Transaction sent:', tx.hash);
             const receipt = await tx.wait();
-            console.log('✅ Candidate added successfully');
+            devLog('✅ Candidate added successfully');
             return receipt;
         } catch (error) {
             console.error('Error adding candidate:', error);
@@ -196,9 +199,9 @@ export class BlockchainService {
         try {
             await this.ensureConnection();
             const tx = await this.contract.addCandidateSimple(candidateName);
-            console.log('⏳ Transaction sent:', tx.hash);
+            devLog('⏳ Transaction sent:', tx.hash);
             const receipt = await tx.wait();
-            console.log('✅ Candidate added successfully');
+            devLog('✅ Candidate added successfully');
             return receipt;
         } catch (error) {
             console.error('Error adding candidate:', error);
@@ -218,9 +221,9 @@ export class BlockchainService {
             } else {
                 tx = await this.contract.authorizeVoter(voterAddress, stateCode, constituencyCode);
             }
-            console.log('⏳ Transaction sent:', tx.hash);
+            devLog('⏳ Transaction sent:', tx.hash);
             const receipt = await tx.wait();
-            console.log('✅ Voter authorized successfully');
+            devLog('✅ Voter authorized successfully');
             return receipt;
         } catch (error) {
             console.error('Error authorizing voter:', error);
@@ -235,9 +238,9 @@ export class BlockchainService {
         try {
             await this.ensureConnection();
             const tx = await this.contract.authorizeVotersBatch(voterAddresses);
-            console.log('⏳ Transaction sent:', tx.hash);
+            devLog('⏳ Transaction sent:', tx.hash);
             const receipt = await tx.wait();
-            console.log('✅ Voters authorized successfully');
+            devLog('✅ Voters authorized successfully');
             return receipt;
         } catch (error) {
             console.error('Error authorizing voters in batch:', error);
@@ -252,9 +255,9 @@ export class BlockchainService {
         try {
             await this.ensureConnection();
             const tx = await this.contract.setVotingTimeline(startTime, endTime);
-            console.log('⏳ Transaction sent:', tx.hash);
+            devLog('⏳ Transaction sent:', tx.hash);
             const receipt = await tx.wait();
-            console.log('✅ Voting timeline set');
+            devLog('✅ Voting timeline set');
             return receipt;
         } catch (error) {
             console.error('Error setting timeline:', error);
@@ -269,9 +272,9 @@ export class BlockchainService {
         try {
             await this.ensureConnection();
             const tx = await this.contract.disableTimeline();
-            console.log('⏳ Transaction sent:', tx.hash);
+            devLog('⏳ Transaction sent:', tx.hash);
             const receipt = await tx.wait();
-            console.log('✅ Timeline disabled');
+            devLog('✅ Timeline disabled');
             return receipt;
         } catch (error) {
             console.error('Error disabling timeline:', error);
@@ -286,9 +289,9 @@ export class BlockchainService {
         try {
             await this.ensureConnection();
             const tx = await this.contract.startVoting();
-            console.log('⏳ Transaction sent:', tx.hash);
+            devLog('⏳ Transaction sent:', tx.hash);
             const receipt = await tx.wait();
-            console.log('✅ Voting started successfully');
+            devLog('✅ Voting started successfully');
             return receipt;
         } catch (error) {
             console.error('Error starting voting:', error);
@@ -303,9 +306,9 @@ export class BlockchainService {
         try {
             await this.ensureConnection();
             const tx = await this.contract.endVoting();
-            console.log('⏳ Transaction sent:', tx.hash);
+            devLog('⏳ Transaction sent:', tx.hash);
             const receipt = await tx.wait();
-            console.log('✅ Voting ended successfully');
+            devLog('✅ Voting ended successfully');
             return receipt;
         } catch (error) {
             console.error('Error ending voting:', error);
@@ -324,9 +327,9 @@ export class BlockchainService {
             const secretSalt = ethers.toBigInt(ethers.hexlify(randomBytes));
 
             const tx = await this.contract.vote(candidateId, secretSalt);
-            console.log('⏳ Transaction sent:', tx.hash);
+            devLog('⏳ Transaction sent:', tx.hash);
             const receipt = await tx.wait();
-            console.log('✅ Vote cast successfully');
+            devLog('✅ Vote cast successfully');
             return receipt;
         } catch (error) {
             console.error('Error casting vote:', error);
@@ -626,7 +629,7 @@ export class BlockchainService {
         try {
             const tx = await this.contract.setZKPMode(enabled);
             await tx.wait();
-            console.log(`✅ ZKP mode ${enabled ? 'enabled' : 'disabled'}`);
+            devLog(`✅ ZKP mode ${enabled ? 'enabled' : 'disabled'}`);
             return true;
         } catch (error) {
             console.error('Error setting ZKP mode:', error);
@@ -641,7 +644,7 @@ export class BlockchainService {
         try {
             const tx = await this.contract.setTrustedForwarder(forwarderAddress);
             await tx.wait();
-            console.log('✅ Trusted forwarder set:', forwarderAddress);
+            devLog('✅ Trusted forwarder set:', forwarderAddress);
             return true;
         } catch (error) {
             console.error('Error setting trusted forwarder:', error);
@@ -656,7 +659,7 @@ export class BlockchainService {
         try {
             const tx = await this.contract.setElectionIPFSHash(ipfsHash);
             await tx.wait();
-            console.log('✅ Election IPFS hash set:', ipfsHash);
+            devLog('✅ Election IPFS hash set:', ipfsHash);
             return true;
         } catch (error) {
             console.error('Error setting IPFS hash:', error);
@@ -675,7 +678,7 @@ export class BlockchainService {
                 await this.connectWallet();
             }
             this.zkpContract = new ethers.Contract(zkpContractAddress, zkpAbi, this.signer);
-            console.log('✅ ZKP contract initialized at:', zkpContractAddress);
+            devLog('✅ ZKP contract initialized at:', zkpContractAddress);
             return true;
         } catch (error) {
             console.error('Error initializing ZKP contract:', error);
@@ -698,9 +701,9 @@ export class BlockchainService {
                 proofArray,
                 ipfsHash || ''
             );
-            console.log('⏳ ZKP vote transaction sent:', tx.hash);
+            devLog('⏳ ZKP vote transaction sent:', tx.hash);
             const receipt = await tx.wait();
-            console.log('✅ ZKP vote submitted successfully');
+            devLog('✅ ZKP vote submitted successfully');
             return receipt;
         } catch (error) {
             console.error('Error submitting ZKP vote:', error);
@@ -716,7 +719,7 @@ export class BlockchainService {
             const contract = this.zkpContract || this.contract;
             const tx = await contract.registerEligibleVoter(identityCommitment);
             await tx.wait();
-            console.log('✅ Voter registered with ZKP identity commitment');
+            devLog('✅ Voter registered with ZKP identity commitment');
             return true;
         } catch (error) {
             console.error('Error registering ZKP voter:', error);
@@ -814,7 +817,7 @@ export class BlockchainService {
             const contract = this.zkpContract || this.contract;
             const tx = await contract.markVoteVerified(nullifierHash);
             await tx.wait();
-            console.log('✅ Vote marked as verified');
+            devLog('✅ Vote marked as verified');
             return true;
         } catch (error) {
             console.error('Error marking verified:', error);

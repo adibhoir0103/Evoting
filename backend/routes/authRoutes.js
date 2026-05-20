@@ -5,27 +5,15 @@
 
 const express = require('express');
 const router = express.Router();
-const rateLimit = require('express-rate-limit');
+const { authLimiter, otpLimiter } = require('../middleware/rateLimiter');
+const { verifyTurnstile } = require('../middleware/turnstile');
 const { injectUser } = require('../middleware/authenticate');
 const { asyncHandler } = require('../middleware/errorHandler');
 const auth = require('../controllers/authController');
 
-// Rate limiters
-const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, max: 20,
-    message: { error: 'Too many auth attempts. Please try again later.' },
-    standardHeaders: true, legacyHeaders: false
-});
-
-const otpLimiter = rateLimit({
-    windowMs: 5 * 60 * 1000, max: 3,
-    message: { error: 'Too many OTP attempts. Account temporarily locked for 5 minutes.' },
-    standardHeaders: true, legacyHeaders: false
-});
-
 // Registration & Login
-router.post('/register', authLimiter, asyncHandler(auth.register));
-router.post('/login', authLimiter, asyncHandler(auth.login));
+router.post('/register', authLimiter, verifyTurnstile, asyncHandler(auth.register));
+router.post('/login', authLimiter, verifyTurnstile, asyncHandler(auth.login));
 router.post('/mfa/verify-otp', otpLimiter, asyncHandler(auth.verifyOtp));
 router.post('/mfa/resend-otp', authLimiter, asyncHandler(auth.resendOtp));
 router.post('/logout', injectUser, asyncHandler(auth.logout));

@@ -73,7 +73,7 @@ function ZKPVerificationPanel({
         setError('');
         try {
             if (ipfsHash) {
-                const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1'}/ipfs/${ipfsHash}`);
+                const response = await fetch(`${import.meta.env.VITE_API_URL || '/api/v1'}/ipfs/${ipfsHash}`);
                 if (response.ok) {
                     const data = await response.json();
                     setIpfsVerified(true);
@@ -142,7 +142,7 @@ function ZKPVerificationPanel({
                     await tx.wait();
                 } catch (e) {
                     // Non-critical if this fails
-                    console.log('Vote verification marking skipped:', e.message);
+                    if (import.meta.env.DEV) console.log('Vote verification marking skipped:', e.message);
                 }
             }
             if (onVerificationComplete) {

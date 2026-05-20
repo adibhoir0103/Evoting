@@ -170,7 +170,7 @@ function VerifyVotePage() {
             // Step 3: Connect to ZKPVoting contract (read-only)
             checks.push({ label: 'Connecting to ZKPVoting smart contract...', status: 'running' });
 
-            const _apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+            const _apiUrl = import.meta.env.VITE_API_URL || '/api/v1';
             const isLocal = _apiUrl.includes('localhost') || _apiUrl.includes('127.0.0.1');
             const rpcUrl = isLocal ? 'http://127.0.0.1:8545' : 'https://eth-sepolia.g.alchemy.com/v2/XbNu_qjjYV_V-FGBmkc3K';
 

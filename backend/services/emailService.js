@@ -1,6 +1,9 @@
 // Email service for sending OTP via Brevo (formerly Sendinblue)
 // Switched from Resend to Brevo for better free tier (300 emails/day, no domain verification needed)
 
+const logger = require('../lib/logger');
+const emailLog = logger.child('email');
+
 const BREVO_API_KEY = process.env.BREVO_API_KEY || '';
 const FROM_EMAIL = process.env.BREVO_FROM_EMAIL || process.env.RESEND_FROM_EMAIL || 'bharat-evote@gmail.com';
 const FROM_NAME = process.env.BREVO_FROM_NAME || 'Bharat E-Vote';
@@ -25,9 +28,9 @@ class EmailService {
 
         if (BREVO_API_KEY && BREVO_API_KEY.startsWith('xkeysib-')) {
             this.isReady = true;
-            console.log(`📧 Brevo initialized | From: ${FROM_NAME} <${FROM_EMAIL}> | Key: xkeysib-****${BREVO_API_KEY.slice(-4)}`);
+            emailLog.info(`Brevo initialized | From: ${FROM_NAME} <${FROM_EMAIL}> | Key: xkeysib-****${BREVO_API_KEY.slice(-4)}`);
         } else if (BREVO_API_KEY) {
-            console.error('❌ BREVO_API_KEY is set but does not start with "xkeysib-". Check your .env file.');
+            emailLog.error('BREVO_API_KEY is set but does not start with "xkeysib-". Check your .env file.');
         }
     }
 
@@ -183,7 +186,7 @@ class EmailService {
         // Try sending real email via Brevo
         if (this.isReady) {
             try {
-                console.log(`📧 Attempting Brevo email: from=${FROM_EMAIL} to=${email}`);
+                emailLog.info(`Attempting Brevo email: from=${FROM_EMAIL} to=${email}`);
                 const data = await this._sendBrevo({
                     to: email,
                     toName: userName,
@@ -191,21 +194,21 @@ class EmailService {
                     htmlContent
                 });
 
-                console.log(`📧 ✅ OTP email sent via Brevo to: ${email} (ID: ${data.messageId})`);
+                emailLog.info(`OTP email sent via Brevo to: ${email} (ID: ${data.messageId})`);
                 return {
                     success: true,
                     messageId: data.messageId,
                     email: email
                 };
             } catch (error) {
-                console.error('📧 Brevo send failed, falling back to demo mode:', error.message);
+                emailLog.warn('Brevo send failed, falling back to demo mode', { error: error.message });
                 // Fall through to demo mode below
             }
         }
 
         // Demo mode — log and return
         if (process.env.NODE_ENV !== 'production') {
-            console.log(`📧 [DEMO] OTP for ${email.slice(0, 3)}***: Brevo not configured, using demo mode`);
+            emailLog.debug(`[DEMO] OTP for ${email.slice(0, 3)}***: Brevo not configured, using demo mode`);
         }
         return {
             success: true,
@@ -220,16 +223,12 @@ class EmailService {
      */
     async verifyConnection() {
         if (!this.isReady) {
-            console.warn('⚠️  Email service (Brevo) not configured. Using demo mode.');
-            console.warn('   To enable real emails:');
-            console.warn('   1. Sign up at https://app.brevo.com/');
-            console.warn('   2. Go to https://app.brevo.com/settings/keys/api');
-            console.warn('   3. Create an API key and set BREVO_API_KEY in your .env');
-            console.warn('   4. Set BREVO_FROM_EMAIL to your verified sender email');
+            emailLog.warn('Email service (Brevo) not configured. Using demo mode.');
+            emailLog.warn('   To enable: set BREVO_API_KEY and BREVO_FROM_EMAIL in .env');
             return false;
         }
         
-        console.log('✅ Email service (Brevo) is ready — 300 free emails/day');
+        emailLog.info('Email service (Brevo) is ready — 300 free emails/day');
         return true;
     }
 
@@ -273,7 +272,7 @@ class EmailService {
         `;
 
         if (!this.isReady) {
-            console.log(`[DEMO MODE] Vote Receipt -> ${email}: ${txHash}`);
+            emailLog.debug(`[DEMO MODE] Vote Receipt -> ${email}: ${txHash}`);
             return { success: true, messageId: 'demo-receipt', email, demo: true };
         }
 
@@ -286,14 +285,14 @@ class EmailService {
             });
             return { success: true, messageId: data.messageId, email };
         } catch (error) {
-            console.error('Brevo receipt error:', error);
+            emailLog.error('Brevo receipt error', { error: error.message });
             return { success: false, error: error.message };
         }
     }
 
     async sendBroadcastEmail(email, userName, subject, body) {
         if (!this.isReady) {
-            console.log(`[DEMO] Broadcast to ${email}: ${subject}`);
+            emailLog.debug(`[DEMO] Broadcast to ${email}: ${subject}`);
             return { success: true, demo: true };
         }
 
@@ -313,7 +312,7 @@ class EmailService {
             });
             return { success: true, messageId: data.messageId };
         } catch (error) {
-            console.error('Broadcast email error:', error);
+            emailLog.error('Broadcast email error', { error: error.message });
             return { success: false, error: error.message };
         }
     }
@@ -351,7 +350,7 @@ class EmailService {
                         </div>
                         <div class="body-text">${bodyText}</div>
                         <div style="text-align: center;">
-                            <a href="https://bharat-evote.netlify.app/${subject.includes('Results') ? 'results' : 'vote'}" class="cta-button">${subject.includes('Results') ? '📊 View Official Results' : '🗳️ Cast Your Vote Now'}</a>
+                            <a href="https://bharat-evote.me/${subject.includes('Results') ? 'results' : 'vote'}" class="cta-button">${subject.includes('Results') ? '📊 View Official Results' : '🗳️ Cast Your Vote Now'}</a>
                         </div>
                     </div>
                     <div class="footer">
@@ -373,11 +372,11 @@ class EmailService {
                 });
                 return { success: true };
             } catch (error) {
-                console.error(`Election notification email error for ${email}:`, error.message);
+                emailLog.error(`Election notification email error for ${email}`, { error: error.message });
                 return { success: false, error: error.message };
             }
         } else {
-            console.log(`[DEMO] Election notification to ${email}: ${subject}`);
+            emailLog.debug(`[DEMO] Election notification to ${email}: ${subject}`);
             return { success: true, demo: true };
         }
     }

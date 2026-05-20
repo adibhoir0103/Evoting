@@ -17,7 +17,7 @@ if (process.env.SENTRY_DSN) {
         environment: process.env.NODE_ENV || 'development',
         tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
     });
-    console.log('✅ Sentry error monitoring initialized');
+    serverLog.info('Sentry error monitoring initialized');
 }
 
 const express = require('express');
@@ -25,6 +25,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
+const hpp = require('hpp');
 
 const logger = require('./lib/logger');
 const { errorHandler } = require('./middleware/errorHandler');
@@ -92,6 +93,9 @@ app.use(cors({
 
 app.use(express.json({ limit: '10kb' }));
 
+// Prevent HTTP Parameter Pollution
+app.use(hpp());
+
 // ===================== HEALTH CHECKS =====================
 
 app.get('/', (req, res) => {
@@ -134,9 +138,28 @@ app.use(errorHandler);
 // ===================== START SERVER =====================
 
 if (require.main === module) {
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
         serverLog.info(`Server started on port ${PORT}`, { port: PORT, env: process.env.NODE_ENV || 'development' });
     });
+
+    // Graceful shutdown — essential for zero-downtime deploys (PM2, Railway, Render)
+    const gracefulShutdown = (signal) => {
+        serverLog.info(`${signal} received — shutting down gracefully`);
+        server.close(async () => {
+            serverLog.info('HTTP server closed');
+            const prisma = require('./lib/prisma');
+            await prisma.$disconnect();
+            serverLog.info('Prisma disconnected');
+            if (process.env.SENTRY_DSN) {
+                await Sentry.close(2000);
+            }
+            process.exit(0);
+        });
+        // Force kill after 10s if graceful shutdown stalls
+        setTimeout(() => { process.exit(1); }, 10000);
+    };
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 }
 
 module.exports = app;

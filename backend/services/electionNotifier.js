@@ -56,7 +56,7 @@ async function checkAndNotify() {
             if (now >= startWindowStart && now <= startWindowEnd) {
                 await sendNotification(election, 'VOTING_STARTED', {
                     subject: 'Voting Is Now Open!',
-                    getBody: (name, elName) => `Dear ${name},\n\nVoting for "${elName}" is NOW OPEN!\n\n🗳️ Cast your vote at: https://bharat-evote.netlify.app/vote\n\n⏰ Voting closes at: ${endTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n\nRemember:\n• Each voter can cast only ONE vote\n• Your vote is encrypted on the blockchain\n• Results will be announced after polls close\n\nJai Hind! 🇮🇳`
+                    getBody: (name, elName) => `Dear ${name},\n\nVoting for "${elName}" is NOW OPEN!\n\n🗳️ Cast your vote at: https://bharat-evote.me/vote\n\n⏰ Voting closes at: ${endTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n\nRemember:\n• Each voter can cast only ONE vote\n• Your vote is encrypted on the blockchain\n• Results will be announced after polls close\n\nJai Hind! 🇮🇳`
                 });
             }
 
@@ -68,7 +68,7 @@ async function checkAndNotify() {
             if (now >= lastCallWindowStart && now <= lastCallWindowEnd) {
                 await sendNotification(election, 'LAST_CALL_30M', {
                     subject: '⚠️ Last 30 Minutes to Vote!',
-                    getBody: (name, elName) => `Dear ${name},\n\n⚠️ URGENT: Only 30 minutes remain to cast your vote for "${elName}"!\n\nVoting closes at: ${endTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n\n🗳️ Vote now: https://bharat-evote.netlify.app/vote\n\nDon't miss your chance to participate in India's democracy!\n\nJai Hind! 🇮🇳`,
+                    getBody: (name, elName) => `Dear ${name},\n\n⚠️ URGENT: Only 30 minutes remain to cast your vote for "${elName}"!\n\nVoting closes at: ${endTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n\n🗳️ Vote now: https://bharat-evote.me/vote\n\nDon't miss your chance to participate in India's democracy!\n\nJai Hind! 🇮🇳`,
                     onlyNonVoters: true // Only send to voters who haven't voted
                 });
             }
@@ -77,7 +77,7 @@ async function checkAndNotify() {
             if (election.status === 'CLOSED') {
                 await sendNotification(election, 'ELECTION_RESULTS_DECLARED', {
                     subject: 'Election Results Are Now Live! 📊',
-                    getBody: (name, elName) => `Dear ${name},\n\nThe official polling for "${elName}" has officially concluded.\n\n📊 The mathematical tally has been unlocked, and cryptographically verified results are now finalized on the blockchain.\n\n🏆 View the Winners & Vote Distribution here:\nhttps://bharat-evote.netlify.app/results\n\nThank you for participating in India's secure democracy.\n\nJai Hind! 🇮🇳`
+                    getBody: (name, elName) => `Dear ${name},\n\nThe official polling for "${elName}" has officially concluded.\n\n📊 The mathematical tally has been unlocked, and cryptographically verified results are now finalized on the blockchain.\n\n🏆 View the Winners & Vote Distribution here:\nhttps://bharat-evote.me/results\n\nThank you for participating in India's secure democracy.\n\nJai Hind! 🇮🇳`
                 });
             }
         }

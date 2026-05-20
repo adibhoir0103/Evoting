@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const rateLimit = require('express-rate-limit');
+const { createRateLimiter } = require('../middleware/rateLimiter');
 const prisma = require('../lib/prisma');
 const multer = require('multer');
 const csv = require('csv-parser');
@@ -9,6 +9,7 @@ const path = require('path');
 const emailService = require('../services/emailService');
 const { isAdmin } = require('../middleware/authenticate');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { verifyTurnstile } = require('../middleware/turnstile');
 const { logAdminAction: logAction } = require('../utils/helpers');
 const adminAuth = require('../controllers/adminAuthController');
 
@@ -25,14 +26,13 @@ const upload = multer({
 });
 
 // Admin login rate limiter
-const adminLoginLimiter = rateLimit({
+const adminLoginLimiter = createRateLimiter({
     windowMs: 15 * 60 * 1000, max: 10,
-    message: { error: 'Too many login attempts. Try again in 15 minutes.' },
-    standardHeaders: true, legacyHeaders: false
+    message: { error: 'Too many login attempts. Try again in 15 minutes.' }
 });
 
 // ===== Admin Auth Routes (BEFORE isAdmin middleware) =====
-router.post('/login', adminLoginLimiter, asyncHandler(adminAuth.adminLogin));
+router.post('/login', adminLoginLimiter, verifyTurnstile, asyncHandler(adminAuth.adminLogin));
 router.post('/verify-mfa', adminLoginLimiter, asyncHandler(adminAuth.adminVerifyMfa));
 
 // ===== All routes below require admin authentication =====

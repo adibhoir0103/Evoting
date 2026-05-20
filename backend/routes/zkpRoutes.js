@@ -4,21 +4,19 @@
 
 const express = require('express');
 const router = express.Router();
-const rateLimit = require('express-rate-limit');
+const { createRateLimiter } = require('../middleware/rateLimiter');
 const { injectUser } = require('../middleware/authenticate');
 const { asyncHandler } = require('../middleware/errorHandler');
 const zkp = require('../controllers/zkpController');
 
-const apiLimiter = rateLimit({
+const apiLimiter = createRateLimiter({
     windowMs: 15 * 60 * 1000, max: 200,
-    message: { error: 'Too many requests. Please try again later.' },
-    standardHeaders: true, legacyHeaders: false
+    message: { error: 'Too many requests. Please try again later.' }
 });
 
-const zkpLimiter = rateLimit({
+const zkpLimiter = createRateLimiter({
     windowMs: 10 * 60 * 1000, max: 30,
-    message: { error: 'Too many ZKP requests. Please try again later.' },
-    standardHeaders: true, legacyHeaders: false
+    message: { error: 'Too many ZKP requests. Please try again later.' }
 });
 
 router.get('/status', apiLimiter, zkp.getStatus);

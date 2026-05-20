@@ -280,13 +280,12 @@ contract ZKPVoting {
      * For this Proof-of-Concept, we use a deterministic Schnorr-like challenge mechanism.
      * @param _commitment The Pedersen commitment
      * @param _nullifierHash The nullifier hash
-     * @param _identityCommitment The voter's identity commitment
      * @param _proof [challenge, response_v, response_r, candidateCount]
      */
     function _verifyVoteProof(
         bytes32 _commitment,
         bytes32 _nullifierHash,
-        bytes32 _identityCommitment,
+        bytes32 /* _identityCommitment */,
         uint256[4] memory _proof
     ) internal view returns (bool) {
         uint256 challenge = _proof[0];

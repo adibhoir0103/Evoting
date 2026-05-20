@@ -244,7 +244,7 @@ function VotingPage({ user, onUserUpdate }) {
                 try {
                     const ipfsResult = await zkpClientService.pinVoteToIPFS(votePackage.commitment, votePackage.nullifierHash);
                     ipfsHash = ipfsResult.ipfsHash || '';
-                } catch (e) { console.log('IPFS pinning skipped'); }
+                } catch (e) { if (import.meta.env.DEV) console.log('IPFS pinning skipped'); }
 
                 setVoteState('pending');
                 const receipt = await service.submitEncryptedVote(
@@ -284,15 +284,23 @@ function VotingPage({ user, onUserUpdate }) {
             setHasVoted(true);
             setSelectedCandidate(null);
             if (onUserUpdate) onUserUpdate({ ...user, hasVoted: true });
+
+            posthog.capture('vote_cast_success', {
+                method: isZKP ? 'zkp' : 'standard',
+                election_id: 'general-2026',
+            });
+
             await loadBlockchainData(service, walletAddress);
         } catch (err) {
             const msg = (err.message || '').toLowerCase();
             if (msg.includes('rejected') || msg.includes('action_rejected')) {
                 setError('You rejected the transaction — you have not voted yet.');
                 setVoteState('recovered');
+                posthog.capture('vote_cast_rejected', { reason: 'user_rejected' });
             } else {
                 setError(humanizeError(err));
                 setVoteState('failed');
+                posthog.capture('vote_cast_failed', { error: msg });
             }
         }
     };

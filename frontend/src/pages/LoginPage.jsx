@@ -6,6 +6,9 @@ import { useKeystrokeDynamics, KeystrokeIndicator } from '../components/Keystrok
 import { isValidEmail, isValidVoterId } from '../utils/validators';
 
 import { API_URL } from '../config/api';
+import { Turnstile } from '@marsidev/react-turnstile';
+
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA';
 
 function LoginPage({ onLogin }) {
     const navigate = useNavigate();
@@ -17,6 +20,7 @@ function LoginPage({ onLogin }) {
     const [error, setError] = useState('');
     const [passwordFocused, setPasswordFocused] = useState(false);
     const [keystrokeResult, setKeystrokeResult] = useState(null);
+    const [turnstileToken, setTurnstileToken] = useState('');
 
     // MFA State
     const [mfaStep, setMfaStep] = useState(false);
@@ -123,7 +127,7 @@ function LoginPage({ onLogin }) {
             const res = await fetch(`${API_URL}/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ identifier: identifier.trim(), password })
+                body: JSON.stringify({ identifier: identifier.trim(), password, turnstileToken })
             });
 
             const data = await res.json();
@@ -569,7 +573,7 @@ function LoginPage({ onLogin }) {
                                         className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm"
                                         placeholder="voter@example.com or ABC1234567"
                                         autoFocus
-                                        autoComplete="username"
+                                        autoComplete="off"
                                         aria-required="true"
                                     />
                                 </div>
@@ -589,7 +593,7 @@ function LoginPage({ onLogin }) {
                                         {...getKeystrokeProps()}
                                         className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm"
                                         placeholder="Enter your password"
-                                        autoComplete="current-password"
+                                        autoComplete="new-password"
                                         aria-required="true"
                                     />
                                 </div>
@@ -612,6 +616,15 @@ function LoginPage({ onLogin }) {
                                     <><i className="fa-solid fa-right-to-bracket"></i> Continue with MFA</>
                                 )}
                             </button>
+                            {!mfaStep && (
+                                <div className="flex justify-center mt-4">
+                                    <Turnstile
+                                        siteKey={TURNSTILE_SITE_KEY}
+                                        onSuccess={(token) => setTurnstileToken(token)}
+                                        options={{ theme: 'light' }}
+                                    />
+                                </div>
+                            )}
                         </div>
 
                         <div className="px-6 sm:px-8 py-4 bg-gray-50 border-t border-gray-100 text-center">

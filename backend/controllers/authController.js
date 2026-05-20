@@ -297,10 +297,27 @@ exports.resetPassword = async (req, res) => {
 
     await prisma.mfaToken.update({ where: { id: mfaToken.id }, data: { verified: true } });
     const hashedPassword = await bcrypt.hash(newPassword, 12);
-    await prisma.user.update({ where: { email: decoded.email }, data: { password: hashedPassword } });
+    
+    const userToReset = await prisma.user.findUnique({ where: { email: decoded.email } });
+    
+    // STRICT SECURITY: Log out all active sessions upon password reset
+    if (userToReset && userToReset.id) {
+        await Promise.all([
+            redisService.clearActiveSession(userToReset.id),
+            prisma.user.update({ 
+                where: { email: decoded.email }, 
+                data: { 
+                    password: hashedPassword,
+                    active_session_token: null,
+                    active_session_expires: null
+                } 
+            })
+        ]);
+    } else {
+        await prisma.user.update({ where: { email: decoded.email }, data: { password: hashedPassword } });
+    }
 
-    const user = await prisma.user.findUnique({ where: { email: decoded.email } });
-    await prisma.loginHistory.create({ data: { voter_id: user?.voter_id || 'UNKNOWN', ip_address: req.ip, status: 'PASSWORD_RESET' } }).catch(() => {});
+    await prisma.loginHistory.create({ data: { voter_id: userToReset?.voter_id || 'UNKNOWN', ip_address: req.ip, status: 'PASSWORD_RESET' } }).catch(() => {});
 
     res.json({ message: 'Password reset successful! You can now login with your new password.' });
 };

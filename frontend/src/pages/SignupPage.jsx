@@ -4,8 +4,11 @@ import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
 import { useKeystrokeDynamics, KeystrokeIndicator } from '../components/KeystrokeDynamics';
 import { indianStates } from '../utils/indianStates';
+import { Turnstile } from '@marsidev/react-turnstile';
 
 import { API_URL } from '../config/api';
+
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA';
 
 function SignupPage() {
     const navigate = useNavigate();
@@ -15,6 +18,7 @@ function SignupPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [passwordFocused, setPasswordFocused] = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState('');
 
     // Form fields
     const [form, setForm] = useState({
@@ -106,7 +110,8 @@ function SignupPage() {
                     mobile_number: form.mobile_number || undefined,
                     state_code: form.state_code || undefined,
                     constituency_code: form.constituency_code || undefined,
-                    address: form.address || undefined
+                    address: form.address || undefined,
+                    turnstileToken
                 })
             });
 
@@ -466,7 +471,17 @@ function SignupPage() {
                     )}
 
                     {/* Actions */}
-                    <div className="px-6 sm:px-8 py-5 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                    <div className="px-6 sm:px-8 py-5 bg-gray-50 border-t border-gray-100 flex flex-col gap-4">
+                        {step === 3 && (
+                            <div className="flex justify-center w-full">
+                                <Turnstile
+                                    siteKey={TURNSTILE_SITE_KEY}
+                                    onSuccess={(token) => setTurnstileToken(token)}
+                                    options={{ theme: 'light' }}
+                                />
+                            </div>
+                        )}
+                        <div className="flex items-center justify-between w-full">
                         {step > 1 ? (
                             <button type="button" onClick={prevStep} className="px-6 py-2.5 rounded-xl text-sm font-bold text-gray-600 bg-white border border-gray-200 hover:bg-gray-100 transition">
                                 <i className="fa-solid fa-arrow-left mr-2"></i>Back
@@ -490,6 +505,7 @@ function SignupPage() {
                                 )}
                             </button>
                         )}
+                        </div>
                     </div>
                 </form>
 
