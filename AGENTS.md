@@ -427,6 +427,16 @@ Critical ones: `DATABASE_URL`, `JWT_SECRET`, `UPSTASH_REDIS_*`, `BREVO_API_KEY`,
 - Verified: Frontend build ✅ | Prisma generate ✅ | 49/49 smart contract tests passing ✅  
 **Status**: ✅ Completed  
 
+### Session 10 — 2026-05-20 — Antigravity (Claude Opus 4.6 Thinking)
+**Task**: Production domain migration to `bharat-evote.me` and security hardening  
+**Changes Made**:  
+- Migrated all hardcoded `netlify` and `localhost` domains to `bharat-evote.me`
+- Disabled Chrome password autofill on login (`autoComplete="new-password"`) to ensure Keystroke Biometrics function correctly
+- Implemented HTTP Parameter Pollution (`hpp`) prevention middleware
+- Enforced strict session invalidation (active sessions cleared) upon password reset
+- Verified Turnstile bot protection and OTP rate-limiting architecture
+**Status**: ✅ Completed  
+
 ---
 
 ## 10. Current State & Pending Work
