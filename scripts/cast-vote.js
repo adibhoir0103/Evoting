@@ -2,9 +2,14 @@ const { ethers } = require("ethers");
 const fs = require("fs");
 
 async function main() {
-    const ALCHEMY_URL = "https://eth-sepolia.g.alchemy.com/v2/XbNu_qjjYV_V-FGBmkc3K";
-    const PRIVATE_KEY = "0x15daebb7ca7fa71d3343d1f5ea39dd685f1f756c407807d55d53643d11e4a18b"; 
-    const CONTRACT_ADDRESS = "0xEA9119676C0D784872AD1a9e61Ddbd810B2c21C2";
+    // SECURITY: Use environment variables for RPC URL and Private Key instead of hardcoding
+    const ALCHEMY_URL = process.env.SEPOLIA_RPC_URL || "http://127.0.0.1:8545";
+    const PRIVATE_KEY = process.env.PRIVATE_KEY;
+    const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS || "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+
+    if (!PRIVATE_KEY) {
+        throw new Error("Missing PRIVATE_KEY environment variable. Cannot cast vote without a wallet signature.");
+    }
 
     const provider = new ethers.JsonRpcProvider(ALCHEMY_URL);
     const wallet = new ethers.Wallet(PRIVATE_KEY, provider);

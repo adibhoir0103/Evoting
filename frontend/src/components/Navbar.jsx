@@ -168,19 +168,23 @@ function Navbar({ user, onLogout, isAdmin }) {
 
                         {/* Desktop Navigation */}
                         <nav aria-label="Desktop Navigation" className="hidden md:flex items-center space-x-6">
-                            <Link to="/dashboard" className={navLinkClass('/dashboard')}>{t('nav.dashboard')}</Link>
-                            <Link to="/vote" className={navLinkClass('/vote')}>
-                                <i className="fa-solid fa-vote-yea mr-1"></i>{t('nav.voting')}
-                            </Link>
                             <Link to="/results" className={navLinkClass('/results')}>
                                 <i className="fa-solid fa-chart-column mr-1"></i>{t('nav.results')}
                             </Link>
                             <Link to="/candidates" className={navLinkClass('/candidates')}>Candidates</Link>
+                            {user && (
+                                <>
+                                    <Link to="/dashboard" className={navLinkClass('/dashboard')}>{t('nav.dashboard')}</Link>
+                                    <Link to="/vote" className={navLinkClass('/vote')}>
+                                        <i className="fa-solid fa-vote-yea mr-1"></i>{t('nav.voting')}
+                                    </Link>
+                                    <Link to="/verify" className={navLinkClass('/verify')}>
+                                        <i className="fa-solid fa-magnifying-glass-chart mr-1"></i>Verify
+                                    </Link>
+                                </>
+                            )}
                             <Link to="/technology" className={navLinkClass('/technology')}>
                                 <i className="fa-solid fa-microchip mr-1"></i>Technology
-                            </Link>
-                            <Link to="/verify" className={navLinkClass('/verify')}>
-                                <i className="fa-solid fa-magnifying-glass-chart mr-1"></i>Verify
                             </Link>
                             <Link to="/help" className={navLinkClass('/help')}>{t('nav.onboarding')}</Link>
 
@@ -228,11 +232,15 @@ function Navbar({ user, onLogout, isAdmin }) {
                     {/* Mobile Menu */}
                     {mobileMenuOpen && (
                         <nav id="mobile-menu" aria-label="Mobile Navigation" className="md:hidden absolute top-full left-0 w-full bg-white shadow-xl border-t border-gray-200 py-4 px-4 space-y-2 z-50">
-                            <Link ref={firstMenuElementRef} to="/dashboard" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">{t('nav.dashboard')}</Link>
-                            <Link to="/vote" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-vote-yea mr-2"></i>{t('nav.voting')}</Link>
-                            <Link to="/results" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-chart-column mr-2"></i>{t('nav.results')}</Link>
+                            <Link ref={!user ? firstMenuElementRef : null} to="/results" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-chart-column mr-2"></i>{t('nav.results')}</Link>
+                            {user && (
+                                <>
+                                    <Link ref={firstMenuElementRef} to="/dashboard" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary">{t('nav.dashboard')}</Link>
+                                    <Link to="/vote" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-vote-yea mr-2"></i>{t('nav.voting')}</Link>
+                                    <Link to="/verify" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-magnifying-glass-chart mr-2"></i>Verify Vote</Link>
+                                </>
+                            )}
                             <Link to="/technology" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-microchip mr-2"></i>Technology</Link>
-                            <Link to="/verify" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-magnifying-glass-chart mr-2"></i>Verify Vote</Link>
                             <Link to="/help" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-circle-question mr-2"></i>{t('nav.onboarding')}</Link>
                             <div className="border-t border-gray-200 pt-3 mt-3">
                                 {user ? (

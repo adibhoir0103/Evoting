@@ -10,6 +10,10 @@ const Sentry = require('@sentry/node');
 
 require('dotenv').config();
 
+// Logger must be initialized before Sentry so serverLog is available
+const logger = require('./lib/logger');
+const serverLog = logger.child('server');
+
 // Sentry must be initialized BEFORE require('express') for auto-instrumentation
 if (process.env.SENTRY_DSN) {
     Sentry.init({
@@ -27,7 +31,6 @@ const compression = require('compression');
 const morgan = require('morgan');
 const hpp = require('hpp');
 
-const logger = require('./lib/logger');
 const { errorHandler } = require('./middleware/errorHandler');
 
 // Initialize Backend EVM WebSocket Listeners for real-time contract tracing
@@ -37,9 +40,6 @@ blockchainListener.init();
 // Initialize Election Email Notification Scheduler
 const electionNotifier = require('./services/electionNotifier');
 electionNotifier.start();
-
-// Child logger for server context
-const serverLog = logger.child('server');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -80,6 +80,10 @@ const allowedOrigins = process.env.CORS_ORIGIN
 
 app.use(cors({
     origin: function (origin, callback) {
+        // SECURITY: Reject 'null' origin to prevent local file CORS bypass
+        if (origin === 'null') {
+            return callback(new Error('Not allowed by CORS: null origin rejected'));
+        }
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
@@ -102,10 +106,7 @@ app.get('/', (req, res) => {
     res.json({
         status: 'running',
         service: 'Bharat E-Vote Backend API',
-        version: '3.0.0',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        endpoints: '/api/v1/*'
+        timestamp: new Date().toISOString()
     });
 });
 

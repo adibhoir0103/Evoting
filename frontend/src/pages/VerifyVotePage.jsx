@@ -298,7 +298,7 @@ function VerifyVotePage() {
                         <i className="fa-solid fa-magnifying-glass-chart"></i> Independent Verification
                     </div>
                     <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-3">Verify Your Vote</h1>
-                    <p className="text-blue-100 max-w-xl mx-auto">Independently verify that your vote was recorded on the blockchain. No login required — anyone can verify.</p>
+                    <p className="text-blue-100 max-w-xl mx-auto">Independently verify that your vote was recorded on the blockchain. A restricted portal for registered voters and auditors.</p>
                 </div>
             </div>
 
@@ -649,7 +649,7 @@ function VerifyVotePage() {
                 <div className="mt-8 grid sm:grid-cols-3 gap-4">
                     {[
                         { icon: 'fa-lock', title: 'Privacy Preserved', desc: 'Verification proves participation only — your vote choice remains secret.' },
-                        { icon: 'fa-globe', title: 'Universal Access', desc: 'Anyone can verify any vote — no account or login required.' },
+                        { icon: 'fa-shield', title: 'Restricted Access', desc: 'Only authenticated citizens and auditors can access this portal.' },
                         { icon: 'fa-link', title: 'On-Chain Proof', desc: 'Verified directly from the blockchain — no intermediary servers.' },
                     ].map((item, i) => (
                         <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 text-center">

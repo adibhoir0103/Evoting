@@ -9,23 +9,61 @@ const logger = require('../lib/logger');
 const voteLog = logger.child('vote');
 
 exports.recordVote = async (req, res) => {
-    const { txHash } = req.body;
+    const { txHash, electionId } = req.body;
     if (!txHash) return res.status(400).json({ error: 'Transaction hash is required' });
+    
+    // SECURITY: Validate Ethereum transaction hash format
+    if (!/^0x[a-fA-F0-9]{64}$/.test(txHash)) {
+        return res.status(400).json({ error: 'Invalid transaction hash format' });
+    }
+
+    if (!electionId) return res.status(400).json({ error: 'Election ID is required' });
+    const parsedElectionId = parseInt(electionId);
+    if (isNaN(parsedElectionId)) return res.status(400).json({ error: 'Invalid election ID' });
 
     const user = await prisma.user.findUnique({
         where: { id: req.user.id },
         select: { id: true, voter_id: true, has_voted: true, email: true, fullname: true }
     });
     if (!user) return res.status(404).json({ error: 'User not found' });
-    if (user.has_voted) return res.status(400).json({ error: 'You have already voted' });
 
     // Serializable isolation to prevent race conditions
     await prisma.$transaction(async (tx) => {
-        const freshUser = await tx.user.findUnique({ where: { id: req.user.id }, select: { has_voted: true } });
-        if (freshUser?.has_voted) throw new Error('ALREADY_VOTED');
-        await tx.vote.create({ data: { voter_id: user.voter_id, tx_hash: txHash } });
+        // Check election specific voter record first
+        const electionVoter = await tx.electionVoter.findUnique({
+            where: { election_id_user_id: { election_id: parsedElectionId, user_id: req.user.id } }
+        });
+        
+        if (!electionVoter) {
+            throw new Error('NOT_REGISTERED_FOR_ELECTION');
+        }
+        
+        if (electionVoter.has_voted) {
+            throw new Error('ALREADY_VOTED_IN_ELECTION');
+        }
+
+        // Create vote with proper election scope
+        await tx.vote.create({ 
+            data: { 
+                voter_id: user.voter_id, 
+                tx_hash: txHash,
+                election_id: parsedElectionId
+            } 
+        });
+        
+        // Update election specific vote flag
+        await tx.electionVoter.update({
+            where: { election_id_user_id: { election_id: parsedElectionId, user_id: req.user.id } },
+            data: { has_voted: true }
+        });
+
+        // Also update legacy global flag for backwards compatibility
         await tx.user.update({ where: { id: req.user.id }, data: { has_voted: true } });
-    }, { isolationLevel: 'Serializable' });
+    }, { isolationLevel: 'Serializable' }).catch((err) => {
+        if (err.message === 'ALREADY_VOTED_IN_ELECTION') return res.status(400).json({ error: 'You have already voted in this election' });
+        if (err.message === 'NOT_REGISTERED_FOR_ELECTION') return res.status(403).json({ error: 'You are not registered for this election' });
+        throw err;
+    });
 
     // Auto-pin vote metadata to IPFS for tamper-proof receipt
     let ipfsHash = null;

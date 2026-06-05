@@ -328,14 +328,18 @@ function AppLayout({ user, isAdmin, setIsAdmin, handleLogin, handleLogout, handl
                         user ? <VotingPage user={user} onUserUpdate={handleUserUpdate} /> : <Navigate to="/login" replace />
                     } />
 
+                    {/* Authenticated Pages */}
+                    <Route path="/verify" element={
+                        user ? <VerifyVotePage /> : <Navigate to="/login" replace />
+                    } />
+
                     {/* Public Pages */}
                     <Route path="/guidelines" element={<Navigate to="/help" replace />} />
                     <Route path="/help" element={<HelpPage />} />
-                    <Route path="/candidates" element={<Navigate to="/vote" replace />} />
                     <Route path="/search-roll" element={<Navigate to="/help" replace />} />
-                    <Route path="/results" element={<ResultsPage />} />
                     <Route path="/technology" element={<TechnologyPage />} />
-                    <Route path="/verify" element={<VerifyVotePage />} />
+                    <Route path="/results" element={<ResultsPage />} />
+                    <Route path="/candidates" element={<Navigate to="/results" replace />} />
 
                     {/* Admin */}
                     <Route path="/admin-login" element={<AdminLoginPage onAdminLogin={(adminAddress) => { setIsAdmin(true); checkAdminStatus(adminAddress); }} />} />

@@ -1,5 +1,5 @@
 # AGENTS.md — Bharat E-Vote Project Context Graph
-<!-- Last Updated: 2026-05-14 by Antigravity (Claude Opus 4.6 Thinking) -->
+<!-- Last Updated: 2026-05-25 by Antigravity (Claude Opus 4.6 Thinking) -->
 <!-- 
   PURPOSE: This file is the universal handoff document for AI coding agents.
   Any AI agent (Antigravity, Cursor, Copilot, Windsurf, Cline, Aider, etc.)
@@ -94,13 +94,15 @@ evoting/                          # Monorepo root
 ├── backend/                      # Express.js API server
 │   ├── server.js                 # ✅ Slim entry point (~143 lines)
 │   ├── ecosystem.config.js       # PM2 production config
+│   ├── cleanup-test-data.js      # Test data cleanup utility
 │   ├── package.json
 │   ├── .env / .env.example
 │   ├── prisma/
-│   │   └── schema.prisma         # Database schema (17 models)
+│   │   └── schema.prisma         # Database schema (16 models)
 │   ├── controllers/              # Business logic (MVC)
 │   │   ├── authController.js     # Auth, MFA, QR tickets, keystroke
 │   │   ├── adminAuthController.js# Admin login + MFA
+│   │   ├── adminController.js    # Admin business logic (elections, voters, stats)
 │   │   ├── voteController.js     # Vote recording + receipts
 │   │   ├── zkpController.js      # ZKP generation + verification
 │   │   ├── ipfsController.js     # IPFS pinning + retrieval
@@ -115,7 +117,9 @@ evoting/                          # Monorepo root
 │   │   └── admin.js              # /api/v1/admin/* (elections, voters)
 │   ├── middleware/               # Express middleware
 │   │   ├── authenticate.js       # JWT + Redis session (voter + admin)
-│   │   └── errorHandler.js       # asyncHandler + centralized errors
+│   │   ├── errorHandler.js       # asyncHandler + centralized errors
+│   │   ├── rateLimiter.js        # Express rate limiting config
+│   │   └── turnstile.js          # Cloudflare Turnstile bot protection
 │   ├── utils/
 │   │   └── helpers.js            # sanitize, validators, audit logger
 │   ├── services/
@@ -123,6 +127,7 @@ evoting/                          # Monorepo root
 │   │   ├── electionNotifier.js   # Scheduled email notifications
 │   │   ├── emailService.js       # Brevo email integration
 │   │   ├── ipfsService.js        # Pinata IPFS integration
+│   │   ├── queueService.js       # BullMQ job queue service
 │   │   ├── redisService.js       # Upstash Redis wrapper
 │   │   └── zkpService.js         # Zero-knowledge proof service
 │   ├── lib/
@@ -213,7 +218,7 @@ evoting/                          # Monorepo root
 
 ## 4. Database Schema Summary (Prisma)
 
-**17 models** defined in `backend/prisma/schema.prisma`:
+**16 models** defined in `backend/prisma/schema.prisma`:
 
 | Model | Purpose | Key Fields |
 |---|---|---|
@@ -257,9 +262,9 @@ evoting/                          # Monorepo root
 ### Deployed Addresses (Localhost)
 ```json
 {
-  "Voting": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-  "ZKPVoting": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
-  "Forwarder": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+  "Voting": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+  "ZKPVoting": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+  "Forwarder": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
 }
 ```
 
@@ -346,6 +351,9 @@ cd backend && node server.js   # Starts on port 5000
 # 6. Start frontend (Terminal 4)
 cd frontend && npm run dev     # Starts on port 5173
 ```
+
+### Utilities
+- **`backend/cleanup-test-data.js`** — Removes test/seed data from the database. Run with `node backend/cleanup-test-data.js`.
 
 ### Environment Variables Required
 See `backend/.env.example` and root `.env.example` for full list.
@@ -437,6 +445,15 @@ Critical ones: `DATABASE_URL`, `JWT_SECRET`, `UPSTASH_REDIS_*`, `BREVO_API_KEY`,
 - Verified Turnstile bot protection and OTP rate-limiting architecture
 **Status**: ✅ Completed  
 
+### Session 11 — 2026-05-25 — Antigravity (Claude Opus 4.6 Thinking)
+**Task**: Architecture audit and full fix pass  
+**Changes Made**:  
+- Fixed critical `serverLog` reference-before-definition bug in server.js
+- Extracted admin.js (608→~80 lines) into adminController.js (MVC consistency)
+- Added missing `axios` dependency to backend/package.json
+- Updated AGENTS.md documentation drift (contract addresses, model count, middleware files, line counts)
+**Status**: ✅ Completed  
+
 ---
 
 ## 10. Current State & Pending Work
@@ -459,6 +476,8 @@ Critical ones: `DATABASE_URL`, `JWT_SECRET`, `UPSTASH_REDIS_*`, `BREVO_API_KEY`,
 - [x] Technology stack audit (principal-engineer level)
 - [x] Dependency upgrades (all workspaces to latest compatible versions)
 - [x] `bcryptjs` → native `bcrypt` (DoS vulnerability fix)
+- [x] Architecture audit and documentation alignment
+- [x] Admin route modularization (admin.js → adminController.js)
 
 ### 🔲 Potential Future Work (Not Started)
 - [ ] Replace simulated ZKP with real Circom/Groth16 circuits
@@ -479,7 +498,7 @@ Critical ones: `DATABASE_URL`, `JWT_SECRET`, `UPSTASH_REDIS_*`, `BREVO_API_KEY`,
 |---|---|
 | Add/modify auth routes | `backend/controllers/authController.js` + `backend/routes/authRoutes.js` |
 | Add/modify vote routes | `backend/controllers/voteController.js` + `backend/routes/voteRoutes.js` |
-| Add/modify admin routes | `backend/routes/admin.js` (elections, voters, stats) |
+| Add/modify admin routes | `backend/controllers/adminController.js` + `backend/routes/admin.js` |
 | Change auth middleware | `backend/middleware/authenticate.js` |
 | Change database schema | `backend/prisma/schema.prisma` → run `npx prisma db push` |
 | Add a new page | `frontend/src/pages/NewPage.jsx` + update `frontend/src/App.jsx` |

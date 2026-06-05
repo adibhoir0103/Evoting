@@ -144,8 +144,8 @@ exports.login = async (req, res) => {
 
     res.json({
         message: 'Password verified. OTP sent to your registered email.', mfaRequired: true, preAuthToken,
-        email: user.email.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
-        user: { id: user.id, fullname: user.fullname, email: user.email, voterId: user.voter_id, hasVoted: user.has_voted, walletAddress: user.wallet_address }
+        maskedEmail: user.email.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
+        user: { id: user.id, fullname: user.fullname, voterId: user.voter_id, hasVoted: user.has_voted, walletAddress: user.wallet_address }
     });
 };
 
@@ -174,7 +174,7 @@ exports.verifyOtp = async (req, res) => {
     const isValidOtp = await bcrypt.compare(otp.trim(), mfaToken.otp_hash);
     if (!isValidOtp) {
         await prisma.mfaToken.update({ where: { id: mfaToken.id }, data: { attempts: mfaToken.attempts + 1 } });
-        return res.status(401).json({ error: `Invalid OTP. ${4 - mfaToken.attempts} attempts remaining.`, attemptsRemaining: 4 - mfaToken.attempts });
+        return res.status(401).json({ error: `Invalid OTP. ${5 - (mfaToken.attempts + 1)} attempts remaining.`, attemptsRemaining: 5 - (mfaToken.attempts + 1) });
     }
 
     await prisma.mfaToken.update({ where: { id: mfaToken.id }, data: { verified: true } });
@@ -263,7 +263,7 @@ exports.forgotPassword = async (req, res) => {
 
     const resetToken = jwt.sign({ email: cleanEmail, purpose: 'password_reset' }, EFFECTIVE_JWT_SECRET, { expiresIn: '10m' });
 
-    res.json({ message: 'If an account exists with this email, an OTP has been sent.', resetToken, email: cleanEmail.replace(/(.{2})(.*)(@.*)/, '$1***$3') });
+    res.json({ message: 'If an account exists with this email, an OTP has been sent.', email: cleanEmail.replace(/(.{2})(.*)(@.*)/, '$1***$3') });
 };
 
 // ===================== RESET PASSWORD =====================
@@ -292,7 +292,7 @@ exports.resetPassword = async (req, res) => {
     const isValidOtp = await bcrypt.compare(otp.trim(), mfaToken.otp_hash);
     if (!isValidOtp) {
         await prisma.mfaToken.update({ where: { id: mfaToken.id }, data: { attempts: mfaToken.attempts + 1 } });
-        return res.status(401).json({ error: `Invalid OTP. ${4 - mfaToken.attempts} attempts remaining.`, attemptsRemaining: 4 - mfaToken.attempts });
+        return res.status(401).json({ error: `Invalid OTP. ${5 - (mfaToken.attempts + 1)} attempts remaining.`, attemptsRemaining: 5 - (mfaToken.attempts + 1) });
     }
 
     await prisma.mfaToken.update({ where: { id: mfaToken.id }, data: { verified: true } });
@@ -398,6 +398,11 @@ exports.keystrokeEnroll = async (req, res) => {
 exports.keystrokeVerify = async (req, res) => {
     const { email, holdTimes, flightTimes, meanSpeed } = req.body;
     if (!email || !holdTimes || !flightTimes) return res.status(400).json({ error: 'Email and keystroke data required' });
+    
+    // SECURITY: Ensure user can only probe their own keystroke profile
+    if (req.user && req.user.email !== email.trim().toLowerCase()) {
+        return res.status(403).json({ error: 'Cannot verify keystroke profile for another user' });
+    }
 
     const profile = await prisma.keystrokeProfile.findUnique({ where: { user_email: email.trim().toLowerCase() } });
     if (!profile || !profile.is_enrolled) return res.json({ verified: true, score: 0, reason: 'No enrolled profile — skipping verification', enrolled: false });

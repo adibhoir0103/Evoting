@@ -27,8 +27,8 @@ function isValidHex(str) {
 
 // Validate IPFS CID format (Qm... or bafy...)
 function isValidIPFSHash(str) {
-    if (typeof str !== 'string') return true; // Empty is OK
-    if (str === '') return true;
+    if (typeof str !== 'string') return false;
+    if (str.trim() === '') return false;
     return /^(Qm[a-zA-Z0-9]{44}|bafy[a-zA-Z0-9]{55,60})$/.test(str);
 }
 

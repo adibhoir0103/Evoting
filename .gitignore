@@ -1,8 +1,13 @@
 node_modules
 .env
-.env.local
-*.env.local
+.env.*
+*.env
+backend/.env
+frontend/.env
+frontend/.env.*
 .DS_Store
+.gemini/
+.specify/
 
 # Hardhat files
 cache

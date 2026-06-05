@@ -4,8 +4,7 @@
  * Extracted from server.js — admin-specific auth flows.
  */
 
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
@@ -19,6 +18,9 @@ const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
 let EFFECTIVE_ADMIN_HASH;
 if (ADMIN_PASSWORD_HASH) {
     EFFECTIVE_ADMIN_HASH = ADMIN_PASSWORD_HASH;
+} else if (process.env.NODE_ENV === 'production') {
+    console.error('FATAL: ADMIN_PASSWORD_HASH environment variable is required in production.');
+    process.exit(1);
 } else {
     EFFECTIVE_ADMIN_HASH = bcrypt.hashSync(process.env.ADMIN_DEV_PASSWORD || 'Admin@modern7', 10);
     console.warn('⚠️  Using development admin credentials.');

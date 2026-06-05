@@ -14,7 +14,8 @@ if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
     console.error('FATAL: JWT_SECRET environment variable is required in production.');
     process.exit(1);
 }
-const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'dev-only-local-key-' + require('crypto').randomBytes(16).toString('hex');
+// Deterministic dev-only fallback to support PM2 clustering in development
+const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'dev-only-local-key-fixed-for-clustering';
 
 /**
  * Voter authentication middleware.
@@ -62,6 +63,12 @@ const isAdmin = (req, res, next) => {
     if (token && token !== 'test-token') {
         try {
             const decoded = jwt.verify(token, EFFECTIVE_JWT_SECRET);
+            
+            // SECURITY: Enforce role check!
+            if (!decoded.role || !['admin', 'SUPER_ADMIN', 'ELECTION_OFFICER', 'AUDITOR'].includes(decoded.role)) {
+                return res.status(403).json({ error: 'Access denied: Admin privileges required.' });
+            }
+
             req.adminUser = {
                 id: decoded.id || 0,
                 email: decoded.email,
