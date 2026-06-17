@@ -47,8 +47,7 @@ function Footer() {
                         <div className="text-center sm:text-left">
                             <h3 className="text-xl text-white font-bold uppercase tracking-wider mb-2">Bharat E-Vote Core</h3>
                             <p className="text-sm text-gray-300 leading-relaxed max-w-sm">
-                                This site is designed, developed, hosted and maintained by the Election Commission of India (ECI), 
-                                Ministry of Law & Justice, Government of India.
+                                This site is designed and developed as a Final Year B.E. Academic Project.
                             </p>
                         </div>
                     </div>
@@ -81,7 +80,7 @@ function Footer() {
             <div className="bg-slate-900 text-white py-6">
                 <div className="max-w-7xl mx-auto px-4 text-center">
                     <p className="text-xs font-semibold mb-4 text-gray-200">
-                        Designed & developed by Election Commission of India, Govt. of India and hosted on Meghraj cloud
+                        Designed & developed as a Final Year B.E. Academic Project.
                     </p>
                     
                     <div className="flex flex-wrap justify-center items-center text-xs text-gray-400 gap-x-1 gap-y-1">

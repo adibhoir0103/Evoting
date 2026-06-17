@@ -149,7 +149,7 @@ function Navbar({ user, onLogout, isAdmin }) {
                                 />
                                 <div>
                                     <span className="block text-2xl font-bold text-primary leading-none tracking-tight">Bharat E-Vote</span>
-                                    <span className="text-[11px] uppercase font-bold text-gray-500 tracking-wider">Election Commission of India</span>
+                                    <span className="text-[11px] uppercase font-bold text-gray-500 tracking-wider">Academic Demo Project</span>
                                 </div>
                             </Link>
                         </div>

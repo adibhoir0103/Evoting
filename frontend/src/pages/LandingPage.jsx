@@ -15,6 +15,16 @@ function LandingPage() {
                 <link rel="canonical" href="https://evote.gov.in/" />
             </Helmet>
             <main id="main-content" className="flex-grow">
+                {/* Academic Demo Disclaimer */}
+                <div className="bg-amber-100 border-b border-amber-200 text-amber-900 p-3 relative z-20">
+                    <div className="max-w-7xl mx-auto px-4 flex items-center justify-center gap-3 text-center">
+                        <i className="fa-solid fa-triangle-exclamation text-lg"></i>
+                        <p className="font-semibold text-sm">
+                            <span className="font-bold">Academic Demo Project:</span> This is a student project for educational purposes only and is not affiliated with the Election Commission of India.
+                        </p>
+                    </div>
+                </div>
+
                 {/* 1. Hero Section */}
                 <section className="relative overflow-hidden border-b border-gray-200 bg-white/80 dark:bg-[#070e20]/80 backdrop-blur-md">
                     <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-primary-50 to-transparent opacity-50 z-0 pointer-events-none"></div>

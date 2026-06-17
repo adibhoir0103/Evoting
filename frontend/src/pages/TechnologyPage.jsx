@@ -3,6 +3,8 @@ import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { homomorphicService } from '../services/homomorphicService';
 import { postQuantumService } from '../services/postQuantumService';
+import toast from 'react-hot-toast';
+import { humanizeError } from '../utils/errorMessages';
 
 function TechnologyPage() {
     const [activeSection, setActiveSection] = useState('dlt');
@@ -17,7 +19,10 @@ function TechnologyPage() {
         try {
             const result = homomorphicService.runDemo([1, 0, 1, 1, 0, 1]);
             setHeDemo(result);
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+            toast.error(humanizeError(e));
+        }
         setHeLoading(false);
     }, []);
 
@@ -26,7 +31,10 @@ function TechnologyPage() {
         try {
             const result = await postQuantumService.runDemo();
             setPqDemo(result);
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+            toast.error(humanizeError(e));
+        }
         setPqLoading(false);
     }, []);
 

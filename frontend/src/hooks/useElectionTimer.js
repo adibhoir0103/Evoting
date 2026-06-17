@@ -45,7 +45,7 @@ const useElectionTimer = () => {
     const fetchTimeline = useCallback(async () => {
         try {
             const service = BlockchainService.getInstance();
-            if (!service || !service.votingContract) {
+            if (!service || !service.contract) {
                 // Contract not available — fall back to non-blockchain mode
                 setState(prev => ({
                     ...prev,
@@ -55,7 +55,7 @@ const useElectionTimer = () => {
                 return;
             }
 
-            const timeline = await service.votingContract.getVotingTimeline();
+            const timeline = await service.contract.getVotingTimeline();
             const timelineEnabled = timeline[0]; // bool _timelineEnabled
             const startTimeBN = timeline[1];      // uint256 _startTime
             const endTimeBN = timeline[2];         // uint256 _endTime

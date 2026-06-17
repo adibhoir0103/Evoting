@@ -5,6 +5,8 @@ import { zkpClientService } from '../services/zkpService';
 import { ethers } from 'ethers';
 import ZKPVotingArtifact from '../contracts/ZKPVoting.json';
 import contractAddress from '../contracts/contract-address.json';
+import toast from 'react-hot-toast';
+import { humanizeError } from '../utils/errorMessages';
 
 function VerifyVotePage() {
     const [txHash, setTxHash] = useState('');
@@ -18,11 +20,11 @@ function VerifyVotePage() {
 
     const verifyTransaction = async () => {
         if (!txHash.trim()) {
-            setError('Please enter a transaction hash');
+            toast.error('Please enter a transaction hash');
             return;
         }
         if (!/^0x[a-fA-F0-9]{64}$/.test(txHash.trim())) {
-            setError('Invalid transaction hash format. Must be 0x followed by 64 hex characters.');
+            toast.error('Invalid transaction hash format. Must be 0x followed by 64 hex characters.');
             return;
         }
 
@@ -75,6 +77,7 @@ function VerifyVotePage() {
             });
         } catch (err) {
             setError(err.message || 'Failed to verify transaction');
+            toast.error(humanizeError(err) || 'Failed to verify transaction');
         } finally {
             setLoading(false);
         }
@@ -82,11 +85,11 @@ function VerifyVotePage() {
 
     const verifyReceipt = async () => {
         if (!walletAddress.trim()) {
-            setError('Please enter your wallet address');
+            toast.error('Please enter your wallet address');
             return;
         }
         if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress.trim())) {
-            setError('Invalid wallet address format.');
+            toast.error('Invalid wallet address format.');
             return;
         }
 
@@ -135,6 +138,7 @@ function VerifyVotePage() {
             });
         } catch (err) {
             setError(err.message || 'Failed to verify vote receipt');
+            toast.error(humanizeError(err) || 'Failed to verify vote receipt');
         } finally {
             setLoading(false);
         }
@@ -142,11 +146,11 @@ function VerifyVotePage() {
 
     const verifyBySecret = async () => {
         if (!voterSecret.trim()) {
-            setError('Please enter your voter secret');
+            toast.error('Please enter your voter secret');
             return;
         }
         if (voterSecret.trim().length < 4) {
-            setError('Voter secret must be at least 4 characters.');
+            toast.error('Voter secret must be at least 4 characters.');
             return;
         }
 
@@ -278,6 +282,7 @@ function VerifyVotePage() {
             });
         } catch (err) {
             setError(err.message || 'Failed to verify vote');
+            toast.error(humanizeError(err) || 'Failed to verify vote');
         } finally {
             setLoading(false);
         }
@@ -325,13 +330,7 @@ function VerifyVotePage() {
                     </button>
                 </div>
 
-                {/* Error */}
-                {error && (
-                    <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
-                        <i className="fa-solid fa-circle-exclamation text-red-500 mt-0.5"></i>
-                        <p className="text-sm text-red-700 font-medium">{error}</p>
-                    </div>
-                )}
+                {/* Inline Error removed in favor of toast popups */}
 
                 {/* TX Hash Mode */}
                 {mode === 'tx' && (

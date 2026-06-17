@@ -50,11 +50,12 @@ function DashboardPage({ user, onUserUpdate }) {
                         setVoteReceipt(data.vote);
                     }
                 } catch (err) {
-                    // Ignore non-critical fetch errors for receipts
+                    console.error('Failed to fetch vote receipt:', err);
+                    toast.error('Could not load vote receipt details: ' + humanizeError(err));
                 }
             }
         } catch (err) {
-            setError('Failed to load dashboard data: ' + humanizeError(err));
+            toast.error('Failed to load dashboard data: ' + humanizeError(err));
         } finally {
             setLoading(false);
         }
@@ -201,7 +202,7 @@ function DashboardPage({ user, onUserUpdate }) {
                     {/* Countdown Banner inside Header — Synced with Blockchain */}
                     <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-4 flex items-center gap-6">
                         <div>
-                            <h2 className="text-sm font-bold uppercase tracking-wider text-accent-saffron">General Election 2026</h2>
+                            <h2 className="text-sm font-bold uppercase tracking-wider text-accent-saffron">State Assembly Election 2026</h2>
                             <span className="text-xs text-blue-100">
                                 {electionState === 'ACTIVE' && 'Live Polling Closes In:'}
                                 {electionState === 'NOT_STARTED' && 'Voting Begins In:'}
@@ -237,14 +238,7 @@ function DashboardPage({ user, onUserUpdate }) {
             </div>
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
-                {error && (
-                    <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded mb-6 shadow-sm">
-                        <div className="flex">
-                            <i className="fa-solid fa-circle-exclamation text-red-500 mt-0.5"></i>
-                            <p className="ml-3 text-sm text-red-700 font-medium">{error}</p>
-                        </div>
-                    </div>
-                )}
+                {/* Inline Error removed in favor of toast popups */}
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     
@@ -258,7 +252,7 @@ function DashboardPage({ user, onUserUpdate }) {
                                     <img src="https://s2.googleusercontent.com/s2/favicons?domain=india.gov.in&sz=256" alt="Emblem" className="h-16 w-auto mix-blend-multiply dark:mix-blend-normal dark:brightness-0 dark:invert opacity-90" />
                                     <div>
                                         <h3 className="text-lg font-bold text-gray-900 leading-tight">भारत निर्वाचन आयोग</h3>
-                                        <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Election Commission of India</h3>
+                                        <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Academic Demo Project</h3>
                                         <p className="text-[10px] font-medium text-gray-500 mt-1 uppercase">मतदाता फोटो पहचान पत्र / Elector Photo Identity Card</p>
                                     </div>
                                 </div>
@@ -479,7 +473,7 @@ function DashboardPage({ user, onUserUpdate }) {
                                                     doc.setTextColor(255, 255, 255);
                                                     doc.setFontSize(18);
                                                     doc.setFont('helvetica', 'bold');
-                                                    doc.text('Election Commission of India', pageW / 2, 15, { align: 'center' });
+                                                    doc.text('Academic Demo Project', pageW / 2, 15, { align: 'center' });
                                                     doc.setFontSize(11);
                                                     doc.text('Bharat E-Vote — Digital Vote Receipt', pageW / 2, 25, { align: 'center' });
 

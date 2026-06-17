@@ -11,10 +11,11 @@ import App from './App';
 if (import.meta.env.VITE_POSTHOG_KEY) {
     posthog.init(import.meta.env.VITE_POSTHOG_KEY, {
         api_host: import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com',
-        autocapture: true,
+        autocapture: false, // Disable automatic capture of inputs and clicks to protect voter privacy
         capture_pageview: true,
         capture_pageleave: true,
-        enable_recording_console_log: true,
+        enable_recording_console_log: false, // Disable console recording to prevent leaking sensitive variables
+        mask_all_inputs: true, // Ensures session replays do not capture keystrokes, passwords, or OTPs
     });
 }
 

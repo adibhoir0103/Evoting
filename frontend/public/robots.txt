@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /admin-panel
+Disallow: /admin-login
+Disallow: /vote
+
+# Basic sitemap configuration (if implemented later)
+# Sitemap: https://bharat-evote.me/sitemap.xml

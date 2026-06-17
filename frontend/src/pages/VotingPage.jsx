@@ -11,6 +11,7 @@ import { Helmet } from 'react-helmet-async';
 import { jsPDF } from 'jspdf';
 import useElectionTimer from '../hooks/useElectionTimer';
 import { humanizeError } from '../utils/errorMessages';
+import toast from 'react-hot-toast';
 
 function VotingPage({ user, onUserUpdate }) {
     const navigate = useNavigate();
@@ -89,7 +90,7 @@ function VotingPage({ user, onUserUpdate }) {
 
             await loadBlockchainData(service, account);
         } catch (err) {
-            setError(humanizeError(err) || 'Failed to connect wallet');
+            toast.error(humanizeError(err) || 'Failed to connect wallet');
         } finally {
             setLoading(false);
         }
@@ -102,7 +103,7 @@ function VotingPage({ user, onUserUpdate }) {
             setWalletConnected(true);
             await loadBlockchainData(service, address);
         } catch (err) {
-            setError(humanizeError(err));
+            toast.error(humanizeError(err));
             setLoading(false);
         }
     };
@@ -130,7 +131,7 @@ function VotingPage({ user, onUserUpdate }) {
 
             setCandidates(filteredCandidates);
         } catch (err) {
-            setError('Failed to load voting data: ' + humanizeError(err));
+            toast.error('Failed to load voting data: ' + humanizeError(err));
         } finally {
             setLoading(false);
         }
@@ -244,7 +245,10 @@ function VotingPage({ user, onUserUpdate }) {
                 try {
                     const ipfsResult = await zkpClientService.pinVoteToIPFS(votePackage.commitment, votePackage.nullifierHash);
                     ipfsHash = ipfsResult.ipfsHash || '';
-                } catch (e) { if (import.meta.env.DEV) console.log('IPFS pinning skipped'); }
+                } catch (e) {
+                    console.error('IPFS pinning failed:', e);
+                    toast.error('Failed to pin vote to IPFS: ' + humanizeError(e));
+                }
 
                 setVoteState('pending');
                 const receipt = await service.submitEncryptedVote(
@@ -287,18 +291,18 @@ function VotingPage({ user, onUserUpdate }) {
 
             posthog.capture('vote_cast_success', {
                 method: isZKP ? 'zkp' : 'standard',
-                election_id: 'general-2026',
+                election_id: 'state-assembly-2026',
             });
 
             await loadBlockchainData(service, walletAddress);
         } catch (err) {
             const msg = (err.message || '').toLowerCase();
             if (msg.includes('rejected') || msg.includes('action_rejected')) {
-                setError('You rejected the transaction — you have not voted yet.');
+                toast.error('You rejected the transaction — you have not voted yet.');
                 setVoteState('recovered');
                 posthog.capture('vote_cast_rejected', { reason: 'user_rejected' });
             } else {
-                setError(humanizeError(err));
+                toast.error(humanizeError(err));
                 setVoteState('failed');
                 posthog.capture('vote_cast_failed', { error: msg });
             }
@@ -332,7 +336,7 @@ function VotingPage({ user, onUserUpdate }) {
             doc.text('BHARAT E-VOTE', pageWidth / 2, 18, { align: 'center' });
             doc.setFontSize(10);
             doc.setFont('helvetica', 'normal');
-            doc.text('Official Digital Vote Receipt — Election Commission of India', pageWidth / 2, 28, { align: 'center' });
+            doc.text('Digital Vote Receipt — Bharat E-Vote Demo', pageWidth / 2, 28, { align: 'center' });
             doc.text('Secured by Zero-Knowledge Blockchain Cryptography', pageWidth / 2, 35, { align: 'center' });
 
             doc.setTextColor(0, 0, 0);
@@ -355,7 +359,7 @@ function VotingPage({ user, onUserUpdate }) {
                 ['Transaction Hash:', txHash || 'N/A'],
                 ['Constituency:', voterConstituencyInfo ? `State ${voterConstituencyInfo.stateCode} — Constituency ${voterConstituencyInfo.constituencyCode}` : 'National'],
                 ['Timestamp:', new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })],
-                ['Election:', 'General Election 2026'],
+                ['Election:', 'State Assembly Election 2026'],
                 ['Verification:', 'Blockchain-Immutable, Zero-Knowledge Verified']
             ];
 
@@ -391,7 +395,7 @@ function VotingPage({ user, onUserUpdate }) {
             doc.save(`BharatEVote_Receipt_${Date.now()}.pdf`);
         } catch (err) {
             console.error('PDF generation failed:', err);
-            setError('Failed to generate receipt. Please try again.');
+            toast.error('Failed to generate receipt. Please try again.');
         }
     };
 
@@ -480,11 +484,11 @@ function VotingPage({ user, onUserUpdate }) {
         <section className="max-w-5xl mx-auto px-4 py-8">
             <Helmet>
                 <title>Cast Your Vote | Bharat E-Vote Portal</title>
-                <meta name="description" content="Securely cast your vote in the General Election 2026 using blockchain-verified zero-knowledge cryptography on the Bharat E-Vote Portal." />
+                <meta name="description" content="Securely cast your vote in the State Assembly Election 2026 using blockchain-verified zero-knowledge cryptography on the Bharat E-Vote Portal." />
             </Helmet>
             {/* Header */}
             <div className="text-center mb-8">
-                <h1 className="text-2xl md:text-3xl font-bold text-gray-900">General Election 2026 — Voting Terminal</h1>
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-900">State Assembly Election 2026 — Voting Terminal</h1>
                 <p className="text-gray-500 mt-1">Select your candidate and confirm your choice</p>
             </div>
 
@@ -498,11 +502,7 @@ function VotingPage({ user, onUserUpdate }) {
             </nav>
 
             {/* Alerts */}
-            {error && (
-                <div className="max-w-4xl mx-auto bg-red-50 text-red-700 p-4 mb-6 rounded-lg text-sm border-l-4 border-l-red-500 flex items-center shadow-sm" role="alert" aria-live="assertive">
-                    <i className="fa-solid fa-circle-exclamation mr-2"></i>{error}
-                </div>
-            )}
+            {/* Inline error removed in favor of toast popups */}
             {success && (
                 <div className="max-w-4xl mx-auto bg-green-50 text-green-700 p-4 mb-6 rounded-lg text-sm border-l-4 border-l-green-500 flex items-center shadow-sm" role="alert" aria-live="assertive">
                     <i className="fa-solid fa-check-circle mr-2"></i>{success}

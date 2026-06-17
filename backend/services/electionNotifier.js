@@ -82,7 +82,12 @@ async function checkAndNotify() {
             }
         }
     } catch (error) {
-        notifLog.error('Notification scheduler error', { error: error.message });
+        const msg = error.message || '';
+        if (msg.includes("Can't reach database server") || msg.includes("connection to database closed") || msg.includes("PostgreSQL connection")) {
+            notifLog.warn('Notification scheduler skipped: Database connection unavailable (Supabase may be sleeping).');
+        } else {
+            notifLog.error('Notification scheduler error', { error: msg });
+        }
     } finally {
         isRunning = false;
     }
@@ -175,7 +180,12 @@ async function sendNotification(election, type, { subject, getBody, onlyNonVoter
 
         notifLog.info(`✅ ${type} sent for election "${election.name}" — ${sentCount}/${recipients.length} recipients`);
     } catch (error) {
-        notifLog.error(`Failed to send ${type} for election ${election.id}`, { error: error.message });
+        const msg = error.message || '';
+        if (msg.includes("Can't reach database server") || msg.includes("connection to database closed") || msg.includes("PostgreSQL connection")) {
+            notifLog.warn(`Failed to send ${type} for election ${election.id}: Database connection unavailable.`);
+        } else {
+            notifLog.error(`Failed to send ${type} for election ${election.id}`, { error: msg });
+        }
     }
 }
 

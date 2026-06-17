@@ -290,7 +290,7 @@ function ProctorGuard({
                                 </div>
                                 <div className="proctor-summary-row">
                                     <span className="proctor-summary-label">Election</span>
-                                    <span className="proctor-summary-value">General Election 2026</span>
+                                    <span className="proctor-summary-value">State Assembly Election 2026</span>
                                 </div>
                                 <div className="proctor-summary-row">
                                     <span className="proctor-summary-label">Timestamp</span>
@@ -461,7 +461,7 @@ function ProctorGuard({
                     </div>
                     <div>
                         <div className="proctor-title">Secure Voting Window</div>
-                        <div className="proctor-subtitle">Proctored Session — General Election 2026</div>
+                        <div className="proctor-subtitle">Proctored Session — State Assembly Election 2026</div>
                     </div>
                 </div>
 
