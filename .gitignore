@@ -10,8 +10,14 @@ frontend/.env.*
 .specify/
 
 # Hardhat files
-cache
-artifacts
+cache/
+artifacts/
+typechain/
+typechain-types/
+
+# Project context files
+AGENTS.md
+GEMINI.md
 
 # Frontend
 frontend/build

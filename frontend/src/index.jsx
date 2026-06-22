@@ -1,23 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import * as Sentry from '@sentry/react';
-import posthog from 'posthog-js';
 import { HelmetProvider } from 'react-helmet-async';
 import './index.css';
 import './i18n';
 import App from './App';
-
-// Initialize PostHog Analytics & Session Replay
-if (import.meta.env.VITE_POSTHOG_KEY) {
-    posthog.init(import.meta.env.VITE_POSTHOG_KEY, {
-        api_host: import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com',
-        autocapture: false, // Disable automatic capture of inputs and clicks to protect voter privacy
-        capture_pageview: true,
-        capture_pageleave: true,
-        enable_recording_console_log: false, // Disable console recording to prevent leaking sensitive variables
-        mask_all_inputs: true, // Ensures session replays do not capture keystrokes, passwords, or OTPs
-    });
-}
 
 // Initialize Sentry
 if (import.meta.env.VITE_SENTRY_DSN) {

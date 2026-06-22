@@ -289,22 +289,15 @@ function VotingPage({ user, onUserUpdate }) {
             setSelectedCandidate(null);
             if (onUserUpdate) onUserUpdate({ ...user, hasVoted: true });
 
-            posthog.capture('vote_cast_success', {
-                method: isZKP ? 'zkp' : 'standard',
-                election_id: 'state-assembly-2026',
-            });
-
             await loadBlockchainData(service, walletAddress);
         } catch (err) {
             const msg = (err.message || '').toLowerCase();
             if (msg.includes('rejected') || msg.includes('action_rejected')) {
                 toast.error('You rejected the transaction — you have not voted yet.');
                 setVoteState('recovered');
-                posthog.capture('vote_cast_rejected', { reason: 'user_rejected' });
             } else {
                 toast.error(humanizeError(err));
                 setVoteState('failed');
-                posthog.capture('vote_cast_failed', { error: msg });
             }
         }
     };

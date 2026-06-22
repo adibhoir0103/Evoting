@@ -6,8 +6,10 @@
     "scripts": {
         "build": "npx prisma generate && npx prisma db push --accept-data-loss",
         "start": "node server.js",
-        "dev": "node server.js",
-        "test:api": "jest tests/auth.test.js --forceExit",
+        "dev": "nodemon server.js",
+        "prod": "pm2 start ecosystem.config.js --env production",
+        "test": "jest",
+        "test:api": "jest tests/",
         "postinstall": "npx prisma generate"
     },
     "dependencies": {
@@ -19,6 +21,7 @@
         "bcrypt": "^6.0.0",
         "bullmq": "^5.76.10",
         "compression": "^1.8.1",
+        "cookie-parser": "^1.4.7",
         "cors": "^2.8.6",
         "csv-parser": "^3.2.1",
         "dotenv": "^17.4.2",
@@ -32,5 +35,9 @@
         "morgan": "^1.10.1",
         "multer": "^2.1.1",
         "prisma": "^6.4.1"
+    },
+    "devDependencies": {
+        "jest": "^30.4.2",
+        "supertest": "^7.2.2"
     }
 }

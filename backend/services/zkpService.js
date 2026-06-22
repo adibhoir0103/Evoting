@@ -1,8 +1,8 @@
 /**
- * ZKP Cryptographic Service
+ * Cryptographic Ballot Privacy Service
  * 
- * Implements Pedersen commitment + Schnorr-style ZK proof scheme
- * for the Bharat E-Vote zero-knowledge voting system.
+ * Implements Pedersen commitment + Schnorr-style eligibility scheme
+ * for the Bharat E-Vote system.
  *
  * Uses native BigInt for modular arithmetic over a 256-bit prime field.
  */

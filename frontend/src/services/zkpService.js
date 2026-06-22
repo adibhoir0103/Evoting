@@ -1,5 +1,5 @@
 /**
- * ZKP Client-Side Service
+ * Cryptographic Ballot Privacy Client-Side Service
  * 
  * Performs all cryptographic operations locally in the browser.
  * The voter's choice NEVER leaves the browser unencrypted.

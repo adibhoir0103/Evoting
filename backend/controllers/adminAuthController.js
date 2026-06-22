@@ -10,7 +10,7 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const redisService = require('../services/redisService');
 const { logAdminAction } = require('../utils/helpers');
-const { EFFECTIVE_JWT_SECRET } = require('../middleware/authenticate');
+const { EFFECTIVE_JWT_SECRET, setTokenCookie } = require('../middleware/authenticate');
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@evote.com';
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -82,6 +82,9 @@ exports.adminVerifyMfa = async (req, res) => {
     );
 
     logAdminAction(decoded.email, 'LOGIN', 'Admin login successful (MFA verified)', req.ip);
+
+    // Set admin JWT as httpOnly cookie
+    setTokenCookie(res, 'admin_token', token, 2 * 60 * 60 * 1000);
 
     res.json({ message: 'Admin login successful', token, admin: { email: decoded.email, role: 'admin' } });
 };

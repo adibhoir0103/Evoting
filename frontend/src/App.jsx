@@ -1,6 +1,5 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import * as Sentry from '@sentry/react';
-import posthog from 'posthog-js';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -183,17 +182,6 @@ function App() {
             username: userData.voterId,
         });
 
-        // ── PostHog: Link anonymous session to real identity ──
-        posthog.identify(userData.id, {
-            email: userData.email,
-            name: userData.fullname,
-            voter_id: userData.voterId,
-            has_voted: userData.hasVoted || false,
-        });
-        posthog.capture('login_success', {
-            method: 'mfa_otp',
-            has_wallet: !!userData.walletAddress,
-        });
     };
 
     const handleLogout = () => {
@@ -201,7 +189,6 @@ function App() {
         setUser(null);
         setIsAdmin(false);
         Sentry.setUser(null);
-        posthog.reset();
     };
 
     const handleUserUpdate = (updatedUser) => {

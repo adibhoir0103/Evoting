@@ -1,10 +1,10 @@
 # 🇮🇳 Bharat E-Vote
 **Blockchain-Based E-Voting System**
 
-Bharat E-Vote is a highly secure, decentralized electronic voting platform designed as a Proof-of-Concept for national-scale elections. It employs Ethereum smart contracts, Zero-Knowledge Proofs (ZKP), and multi-factor authentication to guarantee mathematically secure, anonymous, and coercion-resistant voting.
+Bharat E-Vote is a highly secure, decentralized electronic voting platform designed as a Proof-of-Concept for national-scale elections. It employs Ethereum smart contracts, Cryptographic Ballot Privacy (Pedersen Commitments), and multi-factor authentication to guarantee mathematically secure, anonymous, and coercion-resistant voting.
 
 ## 🌟 Key Features
-- **Zero-Knowledge Proofs (ZKP):** Voters cast encrypted votes that are verified on-chain without revealing their identity or candidate choice.
+- **Cryptographic Ballot Privacy:** Voters cast encrypted votes using Pedersen commitments that are verified on-chain via Schnorr-style challenges without revealing their identity or candidate choice.
 - **Coercion Deterrence:** Voters can re-vote up to 3 times before the election time-lock expires, neutralizing "over-the-shoulder" coercion.
 - **ProctorGuard UI:** Anti-tab-switching browser protections and QR ticketing prevent device hijacking during the vote sequence.
 - **Gasless Meta-Transactions:** Voters do not need to pay Ethereum gas fees (ERC-2771).
@@ -118,4 +118,4 @@ This application has undergone extensive vulnerability remediation:
 2. **N+1 Polling Exhaustion:** Authenticated requests now verify JWTs entirely in-memory using Redis.
 3. **Event Log Deanonymization:** Standard EVM votes are hashed with an off-chain `_secretSalt` via `window.crypto.getRandomValues()` prior to blockchain submission.
 
-*Note: The Zero-Knowledge Proofs implemented in `ZKPVoting.sol` utilize a simulated Schnorr-like verification. In a production environment, this should be replaced with a Circom/Groth16 verifier contract.*
+*Note: The privacy mechanism implemented in `ZKPVoting.sol` utilizes Pedersen commitments and a simulated Schnorr-like verification. In a true production environment seeking full Zero-Knowledge properties, this should be replaced with a Circom/Groth16 verifier contract and a trusted setup ceremony.*

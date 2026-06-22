@@ -10,7 +10,7 @@ const crypto = require('crypto');
 const prisma = require('../lib/prisma');
 const redisService = require('../services/redisService');
 const { sanitize } = require('../utils/helpers');
-const { EFFECTIVE_JWT_SECRET } = require('../middleware/authenticate');
+const { EFFECTIVE_JWT_SECRET, setTokenCookie, clearTokenCookie } = require('../middleware/authenticate');
 
 // ===================== REGISTER =====================
 exports.register = async (req, res) => {
@@ -84,6 +84,9 @@ exports.register = async (req, res) => {
     await prisma.loginHistory.create({
         data: { voter_id: user.voter_id, ip_address: req.ip, status: 'REGISTERED' }
     });
+
+    // Set JWT as httpOnly cookie (primary auth) — closes localStorage XSS vulnerability
+    setTokenCookie(res, 'token', token, 30 * 60 * 1000);
 
     res.status(201).json({
         message: 'Registration successful! Welcome to Bharat E-Vote.', token,
@@ -194,6 +197,9 @@ exports.verifyOtp = async (req, res) => {
         data: { voter_id: user.voter_id, ip_address: req.ip, device_info: req.headers['user-agent']?.slice(0, 200), status: 'SUCCESS' }
     }).catch(() => {});
 
+    // Set JWT as httpOnly cookie (primary auth)
+    setTokenCookie(res, 'token', token, 20 * 60 * 1000);
+
     res.json({
         message: 'MFA verification successful. Login complete.', mfaVerified: true, token,
         user: { id: user.id, fullname: user.fullname, email: user.email, voterId: user.voter_id, hasVoted: user.has_voted, walletAddress: user.wallet_address }
@@ -237,6 +243,8 @@ exports.logout = async (req, res) => {
         redisService.clearActiveSession(req.user.id),
         prisma.user.update({ where: { id: req.user.id }, data: { active_session_token: null, active_session_expires: null } })
     ]);
+    // Clear httpOnly JWT cookie
+    clearTokenCookie(res, 'token');
     res.json({ message: 'Logged out successfully' });
 };
 

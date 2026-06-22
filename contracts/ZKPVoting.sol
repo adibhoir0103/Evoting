@@ -2,14 +2,14 @@
 pragma solidity ^0.8.19;
 
 /**
- * @title ZKPVoting
- * @dev Zero-Knowledge Proof voting extension with Pedersen commitments,
- *      Schnorr-style proofs, nullifier-based eligibility, IPFS metadata,
+ * @title ZKPVoting (Cryptographic Ballot Privacy)
+ * @dev Privacy-preserving voting extension with Pedersen commitments,
+ *      Schnorr-style eligibility proofs, nullifier-based uniqueness, IPFS metadata,
  *      and ERC-2771 meta-transaction support.
  *
- * 4 ZKP Goals:
+ * 4 Cryptographic Privacy Goals:
  *   1. Vote Privacy     — Pedersen commitments hide the vote choice
- *   2. Vote Integrity   — On-chain Schnorr proof verification
+ *   2. Vote Integrity   — On-chain Schnorr challenge verification
  *   3. Voter Eligibility — Identity commitments + nullifier hashes
  *   4. Verifiability    — Individual (nullifier) + Universal (all commitments)
  *

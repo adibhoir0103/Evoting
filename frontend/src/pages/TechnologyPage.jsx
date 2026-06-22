@@ -344,7 +344,7 @@ function TechnologyPage() {
                                 <InfoCard title="Three Authentication Factors" color="blue">
                                     <div className="space-y-3">
                                         <Step num={1} title="Something You Know — Password">Standard bcrypt-hashed password with 12 rounds of key stretching. Brute-force infeasible.</Step>
-                                        <Step num={2} title="Something You Have — Email OTP">After password verification, a 6-digit OTP is sent to the voter's registered email via Resend API. Valid for 5 minutes, max 5 attempts, bcrypt-hashed in database.</Step>
+                                        <Step num={2} title="Something You Have — Email OTP">After password verification, a 6-digit OTP is sent to the voter's registered email via Brevo API. Valid for 5 minutes, max 5 attempts, bcrypt-hashed in database.</Step>
                                         <Step num={3} title="Something You Are — Keystroke Biometrics">Typing patterns (hold times, flight times, speed) are captured during password entry and compared against the enrolled profile using Euclidean distance.</Step>
                                     </div>
                                 </InfoCard>

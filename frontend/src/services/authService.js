@@ -7,19 +7,16 @@ import { API_URL } from '../config/api';
 export const authService = {
 
     /**
-     * Get the stored JWT token
+     * Get the stored JWT token (Fallback for legacy API compat, mostly obsolete with httpOnly cookies)
      */
     getToken() {
-        return localStorage.getItem('token') || null;
+        return null; // Token is now stored securely in an httpOnly cookie
     },
 
-    /**
-     * Get auth headers for API calls
-     */
     getAuthHeaders() {
         return {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.getToken()}`
+            'Content-Type': 'application/json'
+            // Authorization header removed; token is now sent automatically via httpOnly cookie
         };
     },
 
@@ -38,8 +35,7 @@ export const authService = {
             throw new Error(data.error || 'Registration failed');
         }
 
-        // Store auth data
-        localStorage.setItem('token', data.token);
+        // Store auth data (user only, token is in httpOnly cookie)
         localStorage.setItem('user', JSON.stringify(data.user));
         return data;
     },
@@ -51,6 +47,7 @@ export const authService = {
         const response = await fetch(`${API_URL}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include', // Important: Ensures cookies are sent and set
             body: JSON.stringify({ identifier, password })
         });
 
@@ -59,8 +56,7 @@ export const authService = {
             throw new Error(data.error || 'Login failed');
         }
 
-        // Store auth data
-        localStorage.setItem('token', data.token);
+        // Store auth data (user only, token is in httpOnly cookie)
         localStorage.setItem('user', JSON.stringify(data.user));
         return data;
     },
@@ -71,7 +67,8 @@ export const authService = {
     async getCurrentUser() {
         try {
             const response = await fetch(`${API_URL}/auth/me`, {
-                headers: { 'Authorization': `Bearer ${this.getToken()}` }
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include' // Send httpOnly cookie
             });
 
             if (!response.ok) {
@@ -99,26 +96,24 @@ export const authService = {
         return userStr ? JSON.parse(userStr) : null;
     },
 
-    /**
-     * Check if user is logged in (has a real token, not test-token)
-     */
     isLoggedIn() {
-        const token = localStorage.getItem('token');
-        if (!token) return false;
-        // Check if token is not expired
-        try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            return payload.exp * 1000 > Date.now();
-        } catch {
-            return false;
-        }
+        // Since token is httpOnly, we can't check its expiry directly from JS.
+        // If 'user' exists in localStorage, we assume logged in until an API call returns 401.
+        return !!localStorage.getItem('user');
     },
 
     /**
      * Logout user
      */
-    logout() {
-        localStorage.removeItem('token');
+    async logout() {
+        try {
+            await fetch(`${API_URL}/auth/logout`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+        } catch (e) {
+            console.error('Logout error', e);
+        }
         localStorage.removeItem('user');
     },
 
@@ -129,6 +124,7 @@ export const authService = {
         const response = await fetch(`${API_URL}/user/link-wallet`, {
             method: 'POST',
             headers: this.getAuthHeaders(),
+            credentials: 'include',
             body: JSON.stringify({ walletAddress })
         });
 
@@ -153,6 +149,7 @@ export const authService = {
         const response = await fetch(`${API_URL}/vote/record`, {
             method: 'POST',
             headers: this.getAuthHeaders(),
+            credentials: 'include',
             body: JSON.stringify({ txHash })
         });
 
@@ -177,6 +174,7 @@ export const authService = {
         const response = await fetch(`${API_URL}/user/profile`, {
             method: 'PUT',
             headers: this.getAuthHeaders(),
+            credentials: 'include',
             body: JSON.stringify(data)
         });
 
@@ -200,7 +198,8 @@ export const authService = {
     async checkVoteStatus() {
         try {
             const response = await fetch(`${API_URL}/vote/status`, {
-                headers: { 'Authorization': `Bearer ${this.getToken()}` }
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
             });
 
             if (!response.ok) return false;

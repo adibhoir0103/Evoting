@@ -19,11 +19,15 @@ const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'dev-only-local-key-fixed-for-cluster
 
 /**
  * Voter authentication middleware.
- * Verifies JWT and enforces single active session via Redis.
+ * Reads JWT from httpOnly cookie first, falls back to Authorization header.
+ * Enforces single active session via Redis.
  */
 const injectUser = async (req, res, next) => {
+    // Priority: httpOnly cookie > Authorization header
+    const cookieToken = req.cookies && req.cookies.token;
     const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+    const headerToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+    const token = cookieToken || headerToken;
 
     if (!token || token === 'test-token') {
         return res.status(401).json({ error: 'Authentication required. Please log in.' });
@@ -54,11 +58,14 @@ const injectUser = async (req, res, next) => {
 
 /**
  * Admin authentication middleware.
- * Verifies JWT and attaches admin user info.
+ * Reads JWT from httpOnly cookie first, falls back to Authorization header.
  */
 const isAdmin = (req, res, next) => {
+    // Priority: httpOnly cookie > Authorization header
+    const cookieToken = req.cookies && req.cookies.admin_token;
     const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+    const headerToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+    const token = cookieToken || headerToken;
 
     if (token && token !== 'test-token') {
         try {
@@ -83,8 +90,39 @@ const isAdmin = (req, res, next) => {
     return res.status(401).json({ error: 'Admin authentication required.' });
 };
 
+// ============ Cookie Configuration ============
+const isProduction = process.env.NODE_ENV === 'production';
+
+const COOKIE_OPTIONS = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'strict' : 'lax',
+    domain: isProduction ? '.bharat-evote.me' : undefined,
+    path: '/'
+};
+
+/**
+ * Set a JWT token as an httpOnly cookie on the response.
+ * @param {object} res - Express response object
+ * @param {string} name - Cookie name ('token' for voter, 'admin_token' for admin)
+ * @param {string} token - JWT string
+ * @param {number} maxAgeMs - Cookie lifetime in milliseconds
+ */
+function setTokenCookie(res, name, token, maxAgeMs) {
+    res.cookie(name, token, { ...COOKIE_OPTIONS, maxAge: maxAgeMs });
+}
+
+/**
+ * Clear a JWT cookie.
+ */
+function clearTokenCookie(res, name) {
+    res.clearCookie(name, { ...COOKIE_OPTIONS });
+}
+
 module.exports = {
     injectUser,
     isAdmin,
-    EFFECTIVE_JWT_SECRET
+    EFFECTIVE_JWT_SECRET,
+    setTokenCookie,
+    clearTokenCookie
 };

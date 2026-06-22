@@ -1,6 +1,6 @@
 /**
- * ZKP Controller
- * Handles Zero-Knowledge Proof generation and verification endpoints.
+ * ZKP Controller (Cryptographic Ballot Privacy)
+ * Handles Pedersen Commitment generation and Schnorr-style eligibility verification.
  */
 
 const zkpService = require('../services/zkpService');
@@ -10,7 +10,7 @@ exports.getStatus = (req, res) => {
     res.json({
         zkpEnabled: true,
         electionId: 'bharat-evote-2026',
-        features: ['pedersen-commitments', 'schnorr-proofs', 'nullifier-privacy', 'ipfs-metadata', 'erc2771-metatx']
+        features: ['pedersen-commitments', 'schnorr-challenges', 'nullifier-privacy', 'ipfs-metadata', 'erc2771-metatx']
     });
 };
 

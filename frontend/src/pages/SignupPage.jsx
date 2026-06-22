@@ -122,7 +122,7 @@ function SignupPage() {
             }
 
             // Store JWT and user
-            localStorage.setItem('token', data.token);
+            // localStorage.setItem('token', data.token); // Handled by httpOnly cookie now
             localStorage.setItem('user', JSON.stringify(data.user));
 
             // Enroll keystroke profile if we have data

@@ -1,5 +1,6 @@
 \documentclass[conference]{IEEEtran}
 \usepackage{amsmath,amssymb,graphicx,float,booktabs,cite,hyperref,listings,enumitem,url}
+\usepackage[T1]{fontenc}
 \usepackage[table]{xcolor}
 
 \lstdefinelanguage{Solidity}{
@@ -20,31 +21,31 @@
 \IEEEauthorblockA{\textit{Department of Computer Engineering} \\
 \textit{PES Modern College of Engineering}\\
 Pune, India \\
-bhoiraditya7497@gmail.com}
+aditya\_bhoir\_comp@moderncoe.edu.in}
 \and
 \IEEEauthorblockN{Omkar Ingle}
 \IEEEauthorblockA{\textit{Department of Computer Engineering} \\
 \textit{PES Modern College of Engineering}\\
 Pune, India \\
-omkar_ingle_comp@moderncoe.edu.in}
+omkar\_ingle\_comp@moderncoe.edu.in}
 \and
 \IEEEauthorblockN{Aftab Pathan}
 \IEEEauthorblockA{\textit{Department of Computer Engineering} \\
 \textit{PES Modern College of Engineering}\\
 Pune, India \\
-aftab_pathan_comp@moderncoe.edu.in}
+aftab\_pathan\_comp@moderncoe.edu.in}
 \and
 \IEEEauthorblockN{Abhishek Shinde}
 \IEEEauthorblockA{\textit{Department of Computer Engineering} \\
 \textit{PES Modern College of Engineering}\\
 Pune, India \\
-abhishek_shinde_comp@moderncoe.edu.in}
+abhishek\_shinde\_comp@moderncoe.edu.in}
 \and
 \IEEEauthorblockN{Aryan Shinde}
 \IEEEauthorblockA{\textit{Department of Computer Engineering} \\
 \textit{PES Modern College of Engineering}\\
 Pune, India \\
-aryan_shinde_comp@moderncoe.edu.in}
+aryan\_shinde\_comp@moderncoe.edu.in}
 \and
 \IEEEauthorblockN{Dr.\ B.\ D.\ Phulpagar}
 \IEEEauthorblockA{\textit{Department of Computer Engineering} \\
@@ -57,7 +58,7 @@ bdphulpagar@moderncoe.edu.in}
 
 % ===== ABSTRACT =====
 \begin{abstract}
-Traditional electronic voting systems rely on centralized trust, lack independent verifiability, and offer limited ballot privacy. This paper presents \textbf{Bharat E-Vote}, a decentralized electronic voting platform built on Ethereum smart contracts with a hash-based commitment scheme for vote privacy and a six-layer defense-in-depth security architecture. Votes are recorded as immutable blockchain state transitions. A commitment scheme based on finite-field arithmetic hides voter choices, while a simplified proof-of-knowledge protocol provides a structural framework for on-chain verification (with limitations discussed in Section~IV-B). The security architecture combines bot protection with rate limiting, OTP-based multi-factor authentication, keystroke dynamics anomaly detection, smart contract role-based access control, and HTTP security header enforcement. An ERC-2771 meta-transaction forwarder~\cite{openzeppelin2024} enables gasless voting. The system was validated through 85 automated smart contract tests (100\% pass rate). Performance benchmarks show vote inclusion in blocks within 12--18 seconds on Ethereum Sepolia testnet (with probabilistic finality at approximately 12 minutes), and API response times below 150ms. We present an honest assessment of the system's limitations, including the proof-of-concept nature of the privacy module and the trust assumptions inherent in the architecture.
+Traditional electronic voting systems rely on centralized trust, lack independent verifiability, and offer limited ballot privacy. This paper presents \textbf{Bharat E-Vote}, a decentralized electronic voting platform built on Ethereum smart contracts with a hash-based commitment scheme for vote privacy and a seven-layer defense-in-depth security architecture. Votes are recorded as immutable blockchain state transitions. A commitment scheme based on finite-field arithmetic hides voter choices, while a simplified proof-of-knowledge protocol provides a structural framework for on-chain verification (with limitations discussed in Section~IV-B). The security architecture combines bot protection with rate limiting, OTP-based multi-factor authentication with httpOnly cookie-based JWT transport, keystroke dynamics anomaly detection, smart contract role-based access control, HTTP parameter pollution prevention, and HTTP security header enforcement. An ERC-2771 meta-transaction forwarder~\cite{openzeppelin2024} enables gasless voting. The system was validated through 49 automated smart contract tests and 9 backend API integration tests (100\% pass rate across 58 total tests). Performance benchmarks show vote inclusion in blocks within 12--18 seconds on Ethereum Sepolia testnet (with probabilistic finality at approximately 12 minutes), and API response times below 150ms. We present an honest assessment of the system's limitations, including the proof-of-concept nature of the privacy module and the trust assumptions inherent in the architecture.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -74,7 +75,7 @@ Existing blockchain-based voting proposals address immutability but frequently n
 \begin{itemize}[leftmargin=*]
     \item \textbf{On-Chain Verifiability:} Every vote is an Ethereum blockchain transaction enforced by a Solidity smart contract, enabling independent result recomputation.
     \item \textbf{Commitment-Based Privacy:} A hash-based commitment module hides vote choices on-chain, with a simplified proof-of-knowledge protocol for verification. We explicitly characterize this as a proof-of-concept and discuss its limitations relative to algebraically homomorphic Pedersen commitments.
-    \item \textbf{Defense-in-Depth:} Six security layers ensure no single-point compromise defeats the system.
+    \item \textbf{Defense-in-Depth:} Seven security layers ensure no single-point compromise defeats the system.
     \item \textbf{Gasless Voting:} ERC-2771 meta-transactions remove the cryptocurrency prerequisite, though we acknowledge the censorship risk of centralized relayers.
     \item \textbf{Partial Coercion Mitigation:} A re-voting mechanism (up to 3 re-votes) raises the cost of coercion, though it does not achieve receipt-freeness as defined by Juels et al.~\cite{juels2005}.
     \item \textbf{Honest Limitations Analysis:} A dedicated section enumerates trust assumptions and architectural constraints, including relayer censorship, wallet linkability, and database metadata exposure.
@@ -129,21 +130,29 @@ $^\S$Standard mode is tamper-proof on-chain; ZKP mode lacks on-chain tallying; o
 \label{fig:arch}
 \end{figure}
 
+\begin{figure}[htbp]
+\vspace{1em}
+\centering
+\includegraphics[width=0.48\textwidth]{images/landing_page.jpeg}
+\caption{Bharat E-Vote Landing Page --- National portal interface with citizen services grid and biometric verification prompt.}
+\label{fig:landing}
+\end{figure}
+
 % ===== III. SYSTEM ARCHITECTURE =====
 \section{System Architecture}
 
-Bharat E-Vote uses a three-tier architecture: React frontend, Node.js/Express backend, and Ethereum blockchain. The blockchain smart contract is the final trust boundary for vote integrity, though off-chain components introduce additional trust assumptions (Section~VIII).
+As illustrated in Fig.~\ref{fig:arch}, Bharat E-Vote uses a three-tier architecture: React 19/Vite frontend (accessible via the national portal, Fig.~\ref{fig:landing}), Node.js/Express~5 backend, and Ethereum blockchain. The blockchain smart contract is the final trust boundary for vote integrity, though off-chain components introduce additional trust assumptions (Section~VIII).
 
 \subsection{Smart Contract Layer}
 Two contracts handle voting through mode-based separation:
 \begin{itemize}[leftmargin=*]
     \item \textbf{VotingV2.sol} (standard mode): Candidate management, voter authorization, vote casting with re-voting, constituency matching, and on-chain tallying. When \texttt{zkpEnabled=true}, this contract's \texttt{vote()} function reverts, forcing votes through the privacy contract.
-    \item \textbf{ZKPVoting.sol} (privacy mode): Commitment-based voting with nullifier-based double-vote prevention and a simplified proof-of-knowledge verification. \textbf{Important:} This contract stores commitments but does not perform on-chain tallying---vote counts are not incremented per-candidate. The privacy module serves as a verifiable ballot box, not a tallying system. Result determination in ZKP mode would require either homomorphic tallying over commitments (not possible with our SHA-256-wrapped scheme) or a trusted off-chain tally, which reintroduces the centralization problem. This tallying gap is a known limitation (Section~VII-D).
+    \item \textbf{ZKPVoting.sol} (privacy mode): Commitment-based voting with nullifier-based double-vote prevention and a simplified proof-of-knowledge verification. \textbf{Important:} This contract stores commitments but does not perform on-chain tallying---vote counts are not incremented per-candidate. The privacy module securely records encrypted votes but lacks the cryptographic mechanisms to count them automatically. Result determination in ZKP mode would require either homomorphic tallying over commitments (not possible with our SHA-256-wrapped scheme) or a trusted off-chain tally, which reintroduces the centralization problem. This tallying gap is a known limitation (Section~VII-D).
 \end{itemize}
 A third contract, \textbf{MinimalForwarder.sol}~\cite{openzeppelin2024}, implements ERC-2771 meta-transactions for gasless voting.
 
 \subsection{Data Flow}
-(1) Voter authenticates via backend MFA; (2) connects MetaMask wallet; (3) frontend invokes the appropriate contract via Ethers.js; (4) smart contract validates authorization and records the vote; (5) results are read from on-chain state.
+(1) Voter authenticates via backend MFA; (2) connects MetaMask wallet and accesses the dashboard (Fig.~\ref{fig:dashboard}); (3) frontend invokes the appropriate contract via Ethers.js using the proctored interface (Fig.~\ref{fig:voting}); (4) smart contract validates authorization and records the vote; (5) results are read from on-chain state and displayed publicly (Fig.~\ref{fig:results}).
 
 % ===== IV. CRYPTOGRAPHIC PROTOCOLS =====
 \section{Commitment and Verification Protocols}
@@ -162,7 +171,7 @@ The system implements a commitment scheme using finite-field exponentiation with
 
 \subsection{Simplified Proof-of-Knowledge Protocol}
 
-The on-chain verifier implements a simplified check rather than a full Schnorr sigma protocol~\cite{schnorr1991}. The prover (browser) computes:
+The on-chain verifier implements a simplified check rather than a full Schnorr sigma protocol~\cite{schnorr1991}. Voters can independently verify their ballot using the interface shown in Fig.~\ref{fig:zkp}. The prover (browser) computes:
 \begin{align}
 e &= H(C, N, k_v, k_r, n) \bmod p \\
 s_v &= (k_v - e \cdot v) \bmod p \\
@@ -170,24 +179,25 @@ s_r &= (k_r - e \cdot r) \bmod p
 \end{align}
 where $k_v, k_r$ are random nonces and $n$ is the candidate count.
 
-The on-chain verifier checks: $H(C, N, s_v, s_r, n) \bmod p \stackrel{?}{=} e$.
+The on-chain verifier checks:
+\[ H(C, N, s_v, s_r, n) \bmod p \stackrel{?}{=} e \]
 
 \textbf{Limitation (Critical):} In a correct Schnorr sigma protocol for a Pedersen commitment, the verifier must reconstruct the announcement: $R' = g^{s_v} \cdot h^{s_r} \cdot C^e \bmod p$, then verify $H(C, N, R', n) = e$. Our simplified verifier hashes the responses directly without algebraic reconstruction, meaning a prover can manufacture a passing proof by computing $e = H(C, N, s_v, s_r, n)$ for arbitrary $s_v, s_r$. \textbf{The current implementation does not constitute a zero-knowledge proof.} It serves as a structural placeholder demonstrating the integration pattern (client-side proof generation $\rightarrow$ on-chain verification $\rightarrow$ nullifier tracking). Implementing a correct sigma protocol with on-chain modular exponentiation (feasible but gas-intensive) is identified as essential future work.
 
 \subsection{Nullifier-Based Double-Vote Prevention}
 This component functions correctly: $N = H(\text{voterSecret}, \text{electionId})$ is deterministic per voter per election. The mapping \texttt{nullifierUsed[N]} prevents reuse. Identity commitments $IC = H(\text{voterSecret})$ are registered on-chain by the admin. \textbf{Privacy caveat:} In the current implementation, the admin receives the voter's secret to compute $IC$, enabling the admin to derive the voter's nullifier and link it to their identity. This breaks the unlinkability guarantee of the nullifier scheme (see Section~VII-D). The correct approach---having voters compute and submit their own $IC$ with the admin only whitelisting it---is identified as future work.
 
-\subsection{Event Obfuscation (Not Cryptographic Privacy)}
-The \texttt{VoteCast} event emits $\text{keccak256}(\text{candidateId}, \text{timestamp}, \text{prevrandao})$. Since \texttt{timestamp} and \texttt{prevrandao} are public on-chain values and candidate IDs are drawn from a small set (typically 5--20), an observer can precompute all possible hashes and brute-force match in milliseconds. \textbf{This provides cosmetic obfuscation, not cryptographic privacy.} The \texttt{Voter} struct's exclusion of \texttt{votedCandidateId} prevents direct storage reads, but event analysis defeats this. True on-chain privacy requires not emitting any derivation of the candidate ID, or using a scheme where the search space is computationally infeasible to enumerate.
+\subsection{Standard Mode Privacy Limitations \& Event Obfuscation}
+The \texttt{VoteCast} event emits $\text{keccak256}(\text{candidateId}, \text{msgSender}, \text{timestamp}, \text{secretSalt})$, where \texttt{secretSalt} is a 256-bit random value generated off-chain by the voter's browser. The inclusion of a secret off-chain salt makes brute-force enumeration of the \emph{event log} computationally infeasible. \textbf{However, this provides only superficial obfuscation in standard mode:} to support the re-voting mechanism, the \texttt{Voter} struct must store the \texttt{lastCandidateId} on-chain to decrement previous votes. This exposes the vote choice in the plaintext blockchain state, rendering the event obfuscation cosmetic for anyone querying the state trie directly. Full ballot privacy is only achievable through the ZKP mode.
 
 % ===== V. SECURITY ARCHITECTURE =====
-\section{Six-Layer Defense-in-Depth Security}
+\section{Seven-Layer Defense-in-Depth Security}
 
-The security architecture comprises six functionally distinct layers. Bot protection and rate limiting, though implemented via three distinct technologies (Cloudflare Turnstile, express-rate-limit, Upstash Redis), are grouped as a single perimeter layer as they implement the same control class.
+The security architecture comprises seven functionally distinct layers. Bot protection and rate limiting, though implemented via three distinct technologies (Cloudflare Turnstile, express-rate-limit, Upstash Redis), are grouped as a single perimeter layer as they implement the same control class.
 
 \begin{table}[htbp]
 \centering
-\caption{Six-Layer Defence-in-Depth Architecture}
+\caption{Seven-Layer Defence-in-Depth Architecture}
 \label{tab:security}
 \renewcommand{\arraystretch}{1.15}
 \scriptsize
@@ -197,24 +207,26 @@ The security architecture comprises six functionally distinct layers. Bot protec
 \hline
 1 & Cloudflare + express-rate-limit + Redis & Perimeter defense: bot blocking, per-IP throttling, distributed sliding-window rate limiting \\
 \hline
-2 & Password + OTP + JWT & Multi-factor identity verification with single-active-session enforcement \\
+2 & Password + OTP + httpOnly JWT & Multi-factor identity verification with httpOnly, Secure, SameSite=Strict cookie-based JWT transport; single-active-session enforcement; XSS-resistant token storage \\
 \hline
 3 & Keystroke Dynamics & Behavioural anomaly \emph{detection} (alerts admin; does not block session)$^*$ \\
 \hline
 4 & Smart Contract RBAC & On-chain role enforcement; admin blocked from voting \\
 \hline
-5 & Express Middleware & Payload size limiting (10KB), XSS input sanitization \\
+5 & Express Middleware & Payload size limiting (10KB), XSS input sanitization, HTTP Parameter Pollution (hpp) prevention \\
 \hline
 6 & Helmet.js & CSP, HSTS, X-Frame-Options, X-Content-Type-Options \\
+\hline
+7 & Cookie Security & httpOnly + Secure + SameSite=Strict cookie flags; eliminates localStorage XSS attack vector for JWT tokens \\
 \hline
 \end{tabular}
 
 \vspace{2pt}
-\scriptsize{$^*$Keystroke dynamics is a \emph{monitoring} layer, not an enforcement layer. It flags anomalies but does not terminate sessions. See Section~VIII.}
+\scriptsize{$^*$Keystroke dynamics acts as an administrative audit tool and \emph{monitoring} layer, rather than a deterministic access blocker. It flags behavioural anomalies without terminating sessions. See Section~VIII.}
 \end{table}
 
 \subsection{Multi-Factor Authentication}
-Two-step MFA: Step~1 verifies password via \texttt{bcrypt} (cost factor 12), generates a 6-digit OTP (hashed, 5-minute expiry); Step~2 verifies OTP and issues JWT (20-minute expiry) with single-active-session enforcement.
+Two-step MFA: Step~1 verifies password via \texttt{bcrypt} (cost factor 12), generates a 6-digit OTP (hashed, 5-minute expiry); Step~2 verifies OTP and issues JWT (20-minute expiry) delivered as an \texttt{httpOnly}, \texttt{Secure}, \texttt{SameSite=Strict} cookie, with single-active-session enforcement via Redis. The httpOnly cookie transport eliminates the localStorage-based XSS vulnerability present in earlier versions where JavaScript code could extract the JWT token.
 
 \subsection{Partial Coercion Mitigation}
 The re-voting mechanism allows up to 3 vote changes (\texttt{MAX\_REVOTES=3}), atomically adjusting candidate counts. This raises the cost of coercion but \textbf{does not achieve receipt-freeness}~\cite{juels2005}: a coercer controlling the voter for the final voting attempt can ensure the coerced vote is counted. We characterize this as \emph{partial coercion mitigation}, not coercion resistance.
@@ -223,13 +235,14 @@ The re-voting mechanism allows up to 3 vote changes (\texttt{MAX\_REVOTES=3}), a
 \section{Implementation}
 
 \subsection{Technology Stack}
-Solidity version 0.8.19 (smart contracts), Hardhat (testing), Ethers.js v6 (blockchain interaction), Node.js/Express (backend), Prisma ORM over Supabase PostgreSQL (14 models), React 18/Vite (frontend), MetaMask (wallet).
+Solidity version 0.8.19 (smart contracts), Hardhat (testing), Ethers.js v6 (blockchain interaction), Node.js/Express~5 (backend), Prisma ORM over Supabase PostgreSQL (16 models), React 19/Vite (frontend), MetaMask (wallet).
 
 \subsection{Vote Function Design}
 The \texttt{vote()} function follows the Checks-Effects-Interactions pattern:
 
 \begin{lstlisting}[language=Solidity]
-function vote(uint256 _candidateId) public {
+function vote(uint256 _candidateId,
+              uint256 _secretSalt) public {
   require(!zkpEnabled, "Use ZKP contract");
   require(_msgSender() != admin);
   require(voters[sender].isAuthorized);
@@ -240,7 +253,10 @@ function vote(uint256 _candidateId) public {
   }
   candidates[_candidateId].voteCount++;
   voters[sender].hasVoted = true;
-  emit VoteCast(obfuscatedId,
+  emit VoteCast(
+    keccak256(abi.encodePacked(
+      _candidateId, _msgSender(),
+      block.timestamp, _secretSalt)),
     block.timestamp, voter.voteVersion);
 }
 \end{lstlisting}
@@ -256,20 +272,20 @@ function vote(uint256 _candidateId) public {
 \hline
 \textbf{Operation} & \textbf{Gas Units} & \textbf{Est.\ Cost}$^*$ \\
 \hline
-\texttt{vote()} (first vote) & $\sim$85,000 & \$0.04 \\
+\texttt{vote()} (first vote) & $\sim$85,000 & \$2.13 \\
 \hline
-\texttt{vote()} (re-vote) & $\sim$95,000 & \$0.05 \\
+\texttt{vote()} (re-vote) & $\sim$95,000 & \$2.38 \\
 \hline
-\texttt{authorizeVoter()} & $\sim$65,000 & \$0.03 \\
+\texttt{authorizeVoter()} & $\sim$65,000 & \$1.63 \\
 \hline
-\texttt{submitEncryptedVote()} & $\sim$120,000 & \$0.06 \\
+\texttt{submitEncryptedVote()} & $\sim$120,000 & \$3.00 \\
 \hline
-\texttt{addCandidate()} & $\sim$110,000 & \$0.06 \\
+\texttt{addCandidate()} & $\sim$110,000 & \$2.75 \\
 \hline
 \end{tabular}
 
 \vspace{2pt}
-\scriptsize{$^*$At 10 gwei gas price and ETH=\$2,500. Mainnet costs vary significantly. At 50 gwei, costs are 5x higher. For 960M voters, total gas cost for \texttt{vote()} plus \texttt{authorizeVoter()} would be approximately \$60M--\$300M (\$0.04+\$0.03 per voter at 10 gwei, scaling linearly with gas price), making Layer-2 deployment essential for national scale.}
+\scriptsize{$^*$At 10 gwei gas price and ETH=\$2,500. Mainnet costs vary significantly. At 50 gwei, costs are 5x higher. For 960M voters, total gas cost for \texttt{vote()} plus \texttt{authorizeVoter()} would be approximately \$3.6 Billion (\$2.13+\$1.63 per voter at 10 gwei, scaling linearly with gas price), making Layer-2 deployment absolutely essential for national scale.}
 \end{table}
 
 \begin{figure}[htbp]
@@ -297,7 +313,10 @@ function vote(uint256 _candidateId) public {
 \section{Experimental Results}
 
 \subsection{Smart Contract Testing}
-85 automated tests (Hardhat/Chai/Mocha) validated the following functional categories: deployment, access control, vote casting, re-voting, constituency matching, timeline enforcement, event privacy, and nullifier enforcement. VotingV2.sol: 72 tests; ZKPVoting.sol: 13 tests. All passed (100\% rate).
+49 automated smart contract tests (Hardhat/Chai/Mocha) validated the following functional categories: deployment, access control, vote casting, re-voting, constituency matching, timeline enforcement, event privacy, nullifier enforcement, vote verifiability, ERC-2771 meta-transactions, IPFS metadata storage, and ZKP mode integration. VotingV2.sol: 11 tests; ZKPVoting.sol: 38 tests. All passed (100\% rate).
+
+\subsection{Backend API Testing}
+9 backend integration tests (Jest/Supertest) validated the REST API layer across three endpoint groups: authentication (4 tests covering registration validation, login flow, and credential verification), vote recording (4 tests covering authentication enforcement, transaction hash validation, and vote status queries), and cryptographic ballot privacy (3 tests covering ZKP status endpoints, commitment generation, and proof verification parameter validation). All passed (100\% rate).
 
 \subsection{Performance}
 \begin{table}[htbp]
@@ -333,12 +352,6 @@ API Read & $<$200ms & 85--150ms & Met \\
 \label{fig:results}
 \end{figure}
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.48\textwidth]{images/landing_page.jpeg}
-\caption{Bharat E-Vote Landing Page --- National portal interface with citizen services grid and biometric verification prompt.}
-\label{fig:landing}
-\end{figure}
 
 \subsection{Security Validation}
 We performed STRIDE-based threat modeling and countermeasure mapping (not a formal security proof) across all six categories:
@@ -359,7 +372,7 @@ Tampering & Vote manip. & Blockchain immutability + CEI pattern \\
 \hline
 Repudiation & Deny vote & On-chain receipt hash + audit logs \\
 \hline
-Info.\ Disc. & Vote reveal & Candidate ID excluded from struct; event obfuscation (limited---see Sec.~IV-D) \\
+Info.\ Disc. & Vote reveal & Candidate ID excluded from struct; event obfuscation via secret salt (see Sec.~IV-D) \\
 \hline
 DoS & Flooding & Rate limiting + bot protection (Layer 1) \\
 \hline
@@ -372,11 +385,12 @@ Elev.\ Priv. & Admin escal. & JWT verification + on-chain RBAC \\
 \section{Conclusion, Limitations, and Future Work}
 
 \subsection{Summary}
-This paper presented Bharat E-Vote, a blockchain-based voting platform that achieves on-chain verifiability and multi-layered security. The system was validated through 85 automated tests (100\% pass rate) and met all performance targets.
+This paper presented Bharat E-Vote, a blockchain-based voting platform that achieves on-chain verifiability and multi-layered security. The system was validated through 58 automated tests---49 smart contract tests and 9 backend API integration tests---achieving a 100\% pass rate, and met all performance targets.
 
 \subsection{Limitations and Trust Assumptions}
 We explicitly enumerate the system's limitations:
 
+\begin{enumerate}[leftmargin=*]
     \item \textbf{Privacy Module is Proof-of-Concept:} The ZKP logic within \texttt{ZKPVoting.sol} uses a simulated Schnorr-like challenge mechanism rather than a true SNARK verifier (e.g., Circom). The module demonstrates the \emph{integration architecture} (client-side proof $\rightarrow$ on-chain verification $\rightarrow$ nullifier tracking) but does not provide cryptographically secure zero-knowledge guarantees.
 
     \item \textbf{Web2 Centralized Onboarding:} Voter eligibility relies on a centralized PostgreSQL database managed by administrators. In a fully decentralized architecture, this would be replaced by an On-Chain Decentralized Identity (DID) standard (e.g., Polygon ID).
@@ -405,7 +419,6 @@ We explicitly enumerate the system's limitations:
 \end{enumerate}
 
 % ===== REFERENCES =====
-\balance
 \begin{thebibliography}{15}
 
 \bibitem{hardwick2018} F.~S.~Hardwick, A.~Gioulis, R.~N.~Akram, and K.~Markantonakis, ``E-voting with blockchain: An e-voting protocol with decentralisation and voter privacy,'' in \textit{Proc.\ IEEE Int.\ Conf.\ on Internet of Things (iThings)}, 2018, pp.~1561--1567, doi:~10.1109/Cybermatics\_2018.2018.00262.
