@@ -39,7 +39,7 @@ function Footer() {
                 <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-10">
                     {/* Left: Branding & Info */}
                     <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
-                        <a href="https://india.gov.in" target="_blank" rel="noopener noreferrer" className="shrink-0 bg-white p-3 rounded-lg flex items-center justify-center">
+                        <a href="https://india.gov.in" target="_blank" rel="noopener noreferrer" aria-label="National Portal of India" className="shrink-0 bg-white p-3 rounded-lg flex items-center justify-center">
                             <div className="h-14 w-14 flex items-center justify-center">
                                 <i className="fa-solid fa-building-columns text-primary text-3xl"></i>
                             </div>
@@ -88,7 +88,7 @@ function Footer() {
                         <Link to="/help" className="hover:text-white transition p-3 min-h-[44px] flex items-center rounded focus-visible:ring-2 focus-visible:ring-accent-saffron">Help</Link> <span className="text-gray-600 hidden sm:inline">|</span>
                         <a href="https://voters.eci.gov.in/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition p-3 min-h-[44px] flex items-center rounded focus-visible:ring-2 focus-visible:ring-accent-saffron font-bold text-accent-saffron">Voter Services Portal <i className="fa-solid fa-external-link-alt text-[10px] ml-1.5"></i></a> <span className="text-gray-600 hidden sm:inline">|</span>
                         <Link to="/vote" className="hover:text-white transition p-3 min-h-[44px] flex items-center rounded focus-visible:ring-2 focus-visible:ring-accent-saffron font-bold text-accent-saffron">Cast Vote Online</Link> <span className="text-gray-600 hidden sm:inline">|</span>
-                        <Link to="/technology" className="hover:text-white transition p-3 min-h-[44px] flex items-center rounded focus-visible:ring-2 focus-visible:ring-accent-saffron font-bold text-accent-saffron">Technology</Link> <span className="text-gray-600 hidden sm:inline">|</span>
+
                         <Link to="/verify" className="hover:text-white transition p-3 min-h-[44px] flex items-center rounded focus-visible:ring-2 focus-visible:ring-accent-saffron font-bold text-accent-saffron">Verify Vote</Link> <span className="text-gray-600 hidden sm:inline">|</span>
                         <Link to="/help" className="hover:text-white transition p-3 min-h-[44px] flex items-center rounded focus-visible:ring-2 focus-visible:ring-accent-saffron focus:outline-none focus:underline" aria-label="Disclaimer Policy">Disclaimer</Link> <span className="text-gray-600 hidden sm:inline">|</span>
                         <Link to="/help" className="hover:text-white transition p-3 min-h-[44px] flex items-center rounded focus-visible:ring-2 focus-visible:ring-accent-saffron focus:outline-none focus:underline" aria-label="Copyright Guidelines">Copyright Policy</Link> <span className="text-gray-600 hidden sm:inline">|</span>

@@ -18,7 +18,7 @@ const ResultsPage = lazy(() => import('./pages/ResultsPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const SignupPage = lazy(() => import('./pages/SignupPage'));
-const TechnologyPage = lazy(() => import('./pages/TechnologyPage'));
+
 const VerifyVotePage = lazy(() => import('./pages/VerifyVotePage'));
 
 // Services
@@ -324,7 +324,7 @@ function AppLayout({ user, isAdmin, setIsAdmin, handleLogin, handleLogout, handl
                     <Route path="/guidelines" element={<Navigate to="/help" replace />} />
                     <Route path="/help" element={<HelpPage />} />
                     <Route path="/search-roll" element={<Navigate to="/help" replace />} />
-                    <Route path="/technology" element={<TechnologyPage />} />
+
                     <Route path="/results" element={<ResultsPage />} />
                     <Route path="/candidates" element={<Navigate to="/results" replace />} />
 

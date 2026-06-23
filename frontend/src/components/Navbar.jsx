@@ -183,9 +183,7 @@ function Navbar({ user, onLogout, isAdmin }) {
                                     </Link>
                                 </>
                             )}
-                            <Link to="/technology" className={navLinkClass('/technology')}>
-                                <i className="fa-solid fa-microchip mr-1"></i>Technology
-                            </Link>
+
                             <Link to="/help" className={navLinkClass('/help')}>{t('nav.onboarding')}</Link>
 
                             {user ? (
@@ -240,7 +238,7 @@ function Navbar({ user, onLogout, isAdmin }) {
                                     <Link to="/verify" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-magnifying-glass-chart mr-2"></i>Verify Vote</Link>
                                 </>
                             )}
-                            <Link to="/technology" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-microchip mr-2"></i>Technology</Link>
+
                             <Link to="/help" className="block px-3 py-2 rounded text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary"><i className="fa-solid fa-circle-question mr-2"></i>{t('nav.onboarding')}</Link>
                             <div className="border-t border-gray-200 pt-3 mt-3">
                                 {user ? (
