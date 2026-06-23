@@ -30,20 +30,28 @@ async function processInMemoryQueue() {
     isProcessing = false;
 }
 
-try {
-    // Attempt BullMQ setup
-    const connection = { host: REDIS_HOST, port: REDIS_PORT };
-    txQueue = new Queue('meta-tx-queue', { connection });
-    
-    txWorker = new Worker('meta-tx-queue', async job => {
-        return await processTxJob(job.data);
-    }, { connection, concurrency: 1 });
+if (process.env.REDIS_HOST) {
+    try {
+        // Attempt BullMQ setup
+        const connection = { host: REDIS_HOST, port: REDIS_PORT };
+        txQueue = new Queue('meta-tx-queue', { connection });
+        
+        txWorker = new Worker('meta-tx-queue', async job => {
+            return await processTxJob(job.data);
+        }, { connection, concurrency: 1 });
 
-    txWorker.on('completed', job => logger.info(`Job ${job.id} completed`));
-    txWorker.on('failed', (job, err) => logger.error(`Job ${job.id} failed: ${err.message}`));
-    isRedisConnected = true;
-} catch (e) {
-    logger.warn('BullMQ Redis connection failed, falling back to in-memory sequential queue for meta-transactions.');
+        txWorker.on('completed', job => logger.info(`Job ${job.id} completed`));
+        txWorker.on('failed', (job, err) => logger.error(`Job ${job.id} failed: ${err.message}`));
+        
+        // Handle background connection errors to prevent unhandled rejections
+        txWorker.on('error', err => logger.error(`BullMQ Worker Error: ${err.message}`));
+        
+        isRedisConnected = true;
+    } catch (e) {
+        logger.warn('BullMQ Redis setup failed, falling back to in-memory sequential queue for meta-transactions.', e.message);
+    }
+} else {
+    logger.info('No REDIS_HOST provided in .env, defaulting to in-memory queue for meta-transactions.');
 }
 
 async function processTxJob(data) {
