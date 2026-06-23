@@ -70,8 +70,8 @@ exports.register = async (req, res) => {
             father_name: father_name ? sanitize(father_name) : null,
             gender: gender ? sanitize(gender) : null, dob: dob || null,
             mobile_number: mobile_number ? sanitize(mobile_number) : null,
-            state_code: state_code ? parseInt(state_code) : 0,
-            constituency_code: constituency_code ? parseInt(constituency_code) : 0,
+            state_code: state_code ? parseInt(state_code) : null,
+            constituency_code: constituency_code ? parseInt(constituency_code) : null,
             address: address ? sanitize(address) : null, role: 'VOTER'
         }
     });

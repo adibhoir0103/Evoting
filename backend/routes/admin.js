@@ -31,7 +31,6 @@ const adminLoginLimiter = createRateLimiter({
 
 // ===== Admin Auth Routes (BEFORE isAdmin middleware) =====
 router.post('/login', adminLoginLimiter, verifyTurnstile, asyncHandler(adminAuth.adminLogin));
-router.post('/verify-mfa', adminLoginLimiter, asyncHandler(adminAuth.adminVerifyMfa));
 
 // ===== All routes below require admin authentication =====
 router.use(isAdmin);

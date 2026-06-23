@@ -201,15 +201,14 @@ class EmailService {
                     email: email
                 };
             } catch (error) {
-                emailLog.warn('Brevo send failed, falling back to demo mode', { error: error.message });
-                // Fall through to demo mode below
+                // Do NOT fall back to demo mode if Brevo is configured — surface the real error
+                emailLog.error('Brevo send FAILED', { error: error.message, to: email });
+                throw new Error(`Failed to send OTP email: ${error.message}`);
             }
         }
 
-        // Demo mode — log and return
-        if (process.env.NODE_ENV !== 'production') {
-            emailLog.debug(`[DEMO] OTP for ${email.slice(0, 3)}***: Brevo not configured, using demo mode`);
-        }
+        // Demo mode — only when Brevo is NOT configured
+        emailLog.debug(`[DEMO] OTP for ${email.slice(0, 3)}***: Brevo not configured, using demo mode`);
         return {
             success: true,
             messageId: 'demo-' + Date.now(),

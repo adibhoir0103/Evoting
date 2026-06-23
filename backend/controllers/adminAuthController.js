@@ -7,8 +7,6 @@
 const prisma = require('../lib/prisma');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
-const crypto = require('crypto');
-const redisService = require('../services/redisService');
 const { logAdminAction } = require('../utils/helpers');
 const { EFFECTIVE_JWT_SECRET, setTokenCookie } = require('../middleware/authenticate');
 
@@ -37,54 +35,16 @@ exports.adminLogin = async (req, res) => {
     const isValidPassword = await bcrypt.compare(trimmedPassword, EFFECTIVE_ADMIN_HASH);
     if (!isValidPassword) return res.status(401).json({ error: 'Invalid admin credentials' });
 
-    // Admin MFA: Generate and send OTP
-    const otp = String(crypto.randomInt(100000, 999999));
-    const otpHash = await bcrypt.hash(otp, 10);
-    const preAuthToken = jwt.sign(
-        { email: trimmedEmail, role: 'admin', purpose: 'admin-mfa' },
-        EFFECTIVE_JWT_SECRET, { expiresIn: '5m' }
-    );
-
-    await redisService.setActiveSession(`admin-mfa:${trimmedEmail}`, otpHash, 300);
-
-    const emailService = require('../services/emailService');
-    await emailService.sendOTP(trimmedEmail, otp, 'Admin', 'Admin Login Verification');
-
-    logAdminAction(trimmedEmail, 'LOGIN_MFA_INITIATED', 'Admin MFA OTP sent', req.ip);
-
-    res.json({
-        message: 'Password verified. OTP sent to admin email.', mfaRequired: true, preAuthToken,
-        email: trimmedEmail.replace(/(.{2})(.*)(@.*)/, '$1***$3')
-    });
-};
-
-exports.adminVerifyMfa = async (req, res) => {
-    const { preAuthToken, otp } = req.body;
-    if (!preAuthToken || !otp) return res.status(400).json({ error: 'Pre-auth token and OTP are required' });
-
-    let decoded;
-    try { decoded = jwt.verify(preAuthToken, EFFECTIVE_JWT_SECRET); }
-    catch (err) { return res.status(401).json({ error: 'Session expired. Please login again.' }); }
-
-    if (decoded.purpose !== 'admin-mfa' || decoded.role !== 'admin') return res.status(401).json({ error: 'Invalid pre-auth token' });
-
-    const storedOtpHash = await redisService.getActiveSession(`admin-mfa:${decoded.email}`);
-    if (!storedOtpHash) return res.status(401).json({ error: 'OTP expired. Please login again.' });
-
-    const isOtpValid = await bcrypt.compare(otp.toString().trim(), storedOtpHash);
-    if (!isOtpValid) return res.status(401).json({ error: 'Invalid OTP. Please try again.' });
-
-    await redisService.clearActiveSession(`admin-mfa:${decoded.email}`);
-
+    // Issue final JWT immediately — no OTP required for admin
     const token = jwt.sign(
-        { id: 'admin', email: decoded.email, role: 'admin' },
+        { id: 'admin', email: trimmedEmail, role: 'admin' },
         EFFECTIVE_JWT_SECRET, { expiresIn: '2h' }
     );
 
-    logAdminAction(decoded.email, 'LOGIN', 'Admin login successful (MFA verified)', req.ip);
+    logAdminAction(trimmedEmail, 'LOGIN', 'Admin login successful', req.ip);
 
     // Set admin JWT as httpOnly cookie
     setTokenCookie(res, 'admin_token', token, 2 * 60 * 60 * 1000);
 
-    res.json({ message: 'Admin login successful', token, admin: { email: decoded.email, role: 'admin' } });
+    res.json({ message: 'Admin login successful', token, admin: { email: trimmedEmail, role: 'admin' } });
 };
