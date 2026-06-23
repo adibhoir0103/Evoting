@@ -19,17 +19,15 @@ contract VotingV2 {
     
     address public admin;
     bool public votingActive;
-    
+    bool public timelineEnabled;
+    bool public zkpEnabled;
+    uint32 public candidatesCount;
+
+    address public trustedForwarder;
+
     // Timeline controls
     uint256 public votingStartTime;
     uint256 public votingEndTime;
-    bool public timelineEnabled;
-
-    // ZKP mode: when enabled, plain vote() reverts — must use ZKP path
-    bool public zkpEnabled;
-
-    // ERC-2771 trusted forwarder for gasless meta-transactions
-    address public trustedForwarder;
 
     // IPFS metadata hash for election-level data
     string public electionIPFSHash;
@@ -41,13 +39,13 @@ contract VotingV2 {
     // ============ Data Structures ============
     
     struct Candidate {
-        uint256 id;
+        uint32 id;
+        uint8 stateCode;
+        uint8 constituencyCode;
+        uint64 voteCount;
         string name;
         string partyName;
         string partySymbol;
-        uint8 stateCode;
-        uint8 constituencyCode;
-        uint256 voteCount;
     }
     
     struct Voter {
@@ -55,15 +53,14 @@ contract VotingV2 {
         bool hasVoted;
         uint8 stateCode;
         uint8 constituencyCode;
-        uint256 lastCandidateId;    // Track last vote for re-voting (decrement old candidate)
-        uint256 voteVersion;        // Number of times voted (0 = never, 1 = first vote, etc.)
+        uint32 lastCandidateId;    // Track last vote for re-voting
+        uint32 voteVersion;        // Number of times voted
     }
     
     // ============ Mappings & Arrays ============
     
     mapping(uint256 => Candidate) public candidates;
     mapping(address => Voter) public voters;
-    uint256 public candidatesCount;
     
     // ============ Events ============
     
@@ -137,41 +134,41 @@ contract VotingV2 {
     // ============ Admin Functions ============
     
     function addCandidate(
-        string memory _name,
-        string memory _partyName,
-        string memory _partySymbol,
+        string calldata _name,
+        string calldata _partyName,
+        string calldata _partySymbol,
         uint8 _stateCode,
         uint8 _constituencyCode
     ) public onlyAdmin votingIsNotActive {
         require(bytes(_name).length > 0, "Candidate name cannot be empty");
         
         candidatesCount++;
-        candidates[candidatesCount] = Candidate(
-            candidatesCount,
-            _name,
-            _partyName,
-            _partySymbol,
-            _stateCode,
-            _constituencyCode,
-            0
-        );
+        candidates[candidatesCount] = Candidate({
+            id: candidatesCount,
+            stateCode: _stateCode,
+            constituencyCode: _constituencyCode,
+            voteCount: 0,
+            name: _name,
+            partyName: _partyName,
+            partySymbol: _partySymbol
+        });
         
         emit CandidateAdded(candidatesCount, _name, _partyName, _stateCode, _constituencyCode);
     }
 
-    function addCandidateSimple(string memory _name) public onlyAdmin votingIsNotActive {
+    function addCandidateSimple(string calldata _name) public onlyAdmin votingIsNotActive {
         require(bytes(_name).length > 0, "Candidate name cannot be empty");
         
         candidatesCount++;
-        candidates[candidatesCount] = Candidate(
-            candidatesCount,
-            _name,
-            "",    // no party
-            "",    // no symbol
-            0,     // all states
-            0,     // all constituencies
-            0
-        );
+        candidates[candidatesCount] = Candidate({
+            id: candidatesCount,
+            stateCode: 0,
+            constituencyCode: 0,
+            voteCount: 0,
+            name: _name,
+            partyName: "",
+            partySymbol: ""
+        });
         
         emit CandidateAdded(candidatesCount, _name, "", 0, 0);
     }
@@ -208,17 +205,21 @@ contract VotingV2 {
         emit VoterAuthorized(_voter, 0, 0);
     }
     
-    function authorizeVotersBatch(address[] memory _voters) public onlyAdmin {
+    function authorizeVotersBatch(address[] calldata _voters) public onlyAdmin {
         require(_voters.length <= 100, "Batch size exceeds maximum of 100");
-        for (uint256 i = 0; i < _voters.length; i++) {
-            if (!voters[_voters[i]].isAuthorized && _voters[i] != address(0)) {
-                voters[_voters[i]].isAuthorized = true;
-                voters[_voters[i]].hasVoted = false;
-                voters[_voters[i]].stateCode = 0;
-                voters[_voters[i]].constituencyCode = 0;
-                voters[_voters[i]].lastCandidateId = 0;
-                voters[_voters[i]].voteVersion = 0;
-                emit VoterAuthorized(_voters[i], 0, 0);
+        uint256 len = _voters.length;
+        for (uint256 i = 0; i < len; ++i) {
+            address vAddr = _voters[i];
+            if (vAddr != address(0) && !voters[vAddr].isAuthorized) {
+                voters[vAddr] = Voter({
+                    isAuthorized: true,
+                    hasVoted: false,
+                    stateCode: 0,
+                    constituencyCode: 0,
+                    lastCandidateId: 0,
+                    voteVersion: 0
+                });
+                emit VoterAuthorized(vAddr, 0, 0);
             }
         }
     }
@@ -261,7 +262,7 @@ contract VotingV2 {
     function vote(uint256 _candidateId, uint256 _secretSalt) public votingIsActive {
         require(!zkpEnabled, "ZKP mode is active: use the ZKP voting contract instead");
         require(_msgSender() != admin, "Admin cannot vote");
-        Voter storage voter = voters[_msgSender()];
+        Voter memory voter = voters[_msgSender()];
         
         // Security Check 1: Ensure voter is authorized
         require(voter.isAuthorized, "You are not authorized to vote");
@@ -288,7 +289,7 @@ contract VotingV2 {
         }
         
         // Security Check 4: Constituency match
-        Candidate storage candidate = candidates[_candidateId];
+        Candidate memory candidate = candidates[_candidateId];
         if (voter.stateCode != 0 && candidate.stateCode != 0) {
             require(voter.stateCode == candidate.stateCode, "You can only vote for candidates in your state");
         }
@@ -298,11 +299,13 @@ contract VotingV2 {
         
         // Update voter state
         voter.hasVoted = true;
-        voter.lastCandidateId = _candidateId;
+        voter.lastCandidateId = uint32(_candidateId);
         voter.voteVersion++;
         
+        voters[_msgSender()] = voter;
+        
         // Increment new candidate vote count
-        candidate.voteCount++;
+        candidates[_candidateId].voteCount++;
         
         // Emit obfuscated event using off-chain secret salt to mathematically prevent brute-forcing
         emit VoteCast(

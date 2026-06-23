@@ -344,11 +344,7 @@ describe("ZKP Voting System", function () {
             expect(included).to.equal(false);
         });
 
-        it("Should allow universal verification of all commitments", async function () {
-            const allCommitments = await zkpVoting.getAllCommitments();
-            expect(allCommitments.length).to.equal(1);
-            expect(allCommitments[0]).to.equal(commitment);
-        });
+
 
         it("Should allow marking vote as verified (compulsory step)", async function () {
             await expect(zkpVoting.markVoteVerified(nullifier))

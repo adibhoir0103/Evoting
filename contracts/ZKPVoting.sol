@@ -46,13 +46,12 @@ contract ZKPVoting {
     struct ZKPVote {
         bytes32 commitment;      // Pedersen commitment C = g^v * h^r mod p
         bytes32 nullifierHash;   // Prevents double voting
-        uint256 timestamp;       // Block timestamp
-        string ipfsMetadataHash; // IPFS CID for encrypted vote metadata
+        uint64 timestamp;        // Block timestamp
         bool verified;           // Whether the vote has been verified
+        string ipfsMetadataHash; // IPFS CID for encrypted vote metadata
     }
 
     struct EligibleVoter {
-        bytes32 identityCommitment; // Hash of voter's secret
         bool isRegistered;
         bool hasVoted;
     }
@@ -65,11 +64,8 @@ contract ZKPVoting {
     // Identity commitment => EligibleVoter
     mapping(bytes32 => EligibleVoter) public eligibleVoters;
 
-    // Track all nullifiers used (for universal verification)
-    bytes32[] public allNullifiers;
-
-    // Track all commitments (for universal verification)
-    bytes32[] public allCommitments;
+    // NOTE: allNullifiers and allCommitments arrays have been removed to save 40,000 gas per vote.
+    // Universal verifiability is now achieved by indexing the ZKPVoteSubmitted event logs.
 
     // Fast O(1) commitment existence check
     mapping(bytes32 => bool) public commitmentExists;
@@ -189,7 +185,6 @@ contract ZKPVoting {
         require(!identityRegistered[_identityCommitment], "ZKP: Already registered");
 
         eligibleVoters[_identityCommitment] = EligibleVoter({
-            identityCommitment: _identityCommitment,
             isRegistered: true,
             hasVoted: false
         });
@@ -201,16 +196,17 @@ contract ZKPVoting {
     /**
      * @dev Register multiple voters in batch
      */
-    function registerEligibleVotersBatch(bytes32[] memory _commitments) external onlyAdmin {
-        for (uint256 i = 0; i < _commitments.length; i++) {
-            if (_commitments[i] != bytes32(0) && !identityRegistered[_commitments[i]]) {
-                eligibleVoters[_commitments[i]] = EligibleVoter({
-                    identityCommitment: _commitments[i],
+    function registerEligibleVotersBatch(bytes32[] calldata _commitments) external onlyAdmin {
+        uint256 len = _commitments.length;
+        for (uint256 i = 0; i < len; ++i) {
+            bytes32 comm = _commitments[i];
+            if (comm != bytes32(0) && !identityRegistered[comm]) {
+                eligibleVoters[comm] = EligibleVoter({
                     isRegistered: true,
                     hasVoted: false
                 });
-                identityRegistered[_commitments[i]] = true;
-                emit VoterRegistered(_commitments[i]);
+                identityRegistered[comm] = true;
+                emit VoterRegistered(comm);
             }
         }
     }
@@ -254,15 +250,13 @@ contract ZKPVoting {
         zkpVotes[_nullifierHash] = ZKPVote({
             commitment: _commitment,
             nullifierHash: _nullifierHash,
-            timestamp: block.timestamp,
-            ipfsMetadataHash: _ipfsHash,
-            verified: false
+            timestamp: uint64(block.timestamp),
+            verified: false,
+            ipfsMetadataHash: _ipfsHash
         });
 
         // Mark nullifier as used
         nullifierUsed[_nullifierHash] = true;
-        allNullifiers.push(_nullifierHash);
-        allCommitments.push(_commitment);
         commitmentExists[_commitment] = true;
         zkpVoteCount++;
 
@@ -349,18 +343,9 @@ contract ZKPVoting {
     }
 
     /**
-     * @dev Get all commitments for universal verification
+     * @dev Removed getAllCommitments and getAllNullifiers arrays.
+     * Clients should fetch `ZKPVoteSubmitted` events for O(1) gas cost indexing.
      */
-    function getAllCommitments() external view returns (bytes32[] memory) {
-        return allCommitments;
-    }
-
-    /**
-     * @dev Get all nullifiers for universal verification
-     */
-    function getAllNullifiers() external view returns (bytes32[] memory) {
-        return allNullifiers;
-    }
 
     /**
      * @dev Get total ZKP votes cast
@@ -410,8 +395,8 @@ contract ZKPVoting {
     ) {
         return (
             zkpVoteCount,
-            allCommitments.length,
-            allNullifiers.length,
+            zkpVoteCount, // totalCommitments derived from count
+            zkpVoteCount, // totalNullifiers derived from count
             zkpEnabled,
             electionId
         );
