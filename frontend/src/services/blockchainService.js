@@ -764,15 +764,19 @@ export class BlockchainService {
     }
 
     /**
-     * Get all commitments for universal verification
+     * Get all commitments for universal verification (via event logs — gas-optimized)
+     * The on-chain array was removed to save ~40k gas per vote.
+     * Clients now reconstruct the list by reading ZKPVoteSubmitted events.
      */
     async getAllZKPCommitments() {
         try {
             const contract = this.zkpContract || this.contract;
-            return await contract.getAllCommitments();
+            const filter = contract.filters.ZKPVoteSubmitted();
+            const events = await contract.queryFilter(filter);
+            return events.map(e => e.args.commitment);
         } catch (error) {
-            console.error('Error getting commitments:', error);
-            throw error;
+            console.error('Error getting commitments from events:', error);
+            return [];
         }
     }
 
