@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import * as Sentry from '@sentry/react';
 import posthog from 'posthog-js';
 import { HelmetProvider } from 'react-helmet-async';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import './index.css';
 import './i18n';
 import App from './App';
@@ -49,6 +50,7 @@ root.render(
         >
             <HelmetProvider>
                 <App />
+                <SpeedInsights />
             </HelmetProvider>
         </Sentry.ErrorBoundary>
     </React.StrictMode>
