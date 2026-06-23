@@ -145,6 +145,8 @@ function Navbar({ user, onLogout, isAdmin }) {
                                     src="/assets/emblem.svg"
                                     onError={(e) => { e.target.src='https://s2.googleusercontent.com/s2/favicons?domain=india.gov.in&sz=256'; }}
                                     alt="Emblem of India"
+                                    width="48"
+                                    height="48"
                                     className="h-12 w-auto mix-blend-multiply dark:mix-blend-normal dark:brightness-0 dark:invert"
                                 />
                                 <div>
