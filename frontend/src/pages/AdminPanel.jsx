@@ -4,6 +4,7 @@ import ElectionWizard from '../components/Admin/ElectionWizard';
 import VoterRolls from '../components/Admin/VoterRolls';
 import AuditLogs from '../components/Admin/AuditLogs';
 import { BlockchainService } from '../services/blockchainService';
+import { TurnoutChart, ActivityChart } from '../components/Admin/AdminCharts';
 
 function AdminPanel({ onAdminLogout }) {
     const navigate = useNavigate();
@@ -102,8 +103,16 @@ function AdminPanel({ onAdminLogout }) {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <i className="fa-solid fa-spinner fa-spin text-primary text-5xl"></i>
+            <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
+                <div className="hidden md:block w-full md:w-64 bg-slate-900 flex-shrink-0 min-h-screen shadow-xl z-20"></div>
+                <div className="flex-1 p-8 space-y-6">
+                    <div className="h-8 bg-gray-200 rounded w-1/4 animate-pulse mb-8"></div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm h-32 animate-pulse"></div>
+                        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm h-32 animate-pulse"></div>
+                        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm h-32 animate-pulse"></div>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -219,144 +228,202 @@ function AdminPanel({ onAdminLogout }) {
 
                             {/* Row 1: Core Voting Stats */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                                <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider">Eligible Voters</h3>
-                                        <div className="bg-blue-100 p-2 rounded-lg"><i className="fa-solid fa-users text-blue-600"></i></div>
+                                {/* Voter Card */}
+                                <div className="bg-gradient-to-br from-white to-blue-50/30 p-5 md:p-6 rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-blue-100 hover:shadow-lg transition-all duration-300 relative overflow-hidden group">
+                                    <div className="absolute -right-6 -top-6 w-24 h-24 bg-blue-100 rounded-full opacity-50 group-hover:scale-150 transition-transform duration-500"></div>
+                                    <div className="flex justify-between items-start mb-4 relative z-10">
+                                        <div>
+                                            <h3 className="text-blue-600 text-[10px] font-black uppercase tracking-widest mb-1">Eligible Voters</h3>
+                                            <p className="text-4xl font-black text-gray-900 tracking-tight">{stats?.totalUsers ?? 0}</p>
+                                        </div>
+                                        <div className="bg-blue-500 text-white w-10 h-10 rounded-xl flex items-center justify-center shadow-md">
+                                            <i className="fa-solid fa-users"></i>
+                                        </div>
                                     </div>
-                                    <p className="text-3xl md:text-4xl font-black text-gray-900">{stats?.totalUsers ?? 0}</p>
-                                    <p className="text-xs text-gray-400 mt-1">Registered on platform</p>
+                                    <p className="text-xs text-slate-500 font-medium relative z-10 flex items-center">
+                                        <i className="fa-solid fa-shield-halved text-blue-400 mr-1.5"></i>
+                                        Cryptographically verified identities
+                                    </p>
                                 </div>
-                                <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider">Cast Ballots</h3>
-                                        <div className="bg-green-100 p-2 rounded-lg"><i className="fa-solid fa-check-to-slot text-green-600"></i></div>
+                                
+                                {/* Cast Ballots Card */}
+                                <div className="bg-gradient-to-br from-white to-emerald-50/30 p-5 md:p-6 rounded-2xl shadow-[0_2px_10px_-3px_rgba(16,185,129,0.1)] border border-emerald-100 hover:shadow-lg transition-all duration-300 relative overflow-hidden group">
+                                    <div className="absolute -right-6 -top-6 w-24 h-24 bg-emerald-100 rounded-full opacity-50 group-hover:scale-150 transition-transform duration-500"></div>
+                                    <div className="flex justify-between items-start mb-4 relative z-10">
+                                        <div>
+                                            <h3 className="text-emerald-600 text-[10px] font-black uppercase tracking-widest mb-1">Cast Ballots</h3>
+                                            <p className="text-4xl font-black text-gray-900 tracking-tight">{stats?.votedUsers ?? 0}</p>
+                                        </div>
+                                        <div className="bg-emerald-500 text-white w-10 h-10 rounded-xl flex items-center justify-center shadow-md">
+                                            <i className="fa-solid fa-check-to-slot"></i>
+                                        </div>
                                     </div>
-                                    <p className="text-3xl md:text-4xl font-black text-gray-900">{stats?.votedUsers ?? 0}</p>
-                                    <p className="text-xs text-gray-400 mt-1">Votes successfully cast</p>
+                                    <p className="text-xs text-slate-500 font-medium relative z-10 flex items-center">
+                                        <i className="fa-solid fa-link text-emerald-400 mr-1.5"></i>
+                                        Immutable blockchain records
+                                    </p>
                                 </div>
-                                <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition">
+
+                                {/* Turnout Card (Recharts) */}
+                                <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md transition-all duration-300 row-span-2 sm:col-span-2 lg:col-span-1 lg:row-span-2 flex flex-col">
                                     <div className="flex justify-between items-start mb-2">
-                                        <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider">Turnout Index</h3>
-                                        <div className="bg-purple-100 p-2 rounded-lg"><i className="fa-solid fa-chart-line text-purple-600"></i></div>
+                                        <h3 className="text-slate-500 text-[10px] font-black uppercase tracking-widest">Electoral Turnout</h3>
+                                        <div className="bg-purple-100 text-purple-600 w-8 h-8 rounded-lg flex items-center justify-center">
+                                            <i className="fa-solid fa-chart-pie"></i>
+                                        </div>
                                     </div>
-                                    <p className="text-3xl md:text-4xl font-black text-gray-900">{stats?.votingPercentage ?? 0}%</p>
-                                    <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                        <div className="bg-purple-500 h-2 rounded-full transition-all duration-500" style={{ width: `${Math.min(stats?.votingPercentage ?? 0, 100)}%` }}></div>
+                                    <div className="flex-1 flex items-center justify-center min-h-[160px]">
+                                        <TurnoutChart stats={stats} />
                                     </div>
                                 </div>
                             </div>
 
                             {/* Row 2: System Stats */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
-                                <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider">Blockchain Validations</h3>
-                                        <div className="bg-amber-100 p-2 rounded-lg"><i className="fa-brands fa-ethereum text-amber-600"></i></div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 lg:col-span-2 lg:-mt-[110px]">
+                                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:border-slate-300 transition">
+                                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 shrink-0">
+                                        <i className="fa-brands fa-ethereum text-xl"></i>
                                     </div>
-                                    <p className="text-3xl md:text-4xl font-black text-gray-900">{stats?.totalVotes ?? 0}</p>
-                                    <p className="text-xs text-gray-400 mt-1">On-chain transactions</p>
+                                    <div>
+                                        <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">Network Validations</p>
+                                        <p className="text-2xl font-black text-slate-800">{stats?.totalVotes ?? 0}</p>
+                                    </div>
                                 </div>
-                                <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-green-200 hover:shadow-md transition">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <h3 className="text-green-600 text-xs font-bold uppercase tracking-wider">Active Elections</h3>
-                                        <div className="bg-green-100 p-2 rounded-lg"><i className="fa-solid fa-bolt text-green-600"></i></div>
+                                
+                                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:border-slate-300 transition">
+                                    <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+                                        <i className="fa-solid fa-bolt text-xl"></i>
                                     </div>
-                                    <p className="text-3xl md:text-4xl font-black text-green-700">{stats?.activeElections ?? 0}</p>
-                                    <p className="text-xs text-gray-400 mt-1">Currently accepting votes</p>
-                                </div>
-                                <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-amber-200 hover:shadow-md transition">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <h3 className="text-amber-600 text-xs font-bold uppercase tracking-wider">Pending Approvals</h3>
-                                        <div className="bg-amber-100 p-2 rounded-lg"><i className="fa-solid fa-clock text-amber-600"></i></div>
+                                    <div className="flex-1">
+                                        <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">Active Elections</p>
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-2xl font-black text-slate-800">{stats?.activeElections ?? 0}</p>
+                                            {stats?.pendingApprovals > 0 && (
+                                                <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-1 rounded-md">
+                                                    {stats.pendingApprovals} pending
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
-                                    <p className="text-3xl md:text-4xl font-black text-amber-700">{stats?.pendingApprovals ?? 0}</p>
-                                    <p className="text-xs text-gray-400 mt-1">Awaiting Principal sign-off</p>
                                 </div>
                             </div>
                             
                             {/* Bottom: Recent Activity + Quick Actions */}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                {/* Recent Activity Feed */}
-                                <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                    <div className="p-5 border-b border-gray-100 flex justify-between items-center">
-                                        <h3 className="font-bold text-gray-900 flex items-center">
-                                            <i className="fa-solid fa-clock-rotate-left text-primary mr-2"></i>
-                                            Recent Activity
-                                        </h3>
-                                        <button onClick={() => setActiveTab('audit')} className="text-xs font-bold text-primary hover:underline">
-                                            View All <i className="fa-solid fa-arrow-right ml-1"></i>
-                                        </button>
+                                {/* Activity & Trends Column */}
+                                <div className="lg:col-span-2 space-y-6">
+                                    
+                                    {/* Network Activity Trends Chart */}
+                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <h3 className="font-bold text-slate-800 flex items-center">
+                                                <i className="fa-solid fa-chart-area text-blue-500 mr-2"></i>
+                                                7-Day Network Activity
+                                            </h3>
+                                        </div>
+                                        <ActivityChart />
                                     </div>
-                                    <div className="divide-y divide-gray-50">
-                                        {stats?.recentAudit && stats.recentAudit.length > 0 ? (
-                                            stats.recentAudit.slice(0, 8).map((log, idx) => (
-                                                <div key={idx} className="px-5 py-3 hover:bg-gray-50/50 transition flex items-center gap-3">
-                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${getActionColor(log.action)}`}>
-                                                        <i className={`fa-solid ${getActionIcon(log.action)} text-sm`}></i>
+
+                                    {/* Recent Activity Feed */}
+                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                                        <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                                            <h3 className="font-bold text-slate-800 flex items-center">
+                                                <i className="fa-solid fa-terminal text-slate-500 mr-2"></i>
+                                                System Audit Log
+                                            </h3>
+                                            <button onClick={() => setActiveTab('audit')} className="text-[11px] font-bold text-slate-500 hover:text-slate-800 uppercase tracking-wider bg-white border border-slate-200 px-3 py-1 rounded-md shadow-sm transition">
+                                                View Complete Log <i className="fa-solid fa-arrow-right ml-1"></i>
+                                            </button>
+                                        </div>
+                                        <div className="divide-y divide-slate-100">
+                                            {stats?.recentAudit && stats.recentAudit.length > 0 ? (
+                                                stats.recentAudit.slice(0, 6).map((log, idx) => (
+                                                    <div key={idx} className="px-5 py-3 hover:bg-slate-50/80 transition flex items-start gap-4 group">
+                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${getActionColor(log.action)} group-hover:scale-110 transition-transform`}>
+                                                            <i className={`fa-solid ${getActionIcon(log.action)} text-[11px]`}></i>
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center justify-between mb-0.5">
+                                                                <p className="text-sm font-bold text-slate-800 truncate">{log.action?.replace(/_/g, ' ')}</p>
+                                                                <p className="text-[11px] text-slate-400 font-medium shrink-0">{formatTimeAgo(log.created_at)}</p>
+                                                            </div>
+                                                            <p className="text-[13px] text-slate-600 truncate">{log.details || 'No details provided'}</p>
+                                                            <p className="text-[10px] text-slate-400 font-mono mt-1 opacity-70">EXEC: {log.admin_email}</p>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-medium text-gray-900 truncate">{log.action?.replace(/_/g, ' ')}</p>
-                                                        <p className="text-xs text-gray-500 truncate">{log.details || 'No details'}</p>
+                                                ))
+                                            ) : (
+                                                <div className="p-10 text-center">
+                                                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                                                        <i className="fa-solid fa-wind text-slate-300 text-2xl"></i>
                                                     </div>
-                                                    <div className="text-right shrink-0">
-                                                        <p className="text-xs text-gray-400 font-medium">{formatTimeAgo(log.created_at)}</p>
-                                                        <p className="text-[10px] text-gray-400 truncate max-w-[100px]">{log.admin_email?.split('@')[0]}</p>
-                                                    </div>
+                                                    <p className="text-slate-500 text-sm font-medium">No recent audit logs found.</p>
                                                 </div>
-                                            ))
-                                        ) : (
-                                            <div className="p-8 text-center">
-                                                <i className="fa-solid fa-inbox text-gray-300 text-3xl mb-2"></i>
-                                                <p className="text-gray-400 text-sm">No recent activity recorded yet.</p>
-                                            </div>
-                                        )}
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 
-                                {/* Quick Actions */}
-                                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-                                    <h3 className="font-bold text-gray-900 mb-4 flex items-center">
-                                        <i className="fa-solid fa-bolt text-amber-500 mr-2"></i>
-                                        Quick Actions
-                                    </h3>
-                                    <div className="space-y-3">
-                                        <button onClick={() => setActiveTab('elections')} className="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 transition group text-left">
-                                            <div className="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                                <i className="fa-solid fa-plus"></i>
+                                {/* Quick Actions Column */}
+                                <div className="space-y-6">
+                                    <div className="bg-gradient-to-b from-slate-900 to-slate-800 rounded-2xl shadow-md border border-slate-700 p-1 relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500 rounded-full blur-3xl opacity-20 pointer-events-none"></div>
+                                        
+                                        <div className="bg-slate-900/50 rounded-xl p-5 relative z-10 backdrop-blur-sm">
+                                            <h3 className="font-bold text-white mb-5 flex items-center text-sm uppercase tracking-wider">
+                                                <i className="fa-solid fa-wand-magic-sparkles text-indigo-400 mr-2"></i>
+                                                Command Palette
+                                            </h3>
+                                            <div className="space-y-2">
+                                                <button onClick={() => setActiveTab('elections')} className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-800/50 hover:bg-indigo-600/20 border border-slate-700/50 hover:border-indigo-500/30 transition group text-left">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center group-hover:scale-110 group-hover:bg-indigo-500 group-hover:text-white transition-all shadow-inner">
+                                                            <i className="fa-solid fa-plus text-xs"></i>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-bold text-slate-200 group-hover:text-white transition">New Election</p>
+                                                            <p className="text-[10px] text-slate-400">Initialize secure cycle</p>
+                                                        </div>
+                                                    </div>
+                                                    <i className="fa-solid fa-chevron-right text-slate-600 text-xs group-hover:text-indigo-400 transition"></i>
+                                                </button>
+                                                
+                                                <button onClick={() => setActiveTab('voters')} className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-800/50 hover:bg-emerald-600/20 border border-slate-700/50 hover:border-emerald-500/30 transition group text-left">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center group-hover:scale-110 group-hover:bg-emerald-500 group-hover:text-white transition-all shadow-inner">
+                                                            <i className="fa-solid fa-file-csv text-xs"></i>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-bold text-slate-200 group-hover:text-white transition">Import Roll</p>
+                                                            <p className="text-[10px] text-slate-400">CSV bulk whitelist</p>
+                                                        </div>
+                                                    </div>
+                                                    <i className="fa-solid fa-chevron-right text-slate-600 text-xs group-hover:text-emerald-400 transition"></i>
+                                                </button>
+
+                                                <a href="/" target="_blank" rel="noreferrer" className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-800/50 hover:bg-amber-600/20 border border-slate-700/50 hover:border-amber-500/30 transition group text-left mt-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center group-hover:scale-110 group-hover:bg-amber-500 group-hover:text-white transition-all shadow-inner">
+                                                            <i className="fa-solid fa-globe text-xs"></i>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-bold text-slate-200 group-hover:text-white transition">Public Portal</p>
+                                                            <p className="text-[10px] text-slate-400">View live interface</p>
+                                                        </div>
+                                                    </div>
+                                                    <i className="fa-solid fa-arrow-up-right-from-square text-slate-600 text-[10px] group-hover:text-amber-400 transition"></i>
+                                                </a>
                                             </div>
-                                            <div>
-                                                <p className="text-sm font-bold text-gray-900">Create Election</p>
-                                                <p className="text-[11px] text-gray-500">Draft new election cycle</p>
-                                            </div>
-                                        </button>
-                                        <button onClick={() => setActiveTab('voters')} className="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:border-green-300 hover:bg-green-50/50 transition group text-left">
-                                            <div className="w-9 h-9 rounded-lg bg-green-100 text-green-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                                <i className="fa-solid fa-user-plus"></i>
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-bold text-gray-900">Manage Voters</p>
-                                                <p className="text-[11px] text-gray-500">Whitelist or import CSV</p>
-                                            </div>
-                                        </button>
-                                        <button onClick={() => setActiveTab('audit')} className="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50/50 transition group text-left">
-                                            <div className="w-9 h-9 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                                <i className="fa-solid fa-timeline"></i>
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-bold text-gray-900">Audit Trail</p>
-                                                <p className="text-[11px] text-gray-500">Export logs & CSV</p>
-                                            </div>
-                                        </button>
-                                        <a href="/" target="_blank" rel="noreferrer" className="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:border-amber-300 hover:bg-amber-50/50 transition group text-left">
-                                            <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                                <i className="fa-solid fa-arrow-up-right-from-square"></i>
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-bold text-gray-900">View Public Portal</p>
-                                                <p className="text-[11px] text-gray-500">Open voter-facing site</p>
-                                            </div>
-                                        </a>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Small Info Widget */}
+                                    <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 text-indigo-900 shadow-sm flex items-start gap-3">
+                                        <i className="fa-solid fa-shield-halved text-indigo-500 mt-0.5"></i>
+                                        <div>
+                                            <p className="text-xs font-bold uppercase tracking-wider mb-1">Security Status</p>
+                                            <p className="text-[11px] opacity-80 leading-relaxed">System is running in strict compliance mode. All administrative actions are cryptographically logged and immutable.</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
