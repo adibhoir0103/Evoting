@@ -128,6 +128,10 @@ app.use('/api/v1/ipfs', require('./routes/ipfsRoutes'));
 app.use('/api/v1/meta-tx', require('./routes/metaTxRoutes'));
 app.use('/api/v1/admin', require('./routes/admin'));
 
+if (process.env.NODE_ENV !== 'production') {
+    app.use('/api/v1/test', require('./routes/testRoutes'));
+}
+
 // ===================== ERROR HANDLING =====================
 
 // Sentry error handler (must be before custom error handler)
