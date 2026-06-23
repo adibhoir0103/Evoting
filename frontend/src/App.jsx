@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/react';
 import posthog from 'posthog-js';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
+import { Analytics } from '@vercel/analytics/react';
 
 // Components (always loaded — part of shell)
 import Navbar from './components/Navbar';
@@ -233,6 +234,7 @@ function App() {
                 checkAdminStatus={checkAdminStatus}
                 isOffline={isOffline}
             />
+            <Analytics />
         </Router>
     );
 }
