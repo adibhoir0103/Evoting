@@ -5,7 +5,8 @@ import { HelmetProvider } from 'react-helmet-async';
 import './index.css';
 import './i18n';
 import App from './App';
-
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 // Initialize Sentry
 if (import.meta.env.VITE_SENTRY_DSN) {
     Sentry.init({
@@ -37,6 +38,8 @@ root.render(
         >
             <HelmetProvider>
                 <App />
+                <Analytics />
+                <SpeedInsights />
             </HelmetProvider>
         </Sentry.ErrorBoundary>
     </React.StrictMode>
