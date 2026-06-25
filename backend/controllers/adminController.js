@@ -65,11 +65,14 @@ exports.approveVoterRegistration = async (req, res) => {
         return res.status(500).json({ error: `Supabase Auth error: ${supabaseError.message}` });
     }
 
+    const hashedPassword = await bcrypt.hash(tempPassword, 12);
+
     await prisma.user.update({
         where: { id: userId },
         data: {
             registration_status: 'APPROVED',
-            // No longer storing password hash here
+            password: hashedPassword,
+            must_change_password: true
         }
     });
 
