@@ -66,6 +66,7 @@ module.exports = {
         try {
             await redis.del(`session:${userId}`);
             return true;
+        } catch (error) {
             logger.error(`Redis clear session error for user ${userId}:`, error);
             return false;
         }
