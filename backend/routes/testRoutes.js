@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const prisma = require('../prisma/client');
+const prisma = require('../lib/prisma');
 
 router.post('/seed-voter', async (req, res) => {
     // Only allow in non-production environments
