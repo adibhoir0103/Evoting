@@ -379,6 +379,285 @@ class EmailService {
             return { success: true, demo: true };
         }
     }
+
+    /**
+     * Send login credentials email after admin approves a voter registration
+     * @param {string} email - Recipient email
+     * @param {string} userName - Voter full name
+     * @param {string} voterId - EPIC Voter ID
+     * @param {string} tempPassword - System-generated temporary password
+     */
+    async sendLoginCredentials(email, userName, voterId, tempPassword) {
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body { font-family: 'Inter', 'Segoe UI', sans-serif; background: #f5f7fa; padding: 20px; }
+                    .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }
+                    .header { background: linear-gradient(135deg, #000080, #162a5c); color: white; padding: 30px 20px; text-align: center; }
+                    .header h1 { margin: 0; font-size: 24px; }
+                    .badge { background: #138808; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-block; margin-bottom: 10px; color: white; }
+                    .content { padding: 40px 30px; }
+                    .cred-box { background: #f0f7ff; border: 2px solid #000080; border-radius: 8px; padding: 24px; margin: 24px 0; }
+                    .cred-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #e2eaf7; }
+                    .cred-row:last-child { border-bottom: none; }
+                    .cred-label { color: #555; font-size: 13px; font-weight: 600; }
+                    .cred-value { font-family: monospace; font-size: 16px; font-weight: 700; color: #000080; letter-spacing: 2px; background: #fff; padding: 4px 12px; border-radius: 6px; border: 1px solid #c7d7f0; }
+                    .warning { background: #fff8e6; border-left: 4px solid #FF9933; padding: 15px; margin: 20px 0; }
+                    .cta-button { display: block; background: #000080; color: white; text-decoration: none; padding: 14px 30px; border-radius: 8px; text-align: center; font-weight: 700; font-size: 15px; margin: 24px 0; }
+                    .steps { background: #f8fdf8; border: 1px solid #c3e6c8; border-radius: 8px; padding: 20px; margin: 20px 0; }
+                    .step { display: flex; gap: 12px; margin-bottom: 12px; }
+                    .step-num { background: #138808; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; }
+                    .footer { background: #f5f7fa; padding: 20px; text-align: center; font-size: 12px; color: #777; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <span class="badge">✅ REGISTRATION APPROVED</span>
+                        <h1>🇮🇳 Bharat E-Vote</h1>
+                        <p style="margin: 5px 0 0 0; opacity: 0.9;">Blockchain Voting System</p>
+                    </div>
+                    <div class="content">
+                        <h2 style="color: #000080; margin-top: 0;">Namaste, ${escapeHtml(userName)}!</h2>
+                        <p>Your voter registration has been <strong>approved</strong> by an Election Officer. You can now log in to the Bharat E-Vote portal.</p>
+
+                        <div class="cred-box">
+                            <p style="margin: 0 0 16px 0; font-size: 13px; color: #555; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Your Login Credentials</p>
+                            <div class="cred-row">
+                                <span class="cred-label">🪪 Voter ID (EPIC)</span>
+                                <span class="cred-value">${escapeHtml(voterId)}</span>
+                            </div>
+                            <div class="cred-row">
+                                <span class="cred-label">📧 Email</span>
+                                <span class="cred-value" style="font-size:13px; letter-spacing:0;">${escapeHtml(email)}</span>
+                            </div>
+                            <div class="cred-row">
+                                <span class="cred-label">🔑 Temporary Password</span>
+                                <span class="cred-value">${escapeHtml(tempPassword)}</span>
+                            </div>
+                        </div>
+
+                        <div class="steps">
+                            <p style="margin: 0 0 12px 0; font-weight: 700; color: #138808;">📋 Next Steps</p>
+                            <div class="step"><div class="step-num">1</div><span>Go to the Bharat E-Vote login page and enter your Voter ID or Email along with the temporary password above.</span></div>
+                            <div class="step"><div class="step-num">2</div><span>You will be asked to <strong>set a new permanent password</strong> before you can access your dashboard.</span></div>
+                            <div class="step"><div class="step-num">3</div><span>Complete the OTP verification sent to this email, then you're all set to vote!</span></div>
+                        </div>
+
+                        <div class="warning">
+                            <strong>⚠️ Security Notice:</strong>
+                            <ul style="margin: 10px 0 0 0; padding-left: 20px;">
+                                <li>This temporary password expires after your first login — you must set a new one.</li>
+                                <li>Never share your credentials with anyone.</li>
+                                <li>Bharat E-Vote officials will never ask for your password.</li>
+                                <li>If you did not register, please call ECI Helpline 1950 immediately.</li>
+                            </ul>
+                        </div>
+
+                        <p style="color: #777; font-size: 14px;">This is an automated email from Bharat E-Vote. Do not reply to this message.</p>
+                    </div>
+                    <div class="footer">
+                        <p style="margin: 0;">© 2026 Bharat E-Vote | Blockchain-Based E-Voting System</p>
+                        <p style="margin: 5px 0 0 0;">Election Commission of India</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        if (this.isReady) {
+            try {
+                const data = await this._sendBrevo({
+                    to: email,
+                    toName: userName,
+                    subject: '✅ Registration Approved — Your Bharat E-Vote Login Credentials',
+                    htmlContent
+                });
+                emailLog.info(`Login credentials sent to: ${email} (ID: ${data.messageId})`);
+                return { success: true, messageId: data.messageId, email };
+            } catch (error) {
+                emailLog.error('Failed to send login credentials', { error: error.message, to: email });
+                throw new Error(`Failed to send credentials email: ${error.message}`);
+            }
+        }
+
+        // Demo mode
+        emailLog.info(`[DEMO] Login credentials for ${email}: VoterID=${voterId}, TempPass=${tempPassword}`);
+        return { success: true, messageId: 'demo-creds-' + Date.now(), email, demo: true };
+    }
+
+    /**
+     * Send acknowledgment email when a user submits a registration application
+     * @param {string} email - Recipient email
+     * @param {string} userName - Voter full name
+     * @param {string} voterId - EPIC Voter ID
+     */
+    async sendRegistrationAcknowledgment(email, userName, voterId) {
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body { font-family: 'Inter', 'Segoe UI', sans-serif; background: #f5f7fa; padding: 20px; }
+                    .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }
+                    .header { background: linear-gradient(135deg, #000080, #162a5c); color: white; padding: 30px 20px; text-align: center; }
+                    .header h1 { margin: 0; font-size: 24px; }
+                    .badge { background: #FF9933; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-block; margin-bottom: 10px; color: white; }
+                    .content { padding: 40px 30px; }
+                    .info-box { background: #f0f7ff; border: 2px solid #000080; border-radius: 8px; padding: 24px; margin: 24px 0; }
+                    .info-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #e2eaf7; }
+                    .info-row:last-child { border-bottom: none; }
+                    .info-label { color: #555; font-size: 13px; font-weight: 600; }
+                    .info-value { font-family: monospace; font-size: 16px; font-weight: 700; color: #000080; letter-spacing: 2px; background: #fff; padding: 4px 12px; border-radius: 6px; border: 1px solid #c7d7f0; }
+                    .steps { background: #f8fdf8; border: 1px solid #c3e6c8; border-radius: 8px; padding: 20px; margin: 20px 0; }
+                    .step { display: flex; gap: 12px; margin-bottom: 12px; }
+                    .step-num { background: #138808; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; }
+                    .footer { background: #f5f7fa; padding: 20px; text-align: center; font-size: 12px; color: #777; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <span class="badge">⏳ APPLICATION SUBMITTED</span>
+                        <h1>🇮🇳 Bharat E-Vote</h1>
+                        <p style="margin: 5px 0 0 0; opacity: 0.9;">Blockchain Voting System</p>
+                    </div>
+                    <div class="content">
+                        <h2 style="color: #000080; margin-top: 0;">Namaste, ${escapeHtml(userName)}!</h2>
+                        <p>We have successfully received your voter registration application on the Bharat E-Vote portal.</p>
+
+                        <div class="info-box">
+                            <p style="margin: 0 0 16px 0; font-size: 13px; color: #555; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Application Details</p>
+                            <div class="info-row">
+                                <span class="info-label">🪪 Voter ID (EPIC)</span>
+                                <span class="info-value">${escapeHtml(voterId)}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">📅 Date</span>
+                                <span class="info-value" style="font-size:14px; letter-spacing:0;">${new Date().toLocaleDateString('en-IN')}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">📊 Status</span>
+                                <span class="info-value" style="color: #FF9933;">PENDING REVIEW</span>
+                            </div>
+                        </div>
+
+                        <div class="steps">
+                            <p style="margin: 0 0 12px 0; font-weight: 700; color: #138808;">📋 What Happens Next?</p>
+                            <div class="step"><div class="step-num">1</div><span>An Election Officer will review and verify your submitted details.</span></div>
+                            <div class="step"><div class="step-num">2</div><span>Once approved, you will receive another email containing your login credentials.</span></div>
+                            <div class="step"><div class="step-num">3</div><span>If rejected, you will be notified and asked to contact your local election office.</span></div>
+                        </div>
+
+                        <p style="color: #777; font-size: 14px;">This process typically takes 1-2 working days.</p>
+                    </div>
+                    <div class="footer">
+                        <p style="margin: 0;">© 2026 Bharat E-Vote | Blockchain-Based E-Voting System</p>
+                        <p style="margin: 5px 0 0 0;">Election Commission of India</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        if (this.isReady) {
+            try {
+                const data = await this._sendBrevo({
+                    to: email,
+                    toName: userName,
+                    subject: '⏳ Application Received — Bharat E-Vote Registration',
+                    htmlContent
+                });
+                emailLog.info(`Registration acknowledgment sent to: ${email} (ID: ${data.messageId})`);
+                return { success: true, messageId: data.messageId, email };
+            } catch (error) {
+                emailLog.error('Failed to send registration acknowledgment', { error: error.message, to: email });
+                // We don't throw an error here to prevent blocking the registration flow
+                return { success: false, error: error.message };
+            }
+        }
+
+        // Demo mode
+        emailLog.info(`[DEMO] Registration acknowledgment for ${email}: VoterID=${voterId}`);
+        return { success: true, messageId: 'demo-ack-' + Date.now(), email, demo: true };
+    }
+
+    /**
+     * Send account lockout notification
+     * @param {string} email - Recipient email
+     * @param {string} userName - Voter full name
+     */
+    async sendAccountLockoutNotification(email, userName) {
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body { font-family: 'Inter', 'Segoe UI', sans-serif; background: #f5f7fa; padding: 20px; }
+                    .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }
+                    .header { background: #800000; color: white; padding: 30px 20px; text-align: center; }
+                    .header h1 { margin: 0; font-size: 24px; }
+                    .badge { background: #FF0000; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-block; margin-bottom: 10px; color: white; }
+                    .content { padding: 40px 30px; }
+                    .warning-box { background: #fff0f0; border: 2px solid #ffcccc; border-radius: 8px; padding: 24px; margin: 24px 0; }
+                    .cta-button { display: block; background: #800000; color: white; text-decoration: none; padding: 14px 30px; border-radius: 8px; text-align: center; font-weight: 700; font-size: 15px; margin: 24px 0; }
+                    .footer { background: #f5f7fa; padding: 20px; text-align: center; font-size: 12px; color: #777; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <span class="badge">SECURITY ALERT</span>
+                        <h1>🇮🇳 Bharat E-Vote</h1>
+                        <p style="margin: 5px 0 0 0; opacity: 0.9;">Account Locked</p>
+                    </div>
+                    <div class="content">
+                        <h2 style="color: #800000; margin-top: 0;">Namaste, ${escapeHtml(userName)}</h2>
+                        
+                        <div class="warning-box">
+                            <p style="margin: 0; color: #cc0000; font-weight: bold;">Too many failed login attempts.</p>
+                            <p style="margin: 10px 0 0 0; color: #555;">To protect your account, we have temporarily locked your login access for 15 minutes.</p>
+                        </div>
+
+                        <p>If you forgot your password, you can reset it securely using the link below:</p>
+
+                        <a href="https://bharat-evote.me/forgot-password" class="cta-button">Reset My Password</a>
+
+                        <p style="color: #555; font-size: 14px; margin-top: 20px;">
+                            <strong>Didn't try to log in?</strong><br/>
+                            Someone may be trying to access your account. Your account remains safe, but we recommend resetting your password if you suspect malicious activity.
+                        </p>
+                    </div>
+                    <div class="footer">
+                        <p style="margin: 0;">© 2026 Bharat E-Vote | Security System</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        if (this.isReady) {
+            try {
+                const data = await this._sendBrevo({
+                    to: email,
+                    toName: userName,
+                    subject: '⚠️ Security Alert: Your Account is Temporarily Locked',
+                    htmlContent
+                });
+                emailLog.info(`Lockout notification sent to: ${email} (ID: ${data.messageId})`);
+                return { success: true, messageId: data.messageId, email };
+            } catch (error) {
+                emailLog.error('Failed to send lockout notification', { error: error.message, to: email });
+                return { success: false, error: error.message };
+            }
+        }
+
+        emailLog.info(`[DEMO] Lockout notification for ${email}`);
+        return { success: true, messageId: 'demo-lockout-' + Date.now(), email, demo: true };
+    }
+
 }
 
 // Singleton instance

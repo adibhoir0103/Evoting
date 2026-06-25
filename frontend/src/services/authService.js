@@ -1,27 +1,22 @@
 import { API_URL } from '../config/api';
+import { supabase } from './supabase';
 
 /**
- * Auth service — handles voter authentication, JWT tokens, and API calls.
- * Supports both real JWT auth and dev-mode test-token fallback.
+ * Auth service — handles voter authentication via Supabase and API calls.
  */
 export const authService = {
 
-    /**
-     * Get the stored JWT token (Fallback for legacy API compat, mostly obsolete with httpOnly cookies)
-     */
-    getToken() {
-        return null; // Token is now stored securely in an httpOnly cookie
-    },
-
-    getAuthHeaders() {
+    async getAuthHeaders() {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
         return {
-            'Content-Type': 'application/json'
-            // Authorization header removed; token is now sent automatically via httpOnly cookie
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
         };
     },
 
     /**
-     * Register a new voter
+     * Register a new voter (Pending Admin Approval)
      */
     async register(formData) {
         const response = await fetch(`${API_URL}/auth/register`, {
@@ -35,46 +30,43 @@ export const authService = {
             throw new Error(data.error || 'Registration failed');
         }
 
-        // Store auth data (user only, token is in httpOnly cookie)
-        localStorage.setItem('user', JSON.stringify(data.user));
         return data;
     },
 
     /**
-     * Login voter
+     * Login voter using Supabase
      */
     async login(identifier, password) {
-        const response = await fetch(`${API_URL}/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include', // Important: Ensures cookies are sent and set
-            body: JSON.stringify({ identifier, password })
+        // Supabase requires email for password login
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email: identifier,
+            password: password
         });
 
-        const data = await response.json();
-        if (!response.ok) {
-            throw new Error(data.error || 'Login failed');
+        if (error) {
+            throw new Error(error.message);
         }
 
-        // Store auth data (user only, token is in httpOnly cookie)
-        localStorage.setItem('user', JSON.stringify(data.user));
-        return data;
+        // Fetch our custom backend user metadata
+        const user = await this.getCurrentUser();
+        return { user, session: data.session };
     },
 
     /**
-     * Get current user from backend (verifies token)
+     * Get current user from backend using Supabase JWT
      */
     async getCurrentUser() {
         try {
+            const headers = await this.getAuthHeaders();
+            if (!headers.Authorization) return null;
+
             const response = await fetch(`${API_URL}/auth/me`, {
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include' // Send httpOnly cookie
+                headers
             });
 
             if (!response.ok) {
-                // Token invalid — clear it
                 if (response.status === 401) {
-                    this.logout();
+                    await this.logout();
                 }
                 return null;
             }
@@ -97,20 +89,15 @@ export const authService = {
     },
 
     isLoggedIn() {
-        // Since token is httpOnly, we can't check its expiry directly from JS.
-        // If 'user' exists in localStorage, we assume logged in until an API call returns 401.
         return !!localStorage.getItem('user');
     },
 
     /**
-     * Logout user
+     * Logout user from Supabase and clear local storage
      */
     async logout() {
         try {
-            await fetch(`${API_URL}/auth/logout`, {
-                method: 'POST',
-                credentials: 'include'
-            });
+            await supabase.auth.signOut();
         } catch (e) {
             console.error('Logout error', e);
         }
@@ -121,10 +108,10 @@ export const authService = {
      * Link wallet address to user account
      */
     async linkWallet(walletAddress) {
+        const headers = await this.getAuthHeaders();
         const response = await fetch(`${API_URL}/user/link-wallet`, {
             method: 'POST',
-            headers: this.getAuthHeaders(),
-            credentials: 'include',
+            headers,
             body: JSON.stringify({ walletAddress })
         });
 
@@ -146,10 +133,10 @@ export const authService = {
      * Record vote in database after blockchain transaction
      */
     async recordVote(txHash) {
+        const headers = await this.getAuthHeaders();
         const response = await fetch(`${API_URL}/vote/record`, {
             method: 'POST',
-            headers: this.getAuthHeaders(),
-            credentials: 'include',
+            headers,
             body: JSON.stringify({ txHash })
         });
 
@@ -171,10 +158,10 @@ export const authService = {
      * Update user profile
      */
     async updateProfile(data) {
+        const headers = await this.getAuthHeaders();
         const response = await fetch(`${API_URL}/user/profile`, {
             method: 'PUT',
-            headers: this.getAuthHeaders(),
-            credentials: 'include',
+            headers,
             body: JSON.stringify(data)
         });
 
@@ -197,9 +184,9 @@ export const authService = {
      */
     async checkVoteStatus() {
         try {
+            const headers = await this.getAuthHeaders();
             const response = await fetch(`${API_URL}/vote/status`, {
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
+                headers
             });
 
             if (!response.ok) return false;

@@ -20,7 +20,8 @@ if (ADMIN_PASSWORD_HASH) {
     console.error('FATAL: ADMIN_PASSWORD_HASH environment variable is required in production.');
     process.exit(1);
 } else {
-    EFFECTIVE_ADMIN_HASH = bcrypt.hashSync(process.env.ADMIN_DEV_PASSWORD || 'Admin@modern7', 10);
+    // Default cost factor to 12 for better security against offline brute force
+    EFFECTIVE_ADMIN_HASH = bcrypt.hashSync(process.env.ADMIN_DEV_PASSWORD || 'Admin@modern7', 12);
     console.warn('⚠️  Using development admin credentials.');
 }
 
@@ -30,10 +31,10 @@ exports.adminLogin = async (req, res) => {
     const trimmedPassword = password ? password.trim() : '';
 
     if (!trimmedEmail || !trimmedPassword) return res.status(400).json({ error: 'Email and password are required' });
-    if (trimmedEmail !== ADMIN_EMAIL) return res.status(401).json({ error: 'Invalid admin credentials' });
+    if (trimmedEmail !== ADMIN_EMAIL) return res.status(401).json({ error: 'Incorrect email or password' });
 
     const isValidPassword = await bcrypt.compare(trimmedPassword, EFFECTIVE_ADMIN_HASH);
-    if (!isValidPassword) return res.status(401).json({ error: 'Invalid admin credentials' });
+    if (!isValidPassword) return res.status(401).json({ error: 'Incorrect email or password' });
 
     // Issue final JWT immediately — no OTP required for admin
     const token = jwt.sign(

@@ -65,6 +65,11 @@ function createRateLimiter(options) {
 }
 
 module.exports = {
+    loginLimiter: createRateLimiter({
+        windowMs: 60 * 1000, // 1 minute
+        max: 10,
+        message: { error: 'Too many login attempts from this IP. Please try again in a minute.' }
+    }),
     authLimiter: createRateLimiter({
         windowMs: 15 * 60 * 1000,
         max: 20,

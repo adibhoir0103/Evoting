@@ -37,6 +37,7 @@ function LoginPage({ onLogin }) {
     const [resendCooldown, setResendCooldown] = useState(0);
     const [pendingUser, setPendingUser] = useState(null);
     const [demoOtp, setDemoOtp] = useState('');
+    const [mustChangePasswordAfterMfa, setMustChangePasswordAfterMfa] = useState(false);
 
     // Forgot Password State
     const [forgotMode, setForgotMode] = useState(false);
@@ -192,6 +193,7 @@ function LoginPage({ onLogin }) {
                 setOtpCountdown(300);
                 setOtpDigits(['', '', '', '', '', '']);
                 setDemoOtp(data.otpDemo || '');
+                setMustChangePasswordAfterMfa(!!data.mustChangePassword);
                 setKsFailCount(0); // reset on success
 
                 toast.success('OTP sent to your email!', { icon: '📧' });
@@ -292,8 +294,14 @@ function LoginPage({ onLogin }) {
             }
 
             if (onLogin) onLogin(data.user, data.token);
-            toast.success(`Welcome back, ${data.user.fullname || 'Voter'}! MFA verified ✓`, { icon: '🛡️' });
-            navigate('/dashboard');
+
+            if (mustChangePasswordAfterMfa) {
+                toast('🔑 Please set your permanent password before continuing.', { icon: '⚠️', duration: 5000 });
+                navigate('/set-password');
+            } else {
+                toast.success(`Welcome back, ${data.user.fullname || 'Voter'}! MFA verified ✓`, { icon: '🛡️' });
+                navigate('/dashboard');
+            }
 
         } catch (err) {
             setOtpError(err.message);

@@ -66,8 +66,75 @@ module.exports = {
         try {
             await redis.del(`session:${userId}`);
             return true;
-        } catch (error) {
             logger.error(`Redis clear session error for user ${userId}:`, error);
+            return false;
+        }
+    },
+
+    /**
+     * Increment failed login attempts
+     */
+    async incrementFailedLogin(identifier) {
+        try {
+            const key = `failed_login:${identifier}`;
+            const count = await redis.get(key);
+            let newCount = 1;
+            if (count) {
+                newCount = parseInt(count) + 1;
+                await redis.setex(key, 900, newCount); // Refresh 15 min expiry
+            } else {
+                await redis.setex(key, 900, newCount); // 15 min expiry
+            }
+            return newCount;
+        } catch (error) {
+            logger.error(`Redis increment failed login error for ${identifier}:`, error);
+            return 1;
+        }
+    },
+
+    /**
+     * Get failed login attempts
+     */
+    async getFailedLoginAttempts(identifier) {
+        try {
+            const count = await redis.get(`failed_login:${identifier}`);
+            return count ? parseInt(count) : 0;
+        } catch (error) {
+            return 0;
+        }
+    },
+
+    /**
+     * Clear failed login attempts
+     */
+    async clearFailedLogin(identifier) {
+        try {
+            await redis.del(`failed_login:${identifier}`);
+            await redis.del(`lockout:${identifier}`);
+        } catch (error) {
+            logger.error(`Redis clear failed login error for ${identifier}:`, error);
+        }
+    },
+
+    /**
+     * Set account lockout
+     */
+    async setAccountLockout(identifier, minutes = 15) {
+        try {
+            await redis.setex(`lockout:${identifier}`, minutes * 60, 'LOCKED');
+        } catch (error) {
+            logger.error(`Redis set lockout error for ${identifier}:`, error);
+        }
+    },
+
+    /**
+     * Check if account is locked out
+     */
+    async isAccountLocked(identifier) {
+        try {
+            const locked = await redis.get(`lockout:${identifier}`);
+            return !!locked;
+        } catch (error) {
             return false;
         }
     }

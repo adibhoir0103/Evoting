@@ -20,6 +20,7 @@ const LoginPage = lazy(() => import('./pages/LoginPage'));
 const SignupPage = lazy(() => import('./pages/SignupPage'));
 
 const VerifyVotePage = lazy(() => import('./pages/VerifyVotePage'));
+const SetPasswordPage = lazy(() => import('./pages/SetPasswordPage'));
 
 // Services
 import { authService } from './services/authService';
@@ -318,6 +319,11 @@ function AppLayout({ user, isAdmin, setIsAdmin, handleLogin, handleLogout, handl
                     {/* Authenticated Pages */}
                     <Route path="/verify" element={
                         user ? <VerifyVotePage /> : <Navigate to="/login" replace />
+                    } />
+
+                    {/* First-login forced password change */}
+                    <Route path="/set-password" element={
+                        user ? <SetPasswordPage /> : <Navigate to="/login" replace />
                     } />
 
                     {/* Public Pages */}

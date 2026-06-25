@@ -17,39 +17,42 @@ if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
 // Deterministic dev-only fallback to support PM2 clustering in development
 const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'dev-only-local-key-fixed-for-clustering';
 
+const prisma = require('../lib/prisma');
+const supabaseAdmin = require('../lib/supabase');
+
 /**
  * Voter authentication middleware.
- * Reads JWT from httpOnly cookie first, falls back to Authorization header.
- * Enforces single active session via Redis.
+ * Verifies the Supabase JWT access token.
  */
 const injectUser = async (req, res, next) => {
-    // Priority: httpOnly cookie > Authorization header
-    const cookieToken = req.cookies && req.cookies.token;
     const authHeader = req.headers.authorization;
-    const headerToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
-    const token = cookieToken || headerToken;
+    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
 
-    if (!token || token === 'test-token') {
+    if (!token) {
         return res.status(401).json({ error: 'Authentication required. Please log in.' });
     }
 
     try {
-        const decoded = jwt.verify(token, EFFECTIVE_JWT_SECRET);
-        // Enforce single active session using Redis (High Performance)
-        if (decoded.active_session_token) {
-            const currentSession = await redisService.getActiveSession(decoded.id);
-            if (!currentSession || currentSession !== decoded.active_session_token) {
-                return res.status(401).json({ error: 'Session invalidated by login in another window' });
-            }
+        const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+        
+        if (error || !user) {
+            return res.status(401).json({ error: 'Invalid or expired authentication token' });
+        }
+
+        // Fetch corresponding Prisma user
+        const dbUser = await prisma.user.findUnique({ where: { email: user.email } });
+        
+        if (!dbUser) {
+            return res.status(401).json({ error: 'User record not found in system.' });
         }
 
         req.user = {
-            id: decoded.id,
-            voterId: decoded.voterId || decoded.voter_id,
-            email: decoded.email,
-            auth_id: decoded.auth_id || decoded.sub
+            id: dbUser.id,
+            voterId: dbUser.voter_id,
+            email: dbUser.email,
+            auth_id: user.id
         };
-        req.auth = { userId: decoded.auth_id || decoded.sub };
+        req.auth = { userId: user.id };
         return next();
     } catch (err) {
         return res.status(401).json({ error: 'Invalid or expired authentication token' });

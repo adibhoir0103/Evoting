@@ -25,7 +25,7 @@ exports.recordVote = async (req, res) => {
         where: { id: req.user.id },
         select: { id: true, voter_id: true, has_voted: true, email: true, fullname: true }
     });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) return res.status(401).json({ error: 'Authentication failed.' });
 
     // Serializable isolation to prevent race conditions
     await prisma.$transaction(async (tx) => {

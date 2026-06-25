@@ -10,12 +10,108 @@ const fs = require('fs');
 const csv = require('csv-parser');
 const emailService = require('../services/emailService');
 const { logAdminAction: logAction } = require('../utils/helpers');
+const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+const supabaseAdmin = require('../lib/supabase');
 
 // ==========================================
-// ELECTION MANAGEMENT
+// VOTER REGISTRATION APPROVALS
 // ==========================================
 
-// Create new election
+// List all pending voter registrations
+exports.getPendingRegistrations = async (req, res) => {
+    const status = req.query.status || 'PENDING'; // PENDING | APPROVED | REJECTED
+    const voters = await prisma.user.findMany({
+        where: { registration_status: status, role: 'VOTER' },
+        select: {
+            id: true, fullname: true, email: true, voter_id: true,
+            aadhaar_number: true, mobile_number: true, gender: true, dob: true,
+            father_name: true, state_code: true, constituency_code: true,
+            address: true, registration_status: true, created_at: true
+        },
+        orderBy: { created_at: 'desc' }
+    });
+    res.json(voters);
+};
+
+// Approve a voter registration — generate temp password and send credentials
+exports.approveVoterRegistration = async (req, res) => {
+    const { id } = req.params;
+    const userId = parseInt(id);
+    if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user ID' });
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ error: 'Voter application not found' });
+    if (user.registration_status !== 'PENDING') {
+        return res.status(400).json({ error: `Voter is already ${user.registration_status}. Cannot approve again.` });
+    }
+
+    // Generate secure 12-char temp password: Uppercase + lowercase + digits
+    const tempPassword = crypto.randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12)
+        + String(crypto.randomInt(10, 99)); // always ends with 2 digits for policy compliance
+
+    // Create user in Supabase Auth
+    const { data: supabaseUser, error: supabaseError } = await supabaseAdmin.auth.admin.createUser({
+        email: user.email,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: {
+            voter_id: user.voter_id,
+            role: 'VOTER'
+        }
+    });
+
+    if (supabaseError) {
+        return res.status(500).json({ error: `Supabase Auth error: ${supabaseError.message}` });
+    }
+
+    await prisma.user.update({
+        where: { id: userId },
+        data: {
+            registration_status: 'APPROVED',
+            // No longer storing password hash here
+        }
+    });
+
+    // Send login credentials email
+    try {
+        await emailService.sendLoginCredentials(user.email, user.fullname || 'Voter', user.voter_id, tempPassword);
+    } catch (emailErr) {
+        // Roll back approval if email fails — voter must be notified
+        await supabaseAdmin.auth.admin.deleteUser(supabaseUser.user.id);
+        await prisma.user.update({
+            where: { id: userId },
+            data: { registration_status: 'PENDING' }
+        });
+        return res.status(500).json({ error: `Approval failed: could not send credentials email. ${emailErr.message}` });
+    }
+
+    await logAction(req.adminUser.email, 'APPROVE_VOTER_REGISTRATION', `Approved voter ${user.email} (ID: ${userId}). Temp credentials sent.`, req.ip);
+    res.json({ message: `Voter ${user.fullname} approved. Login credentials sent to ${user.email}.`, approved: true });
+};
+
+// Reject a voter registration
+exports.rejectVoterRegistration = async (req, res) => {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const userId = parseInt(id);
+    if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user ID' });
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ error: 'Voter application not found' });
+    if (user.registration_status !== 'PENDING') {
+        return res.status(400).json({ error: `Voter is already ${user.registration_status}. Cannot reject again.` });
+    }
+
+    await prisma.user.update({
+        where: { id: userId },
+        data: { registration_status: 'REJECTED' }
+    });
+
+    await logAction(req.adminUser.email, 'REJECT_VOTER_REGISTRATION', `Rejected voter ${user.email} (ID: ${userId}). Reason: ${reason || 'Not specified'}.`, req.ip);
+    res.json({ message: `Voter application for ${user.fullname} has been rejected.`, rejected: true });
+};
+
 exports.createElection = async (req, res) => {
     const { name, description, instructions, start_time, end_time, rules } = req.body;
 

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import ElectionWizard from '../components/Admin/ElectionWizard';
 import VoterRolls from '../components/Admin/VoterRolls';
 import AuditLogs from '../components/Admin/AuditLogs';
+import PendingRegistrations from '../components/Admin/PendingRegistrations';
 import { BlockchainService } from '../services/blockchainService';
 import { TurnoutChart, ActivityChart } from '../components/Admin/AdminCharts';
 
@@ -119,6 +120,7 @@ function AdminPanel({ onAdminLogout }) {
 
     const sidebarTabs = [
         { key: 'overview', icon: 'fa-chart-pie', label: 'System Dashboard' },
+        { key: 'registrations', icon: 'fa-user-clock', label: 'Voter Applications' },
         { key: 'elections', icon: 'fa-check-to-slot', label: 'Election Engine' },
         { key: 'voters', icon: 'fa-file-csv', label: 'Voter Whitelists' },
         { key: 'audit', icon: 'fa-timeline', label: 'Security Audits' },
@@ -179,6 +181,7 @@ function AdminPanel({ onAdminLogout }) {
                     <div>
                         <h2 className="text-xl md:text-2xl font-extrabold text-gray-900 tracking-tight">
                             {activeTab === 'overview' && 'Constituency Operations Center'}
+                            {activeTab === 'registrations' && 'Voter Registration Applications'}
                             {activeTab === 'elections' && 'Dynamic Election Controller'}
                             {activeTab === 'voters' && 'Electoral Roll Management'}
                             {activeTab === 'audit' && 'Immutable Event Trails'}
@@ -432,6 +435,7 @@ function AdminPanel({ onAdminLogout }) {
                     {activeTab === 'elections' && <ElectionWizard />}
                     {activeTab === 'voters' && <VoterRolls />}
                     {activeTab === 'audit' && <AuditLogs />}
+                    {activeTab === 'registrations' && <PendingRegistrations />}
                 </main>
             </div>
         </div>

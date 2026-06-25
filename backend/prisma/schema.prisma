@@ -49,8 +49,10 @@ model User {
   active_session_token   String?
   active_session_expires DateTime?
   
-  role             Role     @default(VOTER)
-  created_at       DateTime @default(now())
+  role                  Role     @default(VOTER)
+  registration_status   String   @default("PENDING")  // PENDING | APPROVED | REJECTED
+  must_change_password  Boolean  @default(false)        // true = first-login temp-password flow
+  created_at            DateTime @default(now())
   
   father_name      String?
   gender           String?

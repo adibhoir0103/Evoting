@@ -12,40 +12,21 @@ const redisService = require('../services/redisService');
 const { sanitize } = require('../utils/helpers');
 const { EFFECTIVE_JWT_SECRET, setTokenCookie, clearTokenCookie } = require('../middleware/authenticate');
 
-// ===================== REGISTER =====================
+// ===================== APPLY FOR REGISTRATION (no password — admin approves) =====================
 exports.register = async (req, res) => {
-    const { fullname, email, password, voter_id, aadhaar_number, father_name, gender, dob, mobile_number, state_code, constituency_code, address } = req.body;
+    // Inputs are already validated and sanitized by Zod & sanitizeHtml
+    const { fullname, email, voter_id, aadhaar_number, father_name, gender, dob, mobile_number, state_code, constituency_code, address } = req.body;
 
-    if (!fullname || !email || !password || !voter_id) {
-        return res.status(400).json({ error: 'Full name, email, password, and voter ID are required' });
-    }
-
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanVoterId = voter_id.trim().toUpperCase();
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-        return res.status(400).json({ error: 'Invalid email format' });
-    }
-    if (password.length < 8) {
-        return res.status(400).json({ error: 'Password must be at least 8 characters long' });
-    }
-    if (aadhaar_number && !/^\d{12}$/.test(aadhaar_number.replace(/\s/g, ''))) {
-        return res.status(400).json({ error: 'Aadhaar number must be exactly 12 digits' });
-    }
-
-    const approvedVoter = await prisma.approvedVoter.findUnique({ where: { email: cleanEmail } });
-    if (!approvedVoter) {
-        return res.status(403).json({ error: 'You are not in the approved voter list. Please contact your local Election Officer to get whitelisted.', code: 'NOT_WHITELISTED' });
-    }
-    if (approvedVoter.status === 'BLACKLIST') {
-        return res.status(403).json({ error: 'Your voter registration has been suspended. Please contact ECI helpline 1950.', code: 'BLACKLISTED' });
-    }
-
+    // Check for existing application / account
     const existingUser = await prisma.user.findFirst({
-        where: { OR: [{ email: cleanEmail }, { voter_id: cleanVoterId }] }
+        where: { OR: [{ email }, { voter_id }] }
     });
     if (existingUser) {
-        return res.status(409).json({ error: 'An account with these credentials already exists. Please login instead.' });
+        // Prevent enumeration: always return the identical success message
+        return res.status(201).json({
+            message: 'Application submitted! You will receive your login credentials by email once an Election Officer approves your registration.',
+            applied: true
+        });
     }
 
     // Hash Aadhaar with HMAC-SHA256 pepper for PII protection
@@ -57,68 +38,161 @@ exports.register = async (req, res) => {
 
         const existingAadhaar = await prisma.user.findUnique({ where: { aadhaar_number: hashedAadhaar } });
         if (existingAadhaar) {
-            return res.status(409).json({ error: 'This Aadhaar number is already linked to another account.' });
+            return res.status(409).json({ error: 'This Aadhaar number is already linked to another application.' });
         }
     }
 
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    const user = await prisma.user.create({
+    // Create user in PENDING state — no password yet
+    await prisma.user.create({
         data: {
-            fullname: sanitize(fullname), email: cleanEmail, password: hashedPassword,
-            voter_id: cleanVoterId, aadhaar_number: hashedAadhaar,
-            father_name: father_name ? sanitize(father_name) : null,
-            gender: gender ? sanitize(gender) : null, dob: dob || null,
-            mobile_number: mobile_number ? sanitize(mobile_number) : null,
+            fullname, email, voter_id, aadhaar_number: hashedAadhaar,
+            father_name, gender, dob, mobile_number,
             state_code: state_code ? parseInt(state_code) : null,
             constituency_code: constituency_code ? parseInt(constituency_code) : null,
-            address: address ? sanitize(address) : null, role: 'VOTER'
+            address,
+            role: 'VOTER',
+            registration_status: 'PENDING',
+            must_change_password: false
         }
     });
 
-    const token = jwt.sign(
-        { id: user.id, email: user.email, voterId: user.voter_id, role: 'VOTER' },
-        EFFECTIVE_JWT_SECRET, { expiresIn: '30m' }
-    );
-
     await prisma.loginHistory.create({
-        data: { voter_id: user.voter_id, ip_address: req.ip, status: 'REGISTERED' }
-    });
+        data: { voter_id, ip_address: req.ip, status: 'REGISTERED' }
+    }).catch(() => {});
 
-    // Set JWT as httpOnly cookie (primary auth) — closes localStorage XSS vulnerability
-    setTokenCookie(res, 'token', token, 30 * 60 * 1000);
+    // Send acknowledgment email using Brevo
+    const emailService = require('../services/emailService');
+    // We don't await this so it doesn't block the API response
+    emailService.sendRegistrationAcknowledgment(email, fullname, voter_id).catch(() => {});
 
     res.status(201).json({
-        message: 'Registration successful! Welcome to Bharat E-Vote.', token,
-        user: { id: user.id, fullname: user.fullname, email: user.email, voterId: user.voter_id, hasVoted: false }
+        message: 'Application submitted! You will receive your login credentials by email once an Election Officer approves your registration.',
+        applied: true
     });
 };
 
+// ===================== SET NEW PASSWORD (first-login forced change) =====================
+exports.setNewPassword = async (req, res) => {
+    // Input is already validated by Zod
+    const { newPassword } = req.body;
+
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user) return res.status(401).json({ error: 'Authentication failed.' });
+    if (!user.must_change_password) {
+        return res.status(400).json({ error: 'Password change is not required for this account.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    // Clear temp password, unset the flag, and kill active sessions
+    await Promise.all([
+        prisma.user.update({
+            where: { id: user.id },
+            data: { password: hashedPassword, must_change_password: false, active_session_token: null, active_session_expires: null }
+        }),
+        redisService.clearActiveSession(user.id)
+    ]);
+
+    // Clear old session cookie — user must re-login with new password
+    clearTokenCookie(res, 'token');
+
+    await prisma.loginHistory.create({
+        data: { voter_id: user.voter_id, ip_address: req.ip, status: 'PASSWORD_SET' }
+    }).catch(() => {});
+
+    res.json({ message: 'Password set successfully! Please log in with your new password.', passwordSet: true });
+};
+
+
 // ===================== LOGIN (Step 1) =====================
 exports.login = async (req, res) => {
+    // Inputs validated and sanitized by Zod
     const { identifier, password } = req.body;
-    if (!identifier || !password) {
-        return res.status(400).json({ error: 'Email/Voter ID and password are required' });
+    const cleanIdentifier = identifier.toLowerCase();
+
+    // 1. Check lockout status & calculate progressive delay
+    const isLocked = await redisService.isAccountLocked(cleanIdentifier);
+    const failedAttempts = await redisService.getFailedLoginAttempts(cleanIdentifier);
+    
+    // Progressive delay: 2^attempts * 500ms, max 8000ms
+    const delayMs = Math.min(Math.pow(2, failedAttempts) * 500, 8000);
+    if (failedAttempts > 0) {
+        await new Promise(resolve => setTimeout(resolve, delayMs));
     }
 
-    const cleanIdentifier = identifier.trim().toLowerCase();
+    if (isLocked) {
+        // Return generic error so attackers don't know it's locked
+        return res.status(401).json({ error: 'Incorrect email or password' });
+    }
+
     const user = await prisma.user.findFirst({
-        where: { OR: [{ email: cleanIdentifier }, { voter_id: cleanIdentifier.toUpperCase() }] }
+        where: { OR: [{ email: identifier }, { voter_id: identifier.toUpperCase() }] }
     });
 
-    if (!user) return res.status(401).json({ error: 'Invalid credentials. Please check your email/Voter ID and password.' });
-    if (!user.password) return res.status(401).json({ error: 'This account was created without a password. Please contact support.' });
+    if (!user) {
+        await redisService.incrementFailedLogin(cleanIdentifier);
+        return res.status(401).json({ error: 'Incorrect email or password' });
+    }
 
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    // Registration status gate
+    if (user.registration_status === 'PENDING') {
+        return res.status(401).json({ error: 'Incorrect email or password' }); // Mask pending status
+    }
+    if (user.registration_status === 'REJECTED') {
+        return res.status(401).json({ error: 'Incorrect email or password' }); // Mask rejected status
+    }
+
+    if (!user.password) return res.status(401).json({ error: 'Incorrect email or password' }); // Mask uninitialized password
+
+    let isValidPassword = false;
+    let needsRehash = false;
+
+    if (user.password.startsWith('$2')) {
+        // It's a bcrypt hash
+        isValidPassword = await bcrypt.compare(password, user.password);
+        // Check if cost factor is less than 12
+        if (isValidPassword && !user.password.startsWith('$2b$12$') && !user.password.startsWith('$2a$12$')) {
+            needsRehash = true;
+        }
+    } else {
+        // Legacy plain-text fallback for migration
+        // Note: Use constant-time comparison even for plain text to prevent timing attacks
+        try {
+            isValidPassword = crypto.timingSafeEqual(Buffer.from(password), Buffer.from(user.password));
+        } catch (e) {
+            // Buffers might be of unequal length
+            isValidPassword = password === user.password; 
+        }
+        if (isValidPassword) {
+            needsRehash = true;
+        }
+    }
+
     if (!isValidPassword) {
         await prisma.loginHistory.create({ data: { voter_id: user.voter_id, ip_address: req.ip, status: 'FAILED' } }).catch(() => {});
-        return res.status(401).json({ error: 'Invalid password. Please try again.' });
+        
+        const newFailedCount = await redisService.incrementFailedLogin(cleanIdentifier);
+        if (newFailedCount >= 5) {
+            await redisService.setAccountLockout(cleanIdentifier, 15);
+            const emailService = require('../services/emailService');
+            // Send email asynchronously
+            emailService.sendAccountLockoutNotification(user.email, user.fullname || 'User').catch(() => {});
+        }
+
+        return res.status(401).json({ error: 'Incorrect email or password' });
     }
 
-    const approvedVoter = await prisma.approvedVoter.findUnique({ where: { email: user.email } });
-    if (approvedVoter && approvedVoter.status === 'BLACKLIST') {
-        return res.status(403).json({ error: 'Your account has been suspended. Contact ECI helpline 1950.' });
+    // MIGRATION: Re-hash weak or plain-text passwords transparently
+    if (needsRehash) {
+        const newHash = await bcrypt.hash(password, 12);
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { password: newHash }
+        }).catch(err => console.error(`Migration failed for user ${user.id}:`, err.message));
     }
+
+    // Successful login - clear failed attempts
+    await redisService.clearFailedLogin(cleanIdentifier);
 
     // MFA: Generate and send OTP
     const otp = String(crypto.randomInt(100000, 999999));
@@ -148,7 +222,8 @@ exports.login = async (req, res) => {
     res.json({
         message: 'Password verified. OTP sent to your registered email.', mfaRequired: true, preAuthToken,
         maskedEmail: user.email.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
-        user: { id: user.id, fullname: user.fullname, voterId: user.voter_id, hasVoted: user.has_voted, walletAddress: user.wallet_address }
+        user: { id: user.id, fullname: user.fullname, voterId: user.voter_id, hasVoted: user.has_voted, walletAddress: user.wallet_address },
+        mustChangePassword: user.must_change_password
     });
 };
 
@@ -183,7 +258,7 @@ exports.verifyOtp = async (req, res) => {
     await prisma.mfaToken.update({ where: { id: mfaToken.id }, data: { verified: true } });
 
     const user = await prisma.user.findUnique({ where: { email: decoded.email } });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) return res.status(401).json({ error: 'Authentication failed.' });
 
     const sessionToken = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
     await redisService.setActiveSession(user.id, sessionToken, 1200);
@@ -218,7 +293,7 @@ exports.resendOtp = async (req, res) => {
     if (decoded.step !== 'mfa_pending') return res.status(400).json({ error: 'Invalid authentication step.' });
 
     const user = await prisma.user.findUnique({ where: { email: decoded.email } });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) return res.status(401).json({ error: 'Authentication failed.' });
 
     await prisma.mfaToken.updateMany({ where: { user_email: user.email, verified: false }, data: { verified: true } });
 
@@ -255,7 +330,7 @@ exports.forgotPassword = async (req, res) => {
 
     const cleanEmail = email.trim().toLowerCase();
     const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
-    if (!user) return res.json({ message: 'If an account exists with this email, an OTP has been sent.' });
+    if (!user) return res.json({ message: 'If that email is registered, you\'ll receive a reset link' });
 
     const otp = String(crypto.randomInt(100000, 999999));
     const otpHash = await bcrypt.hash(otp, 10);
@@ -271,7 +346,7 @@ exports.forgotPassword = async (req, res) => {
 
     const resetToken = jwt.sign({ email: cleanEmail, purpose: 'password_reset' }, EFFECTIVE_JWT_SECRET, { expiresIn: '10m' });
 
-    res.json({ message: 'If an account exists with this email, an OTP has been sent.', email: cleanEmail.replace(/(.{2})(.*)(@.*)/, '$1***$3') });
+    res.json({ message: 'If that email is registered, you\'ll receive a reset link' });
 };
 
 // ===================== RESET PASSWORD =====================
@@ -317,12 +392,19 @@ exports.resetPassword = async (req, res) => {
                 data: { 
                     password: hashedPassword,
                     active_session_token: null,
-                    active_session_expires: null
+                    active_session_expires: null,
+                    must_change_password: false
                 } 
             })
         ]);
     } else {
-        await prisma.user.update({ where: { email: decoded.email }, data: { password: hashedPassword } });
+        await prisma.user.update({ 
+            where: { email: decoded.email }, 
+            data: { 
+                password: hashedPassword,
+                must_change_password: false
+            } 
+        });
     }
 
     await prisma.loginHistory.create({ data: { voter_id: userToReset?.voter_id || 'UNKNOWN', ip_address: req.ip, status: 'PASSWORD_RESET' } }).catch(() => {});
@@ -336,7 +418,7 @@ exports.generateQrTicket = async (req, res) => {
         where: { id: req.user.id },
         select: { id: true, email: true, voter_id: true, has_voted: true, fullname: true }
     });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) return res.status(401).json({ error: 'Authentication session invalid.' });
     if (user.has_voted) return res.status(400).json({ error: 'You have already voted. QR ticket cannot be issued.' });
 
     await prisma.qrVoteTicket.updateMany({ where: { user_email: user.email, used: false }, data: { used: true } });
@@ -443,7 +525,7 @@ exports.getMe = async (req, res) => {
         where: { id: req.user.id },
         select: { id: true, fullname: true, voter_id: true, email: true, wallet_address: true, has_voted: true, father_name: true, gender: true, dob: true }
     });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) return res.status(401).json({ error: 'Authentication failed.' });
     res.json({ id: user.id, fullname: user.fullname, voterId: user.voter_id, email: user.email, hasVoted: user.has_voted, walletAddress: user.wallet_address, fatherName: user.father_name, gender: user.gender, dob: user.dob });
 };
 

@@ -75,6 +75,13 @@ router.post('/elections/:id/notify', asyncHandler(admin.broadcastElectionEmail))
 router.get('/stats', asyncHandler(admin.getStats));
 
 // ==========================================
+// VOTER REGISTRATION APPROVALS
+// ==========================================
+router.get('/voter-registrations', asyncHandler(admin.getPendingRegistrations));
+router.post('/voter-registrations/:id/approve', asyncHandler(admin.approveVoterRegistration));
+router.post('/voter-registrations/:id/reject', asyncHandler(admin.rejectVoterRegistration));
+
+// ==========================================
 // APPROVED VOTER WHITELIST/BLACKLIST
 // ==========================================
 router.get('/approved-voters', asyncHandler(admin.getApprovedVoters));
