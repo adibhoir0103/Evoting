@@ -12,7 +12,6 @@ const emailService = require('../services/emailService');
 const { logAdminAction: logAction } = require('../utils/helpers');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
-const supabaseAdmin = require('../lib/supabase');
 
 // ==========================================
 // VOTER REGISTRATION APPROVALS
@@ -50,20 +49,8 @@ exports.approveVoterRegistration = async (req, res) => {
     const tempPassword = crypto.randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12)
         + String(crypto.randomInt(10, 99)); // always ends with 2 digits for policy compliance
 
-    // Create user in Supabase Auth
-    const { data: supabaseUser, error: supabaseError } = await supabaseAdmin.auth.admin.createUser({
-        email: user.email,
-        password: tempPassword,
-        email_confirm: true,
-        user_metadata: {
-            voter_id: user.voter_id,
-            role: 'VOTER'
-        }
-    });
-
-    if (supabaseError) {
-        return res.status(500).json({ error: `Supabase Auth error: ${supabaseError.message}` });
-    }
+    // User auth is fully handled by our PostgreSQL database and local JWTs.
+    // No external auth provider is used.
 
     const hashedPassword = await bcrypt.hash(tempPassword, 12);
 
@@ -81,7 +68,6 @@ exports.approveVoterRegistration = async (req, res) => {
         await emailService.sendLoginCredentials(user.email, user.fullname || 'Voter', user.voter_id, tempPassword);
     } catch (emailErr) {
         // Roll back approval if email fails — voter must be notified
-        await supabaseAdmin.auth.admin.deleteUser(supabaseUser.user.id);
         await prisma.user.update({
             where: { id: userId },
             data: { registration_status: 'PENDING' }

@@ -35,12 +35,16 @@ Create a `.env` file in the **root** directory and populate it:
 # Database (PostgreSQL)
 DATABASE_URL="postgresql://username:password@localhost:5432/evoting?schema=public"
 
+# Bot Protection (Cloudflare Turnstile)
+TURNSTILE_SECRET_KEY="your_turnstile_secret_key"
+
 # Upstash Redis (For Session Security)
 UPSTASH_REDIS_REST_URL="https://your-upstash-url.upstash.io"
 UPSTASH_REDIS_REST_TOKEN="your_upstash_token"
 
 # JWT Auth
 JWT_SECRET="generate_a_very_long_random_string_here"
+AADHAAR_PEPPER="generate_another_random_string_here"
 
 # Brevo Email API (For OTPs & Notifications)
 BREVO_API_KEY="xkeysib-..."
@@ -49,32 +53,35 @@ BREVO_FROM_NAME="Bharat E-Vote Admin"
 
 # IPFS Pinata
 PINATA_API_KEY="your_pinata_key"
-PINATA_SECRET_API_KEY="your_pinata_secret"
+PINATA_SECRET_KEY="your_pinata_secret"
 PINATA_JWT="your_pinata_jwt"
 
 # Blockchain RPC (Optional for Testnets)
-SEPOLIA_URL="https://eth-sepolia.g.alchemy.com/v2/..."
+SEPOLIA_RPC_URL="https://eth-sepolia.g.alchemy.com/v2/..."
 PRIVATE_KEY="your_admin_wallet_private_key"
 ```
 
 ### 3. Installation
 Install all dependencies for the monorepo:
 ```bash
-# In the root directory:
-npm install
-
-# In the frontend directory:
-cd frontend
-npm install
+# In the root directory, this installs root, backend, and frontend dependencies:
+npm run install:all
 ```
 
 ### 4. Database Setup
 ```bash
+cd backend
+
+# Generate the Prisma client
+npx prisma generate
+
 # Push the Prisma schema to your PostgreSQL database
 npx prisma db push
 
 # (Optional) Seed the database with sample candidates
 npx prisma db seed
+
+cd ..
 ```
 
 ### 5. Blockchain Deployment

@@ -6,13 +6,16 @@
         "test": "hardhat test",
         "compile": "hardhat compile",
         "deploy": "hardhat run scripts/deploy.js --network localhost",
-        "node": "hardhat node"
+        "node": "hardhat node",
+        "start": "concurrently \"npm run start --prefix backend\" \"npm run start --prefix frontend\"",
+        "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend"
     },
     "dependencies": {
         "dotenv": "^17.4.2"
     },
     "devDependencies": {
         "@nomicfoundation/hardhat-toolbox": "^6.1.2",
+        "concurrently": "^8.2.2",
         "hardhat": "^2.22.0"
     }
 }
