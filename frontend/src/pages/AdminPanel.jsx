@@ -28,6 +28,10 @@ function AdminPanel({ onAdminLogout }) {
             if (res.ok) {
                 const data = await res.json();
                 setStats(data);
+            } else if (res.status === 401 || res.status === 403) {
+                localStorage.removeItem('admin');
+                if (onAdminLogout) onAdminLogout();
+                navigate('/admin-login');
             } else {
                 setStatsError('Failed to load dashboard statistics. Server returned an error.');
             }

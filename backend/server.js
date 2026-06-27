@@ -28,6 +28,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
+const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const hpp = require('hpp');
 
@@ -96,6 +97,7 @@ app.use(cors({
 }));
 
 app.use(express.json({ limit: '10kb' }));
+app.use(cookieParser());
 
 // Prevent HTTP Parameter Pollution
 app.use(hpp());
