@@ -8,8 +8,10 @@ const AuditLogs = () => {
     useEffect(() => {
         const fetchLogs = async () => {
             try {
-                const res = await fetch(`${API_URL}/admin/audit`, { credentials: 'include',
-                    headers: {  }
+                const adminData = JSON.parse(localStorage.getItem('admin') || '{}');
+                const res = await fetch(`${API_URL}/admin/audit`, { 
+                    credentials: 'include',
+                    headers: { 'Authorization': `Bearer ${adminData.token}` }
                 });
                 const data = await res.json();
                 if (res.ok) setLogs(data);

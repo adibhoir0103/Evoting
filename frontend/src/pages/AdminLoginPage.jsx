@@ -45,7 +45,7 @@ function AdminLoginPage({ onAdminLogin }) {
                 setMaskedEmail(data.email || '');
             } else if (data.token) {
                 // Direct login (legacy fallback)
-                localStorage.setItem('admin', JSON.stringify(data.admin));
+                localStorage.setItem('admin', JSON.stringify({ ...data.admin, token: data.token }));
                 if (onAdminLogin) onAdminLogin(data.admin);
                 navigate('/admin-panel');
             }
@@ -74,7 +74,7 @@ function AdminLoginPage({ onAdminLogin }) {
                 throw new Error(data.error || 'MFA verification failed');
             }
 
-            localStorage.setItem('admin', JSON.stringify(data.admin));
+            localStorage.setItem('admin', JSON.stringify({ ...data.admin, token: data.token }));
 
             if (onAdminLogin) {
                 onAdminLogin(data.admin);

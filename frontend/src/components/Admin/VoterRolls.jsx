@@ -19,8 +19,10 @@ const VoterRolls = () => {
 
     const fetchVoters = async () => {
         try {
-            const res = await fetch(`${API_URL}/admin/approved-voters`, { credentials: 'include',
-                headers: {  }
+            const adminData = JSON.parse(localStorage.getItem('admin') || '{}');
+            const res = await fetch(`${API_URL}/admin/approved-voters`, { 
+                credentials: 'include',
+                headers: { 'Authorization': `Bearer ${adminData.token}` }
             });
             if (res.ok) {
                 const data = await res.json();
@@ -41,9 +43,14 @@ const VoterRolls = () => {
         setMessage('');
 
         try {
-            const res = await fetch(`${API_URL}/admin/approved-voters`, { credentials: 'include',
+            const adminData = JSON.parse(localStorage.getItem('admin') || '{}');
+            const res = await fetch(`${API_URL}/admin/approved-voters`, { 
+                credentials: 'include',
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json',  },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${adminData.token}`
+                },
                 body: JSON.stringify(formData)
             });
             const data = await res.json();
@@ -66,9 +73,14 @@ const VoterRolls = () => {
     const handleToggle = async (id, currentStatus) => {
         const newStatus = currentStatus === 'WHITELIST' ? 'BLACKLIST' : 'WHITELIST';
         try {
-            const res = await fetch(`${API_URL}/admin/approved-voters/${id}`, { credentials: 'include',
+            const adminData = JSON.parse(localStorage.getItem('admin') || '{}');
+            const res = await fetch(`${API_URL}/admin/approved-voters/${id}`, { 
+                credentials: 'include',
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json',  },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${adminData.token}`
+                },
                 body: JSON.stringify({ status: newStatus })
             });
             if (res.ok) fetchVoters();
@@ -79,9 +91,11 @@ const VoterRolls = () => {
 
     const handleDelete = async (id) => {
         try {
-            const res = await fetch(`${API_URL}/admin/approved-voters/${id}`, { credentials: 'include',
+            const adminData = JSON.parse(localStorage.getItem('admin') || '{}');
+            const res = await fetch(`${API_URL}/admin/approved-voters/${id}`, { 
+                credentials: 'include',
                 method: 'DELETE',
-                headers: {  }
+                headers: { 'Authorization': `Bearer ${adminData.token}` }
             });
             if (res.ok) {
                 toast.success('Voter removed from approved list');
@@ -106,9 +120,11 @@ const VoterRolls = () => {
         fd.append('file', file);
 
         try {
-            const res = await fetch(`${API_URL}/admin/approved-voters/bulk`, { credentials: 'include',
+            const adminData = JSON.parse(localStorage.getItem('admin') || '{}');
+            const res = await fetch(`${API_URL}/admin/approved-voters/bulk`, { 
+                credentials: 'include',
                 method: 'POST',
-                headers: {  },
+                headers: { 'Authorization': `Bearer ${adminData.token}` },
                 body: fd
             });
             const data = await res.json();

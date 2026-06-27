@@ -12,8 +12,10 @@ function PendingRegistrations() {
         setLoading(true);
         setError('');
         try {
-            const res = await fetch(`${API_URL}/admin/voter-registrations?status=${filterStatus}`, { credentials: 'include',
-                headers: {  }
+            const adminData = JSON.parse(localStorage.getItem('admin') || '{}');
+            const res = await fetch(`${API_URL}/admin/voter-registrations?status=${filterStatus}`, { 
+                credentials: 'include',
+                headers: { 'Authorization': `Bearer ${adminData.token}` }
             });
             if (!res.ok) throw new Error('Failed to fetch registrations');
             const data = await res.json();
@@ -33,9 +35,11 @@ function PendingRegistrations() {
         if (!window.confirm(`Are you sure you want to approve ${name}? This will generate credentials and send an email.`)) return;
         
         try {
-            const res = await fetch(`${API_URL}/admin/voter-registrations/${id}/approve`, { credentials: 'include',
+            const adminData = JSON.parse(localStorage.getItem('admin') || '{}');
+            const res = await fetch(`${API_URL}/admin/voter-registrations/${id}/approve`, { 
+                credentials: 'include',
                 method: 'POST',
-                headers: {  }
+                headers: { 'Authorization': `Bearer ${adminData.token}` }
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Approval failed');
@@ -52,9 +56,14 @@ function PendingRegistrations() {
         if (reason === null) return; // cancelled
         
         try {
-            const res = await fetch(`${API_URL}/admin/voter-registrations/${id}/reject`, { credentials: 'include',
+            const adminData = JSON.parse(localStorage.getItem('admin') || '{}');
+            const res = await fetch(`${API_URL}/admin/voter-registrations/${id}/reject`, { 
+                credentials: 'include',
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json',  },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${adminData.token}`
+                },
                 body: JSON.stringify({ reason })
             });
             const data = await res.json();

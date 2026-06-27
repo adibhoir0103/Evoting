@@ -22,8 +22,12 @@ function AdminPanel({ onAdminLogout }) {
     const fetchStats = async () => {
         try {
             setStatsError('');
-            const res = await fetch(`${import.meta.env.VITE_API_URL || '/api/v1'}/admin/stats`, { credentials: 'include',
-                headers: {  }
+            const token = adminData.token || '';
+            const res = await fetch(`${import.meta.env.VITE_API_URL || '/api/v1'}/admin/stats`, { 
+                credentials: 'include',
+                headers: { 
+                    'Authorization': `Bearer ${token}` 
+                }
             });
             if (res.ok) {
                 const data = await res.json();

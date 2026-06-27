@@ -78,8 +78,10 @@ const ElectionWizard = () => {
 
     const fetchElections = async () => {
         try {
-            const res = await fetch(`${API_URL}/admin/elections`, { credentials: 'include',
-                headers: {  }
+            const adminData = JSON.parse(localStorage.getItem('admin') || '{}');
+            const res = await fetch(`${API_URL}/admin/elections`, { 
+                credentials: 'include',
+                headers: { 'Authorization': `Bearer ${adminData.token}` }
             });
             const data = await res.json();
             if (res.ok) {
@@ -99,11 +101,13 @@ const ElectionWizard = () => {
     const handleCreate = async (e) => {
         e.preventDefault();
         try {
-            const res = await fetch(`${API_URL}/admin/elections`, { credentials: 'include',
+            const adminData = JSON.parse(localStorage.getItem('admin') || '{}');
+            const res = await fetch(`${API_URL}/admin/elections`, { 
+                credentials: 'include',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    
+                    'Authorization': `Bearer ${adminData.token}`
                 },
                 body: JSON.stringify(formData)
             });
@@ -122,11 +126,13 @@ const ElectionWizard = () => {
 
     const updateStatus = async (id, status, reason = '') => {
         try {
-            const res = await fetch(`${API_URL}/admin/elections/${id}/status`, { credentials: 'include',
+            const adminData = JSON.parse(localStorage.getItem('admin') || '{}');
+            const res = await fetch(`${API_URL}/admin/elections/${id}/status`, { 
+                credentials: 'include',
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    
+                    'Authorization': `Bearer ${adminData.token}`
                 },
                 body: JSON.stringify({ status, override_reason: reason })
             });
