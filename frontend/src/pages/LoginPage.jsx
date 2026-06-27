@@ -296,8 +296,8 @@ function LoginPage({ onLogin }) {
             if (onLogin) onLogin(data.user, data.token);
 
             if (mustChangePasswordAfterMfa) {
-                toast('🔑 Please set your permanent password before continuing.', { icon: '⚠️', duration: 5000 });
-                navigate('/set-password');
+                toast('🔑 Please consider setting a permanent password in your profile.', { icon: '⚠️', duration: 5000 });
+                navigate('/dashboard');
             } else {
                 toast.success(`Welcome back, ${data.user.fullname || 'Voter'}! MFA verified ✓`, { icon: '🛡️' });
                 navigate('/dashboard');
