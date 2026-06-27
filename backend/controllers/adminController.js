@@ -280,9 +280,20 @@ exports.uploadElectionVoters = async (req, res) => {
             let successCount = 0;
             let errorCount = 0;
 
+            // In-memory deduplication
+            const uniqueResults = [];
+            const seenIdentifiers = new Set();
+            for (const row of results) {
+                const identifier = (row.aadhaar_number || row.email || row.voter_id || '').trim().toLowerCase();
+                if (identifier && !seenIdentifiers.has(identifier)) {
+                    seenIdentifiers.add(identifier);
+                    uniqueResults.push(row);
+                }
+            }
+
             const localPrisma = prisma; // Reuse existing Prisma client
             try {
-                for (const row of results) {
+                for (const row of uniqueResults) {
                     // CSV should have a column 'aadhaar_number' or 'email' or 'voter_id'
                     const identifier = row.aadhaar_number || row.email || row.voter_id;
                     if (!identifier) {
@@ -401,7 +412,7 @@ exports.getAuditLogs = async (req, res) => {
 
 // Broadcast Email to Election Voters (direct send via email service)
 exports.broadcastElectionEmail = async (req, res) => {
-    const { subject, body } = req.body;
+    const { subject, body, idempotencyKey } = req.body;
     if (!subject || typeof subject !== 'string' || subject.trim() === '') {
         return res.status(400).json({ error: 'Subject is required and must be valid' });
     }
@@ -411,6 +422,17 @@ exports.broadcastElectionEmail = async (req, res) => {
 
     const electionId = parseInt(req.params.id);
     if (isNaN(electionId)) return res.status(400).json({ error: 'Invalid election ID' });
+
+    // Deduplication check
+    const idKey = idempotencyKey || crypto.createHash('sha256').update(subject + body).digest('hex').substring(0, 32);
+    const notifType = 'BROADCAST_' + idKey;
+
+    const existingNotif = await prisma.electionNotification.findUnique({
+        where: { election_id_type: { election_id: electionId, type: notifType } }
+    });
+    if (existingNotif) {
+        return res.json({ message: 'Broadcast already sent', stats: { totalVoters: 0, emailsSent: 0, errors: 0, duplicate: true } });
+    }
 
     const voters = await prisma.electionVoter.findMany({
         where: { election_id: electionId },
@@ -443,6 +465,18 @@ exports.broadcastElectionEmail = async (req, res) => {
         if (i + batchSize < voters.length) {
             await new Promise(resolve => setTimeout(resolve, 2000));
         }
+    }
+
+    try {
+        await prisma.electionNotification.create({
+            data: {
+                election_id: electionId,
+                type: notifType,
+                sent_count: sentCount
+            }
+        });
+    } catch (e) {
+        console.error('Failed to log broadcast notification', e);
     }
 
     await logAction(req.adminUser.email, 'BROADCAST_EMAIL', `Sent notification "${subject}" to ${sentCount} voters in Election ${electionId}`, req.ip);
@@ -568,7 +602,18 @@ exports.bulkUploadApprovedVoters = async (req, res) => {
             let successCount = 0;
             let errorCount = 0;
 
+            // In-memory deduplication
+            const uniqueResults = [];
+            const seenEmails = new Set();
             for (const row of results) {
+                const email = (row.email || '').trim().toLowerCase();
+                if (email && !seenEmails.has(email)) {
+                    seenEmails.add(email);
+                    uniqueResults.push(row);
+                }
+            }
+
+            for (const row of uniqueResults) {
                 const email = (row.email || '').trim().toLowerCase();
                 if (!email) { errorCount++; continue; }
 

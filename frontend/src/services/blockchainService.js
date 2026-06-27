@@ -452,7 +452,9 @@ export class BlockchainService {
                 isAuthorized: info[0],
                 hasVoted: info[1],
                 stateCode: Number(info[2]),
-                constituencyCode: Number(info[3])
+                constituencyCode: Number(info[3]),
+                voteVersion: Number(info[4]),
+                canRevote: info[5]
             };
         } catch (error) {
             console.error('Error getting voter info:', error);

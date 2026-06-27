@@ -53,7 +53,7 @@ contract VotingV2 {
         bool hasVoted;
         uint8 stateCode;
         uint8 constituencyCode;
-        uint32 lastCandidateId;    // Track last vote for re-voting
+        bytes32 lastVoteCommitment;    // Track last vote for re-voting
         uint32 voteVersion;        // Number of times voted
     }
     
@@ -61,6 +61,7 @@ contract VotingV2 {
     
     mapping(uint256 => Candidate) public candidates;
     mapping(address => Voter) public voters;
+    mapping(bytes32 => uint32) private _hiddenVotes;
     
     // ============ Events ============
     
@@ -74,7 +75,7 @@ contract VotingV2 {
     // ============ Modifiers ============
     
     modifier onlyAdmin() {
-        require(msg.sender == admin, "Only admin can perform this action");
+        require(_msgSender() == admin, "Only admin can perform this action");
         _;
     }
     
@@ -185,7 +186,7 @@ contract VotingV2 {
         voters[_voter].hasVoted = false;
         voters[_voter].stateCode = _stateCode;
         voters[_voter].constituencyCode = _constituencyCode;
-        voters[_voter].lastCandidateId = 0;
+        voters[_voter].lastVoteCommitment = bytes32(0);
         voters[_voter].voteVersion = 0;
         
         emit VoterAuthorized(_voter, _stateCode, _constituencyCode);
@@ -199,7 +200,7 @@ contract VotingV2 {
         voters[_voter].hasVoted = false;
         voters[_voter].stateCode = 0;
         voters[_voter].constituencyCode = 0;
-        voters[_voter].lastCandidateId = 0;
+        voters[_voter].lastVoteCommitment = bytes32(0);
         voters[_voter].voteVersion = 0;
         
         emit VoterAuthorized(_voter, 0, 0);
@@ -216,7 +217,7 @@ contract VotingV2 {
                     hasVoted: false,
                     stateCode: 0,
                     constituencyCode: 0,
-                    lastCandidateId: 0,
+                    lastVoteCommitment: bytes32(0),
                     voteVersion: 0
                 });
                 emit VoterAuthorized(vAddr, 0, 0);
@@ -283,8 +284,9 @@ contract VotingV2 {
             }
 
             // Decrement old candidate's vote count
-            if (voter.lastCandidateId > 0 && voter.lastCandidateId <= candidatesCount) {
-                candidates[voter.lastCandidateId].voteCount--;
+            uint32 oldCand = _hiddenVotes[voter.lastVoteCommitment];
+            if (oldCand > 0 && oldCand <= candidatesCount) {
+                candidates[oldCand].voteCount--;
             }
         }
         
@@ -299,10 +301,12 @@ contract VotingV2 {
         
         // Update voter state
         voter.hasVoted = true;
-        voter.lastCandidateId = uint32(_candidateId);
+        bytes32 commitment = keccak256(abi.encodePacked(_candidateId, _secretSalt));
+        voter.lastVoteCommitment = commitment;
         voter.voteVersion++;
         
         voters[_msgSender()] = voter;
+        _hiddenVotes[commitment] = uint32(_candidateId);
         
         // Increment new candidate vote count
         candidates[_candidateId].voteCount++;
