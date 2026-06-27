@@ -113,13 +113,16 @@ export const authService = {
     /**
      * Record vote in database after blockchain transaction
      */
-    async recordVote(txHash) {
+    async recordVote(txHash, electionId = null) {
         const headers = await this.getAuthHeaders();
+        const payload = { txHash };
+        if (electionId) payload.electionId = electionId;
+
         const response = await fetch(`${API_URL}/vote/record`, {
             method: 'POST',
             headers,
             credentials: 'include',
-            body: JSON.stringify({ txHash })
+            body: JSON.stringify(payload)
         });
 
         const data = await response.json();

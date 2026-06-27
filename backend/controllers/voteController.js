@@ -17,9 +17,11 @@ exports.recordVote = async (req, res) => {
         return res.status(400).json({ error: 'Invalid transaction hash format' });
     }
 
-    if (!electionId) return res.status(400).json({ error: 'Election ID is required' });
-    const parsedElectionId = parseInt(electionId);
-    if (isNaN(parsedElectionId)) return res.status(400).json({ error: 'Invalid election ID' });
+    let parsedElectionId = null;
+    if (electionId) {
+        parsedElectionId = parseInt(electionId);
+        if (isNaN(parsedElectionId)) return res.status(400).json({ error: 'Invalid election ID' });
+    }
 
     const user = await prisma.user.findUnique({
         where: { id: req.user.id },
@@ -29,39 +31,50 @@ exports.recordVote = async (req, res) => {
 
     // Serializable isolation to prevent race conditions
     await prisma.$transaction(async (tx) => {
-        // Check election specific voter record first
-        const electionVoter = await tx.electionVoter.findUnique({
-            where: { election_id_user_id: { election_id: parsedElectionId, user_id: req.user.id } }
-        });
+        let isElectionVoterChecked = false;
         
-        if (!electionVoter) {
-            throw new Error('NOT_REGISTERED_FOR_ELECTION');
+        // If an election is specified, try to check the ElectionVoter table first
+        if (parsedElectionId) {
+            const electionVoter = await tx.electionVoter.findUnique({
+                where: { election_id_user_id: { election_id: parsedElectionId, user_id: req.user.id } }
+            });
+            
+            if (electionVoter) {
+                isElectionVoterChecked = true;
+                if (electionVoter.has_voted) {
+                    throw new Error('ALREADY_VOTED_IN_ELECTION');
+                }
+                
+                // Update election specific vote flag
+                await tx.electionVoter.update({
+                    where: { election_id_user_id: { election_id: parsedElectionId, user_id: req.user.id } },
+                    data: { has_voted: true }
+                });
+            }
         }
         
-        if (electionVoter.has_voted) {
-            throw new Error('ALREADY_VOTED_IN_ELECTION');
+        // Fallback for global users (or if ElectionVoter wasn't found/used)
+        if (!isElectionVoterChecked) {
+            // Check global has_voted flag
+            const globalUser = await tx.user.findUnique({ where: { id: req.user.id } });
+            if (globalUser.has_voted) {
+                throw new Error('ALREADY_VOTED_IN_ELECTION');
+            }
         }
 
-        // Create vote with proper election scope
+        // Create vote record
         await tx.vote.create({ 
             data: { 
                 voter_id: user.voter_id, 
                 tx_hash: txHash,
-                election_id: parsedElectionId
+                election_id: parsedElectionId || null
             } 
         });
         
-        // Update election specific vote flag
-        await tx.electionVoter.update({
-            where: { election_id_user_id: { election_id: parsedElectionId, user_id: req.user.id } },
-            data: { has_voted: true }
-        });
-
-        // Also update legacy global flag for backwards compatibility
+        // Always update legacy global flag for backwards compatibility
         await tx.user.update({ where: { id: req.user.id }, data: { has_voted: true } });
     }, { isolationLevel: 'Serializable' }).catch((err) => {
         if (err.message === 'ALREADY_VOTED_IN_ELECTION') return res.status(400).json({ error: 'You have already voted in this election' });
-        if (err.message === 'NOT_REGISTERED_FOR_ELECTION') return res.status(403).json({ error: 'You are not registered for this election' });
         throw err;
     });
 
