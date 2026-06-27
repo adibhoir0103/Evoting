@@ -607,6 +607,24 @@ export class BlockchainService {
             return new Error('ZKP mode is active: use the ZKP voting contract instead');
         }
 
+        // Fix 5: Translate cryptic ethers.js errors to human-readable messages
+        if (error.code === 'UNSUPPORTED_OPERATION' || error.message?.includes('no matching fragment')) {
+            return new Error('Smart contract call failed: the voting contract interface has changed. Please refresh the page and try again. If the issue persists, contact the Election Officer.');
+        }
+
+        if (error.message?.includes('insufficient funds')) {
+            return new Error('Insufficient wallet balance: your wallet does not have enough ETH to cover the gas fees for this transaction. Please add funds to your wallet.');
+        }
+
+        if (error.code === 'NETWORK_ERROR' || error.message?.includes('could not detect network')) {
+            return new Error('Network connection lost: unable to reach the blockchain network. Please check your internet connection and MetaMask settings.');
+        }
+
+        if (error.code === 'CALL_EXCEPTION') {
+            const reason = error.reason || error.message || 'Unknown contract error';
+            return new Error(`Transaction reverted by the smart contract: ${reason}`);
+        }
+
         return error;
     }
 

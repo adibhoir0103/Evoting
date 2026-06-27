@@ -64,18 +64,33 @@ exports.approveVoterRegistration = async (req, res) => {
     });
 
     // Send login credentials email
+    let emailSent = true;
     try {
         await emailService.sendLoginCredentials(user.email, user.fullname || 'Voter', user.voter_id, tempPassword);
     } catch (emailErr) {
-        // Roll back approval if email fails — voter must be notified
-        await prisma.user.update({
-            where: { id: userId },
-            data: { registration_status: 'PENDING' }
+        // DO NOT roll back — voter is approved. Surface the temp password to admin instead.
+        emailSent = false;
+        const logger = require('../lib/logger');
+        logger.child('admin').warn('Email delivery failed during approval — temp password returned to admin', {
+            userId, email: user.email, error: emailErr.message
         });
-        return res.status(500).json({ error: `Approval failed: could not send credentials email. ${emailErr.message}` });
     }
 
-    await logAction(req.adminUser.email, 'APPROVE_VOTER_REGISTRATION', `Approved voter ${user.email} (ID: ${userId}). Temp credentials sent.`, req.ip);
+    await logAction(req.adminUser.email, 'APPROVE_VOTER_REGISTRATION', `Approved voter ${user.email} (ID: ${userId}). Email sent: ${emailSent}.`, req.ip);
+
+    if (!emailSent) {
+        return res.json({
+            message: `Voter ${user.fullname} approved, but the credentials email could NOT be delivered. Please share the credentials below manually.`,
+            approved: true,
+            emailFailed: true,
+            manualCredentials: {
+                voterId: user.voter_id,
+                email: user.email,
+                tempPassword: tempPassword
+            }
+        });
+    }
+
     res.json({ message: `Voter ${user.fullname} approved. Login credentials sent to ${user.email}.`, approved: true });
 };
 
@@ -156,15 +171,20 @@ exports.updateElectionStatus = async (req, res) => {
     }
 
     // TIME-LOCK HEURISTIC: No critical configuration changes allowed within 60 minutes of start_time
-    // Only exceptions: Admin emergency PAUSE or CLOSE
+    // Only exceptions: Admin emergency PAUSE or CLOSE, or SUPER_ADMIN with explicit override_reason
     if (election.start_time && ['DRAFT', 'PUBLISHED'].includes(status)) {
         const timeUntilStart = new Date(election.start_time).getTime() - Date.now();
         const ONE_HOUR = 60 * 60 * 1000;
 
         if (timeUntilStart <= ONE_HOUR) {
-             return res.status(403).json({
-                 error: 'Time-Lock Active. Structural changes are strictly prohibited within 60 minutes of the election start time and during the election.'
-             });
+            // SUPER_ADMIN can bypass with an explicit audit-logged reason
+            if (req.adminUser.role === 'SUPER_ADMIN' && override_reason) {
+                await logAction(req.adminUser.email, 'TIME_LOCK_OVERRIDE', `SUPER_ADMIN bypassed time-lock on Election ${id}. Reason: ${override_reason}`, req.ip);
+            } else {
+                return res.status(403).json({
+                    error: 'Time-Lock Active. Structural changes are strictly prohibited within 60 minutes of the election start time. SUPER_ADMIN can override by providing an override_reason.'
+                });
+            }
         }
     }
 

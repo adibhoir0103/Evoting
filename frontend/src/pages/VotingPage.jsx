@@ -108,6 +108,27 @@ function VotingPage({ user, onUserUpdate }) {
         }
     };
 
+    // Fix 3: Retry helper for DB sync with exponential backoff
+    const retryRecordVote = async (txHashValue, maxRetries = 3) => {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                await authService.recordVote(txHashValue);
+                localStorage.removeItem('pendingVoteTxHash');
+                return true;
+            } catch (err) {
+                console.warn(`recordVote attempt ${attempt}/${maxRetries} failed:`, err.message);
+                if (attempt < maxRetries) {
+                    await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt))); // 2s, 4s, 8s
+                } else {
+                    // Save to localStorage so it can be retried on next page load
+                    localStorage.setItem('pendingVoteTxHash', txHashValue);
+                    toast.error('Your vote was cast on the blockchain, but we could not sync it with the server. It will be retried automatically.');
+                    return false;
+                }
+            }
+        }
+    };
+
     const loadBlockchainData = async (service, address) => {
         try {
             const [status, voted, authorized, vInfo] = await Promise.all([
@@ -121,6 +142,29 @@ function VotingPage({ user, onUserUpdate }) {
             setHasVoted(voted || user?.hasVoted);
             setIsAuthorized(authorized);
             setVoterConstituencyInfo(vInfo);
+
+            // Fix 6: Auto-detect ZKP mode at page load
+            try {
+                const zkpEnabled = await service.isZKPEnabled();
+                setZkpMode(zkpEnabled);
+                if (zkpEnabled) {
+                    toast('🔒 This election uses Zero-Knowledge Proof voting for enhanced privacy.', { icon: '🛡️', duration: 5000 });
+                }
+            } catch (e) { /* legacy contract without ZKP */ }
+
+            // Fix 3: Retry any pending DB sync from a previous failed attempt
+            const pendingTx = localStorage.getItem('pendingVoteTxHash');
+            if (pendingTx && !voted && !user?.hasVoted) {
+                toast.loading('Retrying vote synchronization...', { id: 'retry-sync' });
+                const synced = await retryRecordVote(pendingTx);
+                if (synced) {
+                    toast.success('Vote successfully synchronized with the server!', { id: 'retry-sync' });
+                    setHasVoted(true);
+                    if (onUserUpdate) onUserUpdate({ ...user, hasVoted: true });
+                } else {
+                    toast.dismiss('retry-sync');
+                }
+            }
 
             const allCandidates = await service.getAllCandidates();
             const filteredCandidates = allCandidates.filter(c => {
@@ -264,7 +308,8 @@ function VotingPage({ user, onUserUpdate }) {
                 setVoteState('confirming');
                 setTxHash(receipt.hash);
 
-                await authService.recordVote(receipt.hash);
+                localStorage.setItem('pendingVoteTxHash', receipt.hash);
+                await retryRecordVote(receipt.hash);
                 setVoteState('confirmed');
 
                 setZkpVoteData({
@@ -280,7 +325,8 @@ function VotingPage({ user, onUserUpdate }) {
                 setVoteState('confirming');
                 setTxHash(receipt.hash);
 
-                await authService.recordVote(receipt.hash);
+                localStorage.setItem('pendingVoteTxHash', receipt.hash);
+                await retryRecordVote(receipt.hash);
                 setVoteState('confirmed');
 
                 setSuccess(`Vote cast successfully! Tx: ${receipt.hash.slice(0, 10)}...`);

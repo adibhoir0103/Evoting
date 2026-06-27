@@ -142,6 +142,24 @@ Sentry.setupExpressErrorHandler(app);
 // Centralized error handler
 app.use(errorHandler);
 
+// ===================== KEEP-ALIVE (Render Free Tier) =====================
+
+// Render free-tier instances sleep after 15 min of inactivity, causing
+// "Failed to Fetch" for the first user. This self-ping prevents that.
+if (process.env.NODE_ENV === 'production' && process.env.RENDER_EXTERNAL_URL) {
+    const KEEP_ALIVE_INTERVAL = 14 * 60 * 1000; // 14 minutes (under Render's 15 min threshold)
+    setInterval(async () => {
+        try {
+            const url = `${process.env.RENDER_EXTERNAL_URL}/health`;
+            const res = await fetch(url);
+            serverLog.debug(`Keep-alive ping: ${res.status}`);
+        } catch (err) {
+            serverLog.warn('Keep-alive ping failed', { error: err.message });
+        }
+    }, KEEP_ALIVE_INTERVAL);
+    serverLog.info('Keep-alive self-ping enabled (every 14 min)');
+}
+
 // ===================== START SERVER =====================
 
 if (require.main === module) {
