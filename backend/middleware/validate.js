@@ -58,9 +58,11 @@ const validate = (schema) => {
                 // Log the specific validation errors on the server for monitoring/auditing
                 console.warn(`[VALIDATION_FAILED] Path: ${req.originalUrl} | IP: ${req.ip} | Errors:`, JSON.stringify(error.errors));
                 
-                // Return a generic error to the client to avoid leaking constraints/probing
+                // Return the first user-friendly Zod error message
+                const firstError = error.errors[0];
+                const errorMsg = firstError?.message || 'Invalid input provided. Please verify your details and try again.';
                 return res.status(400).json({ 
-                    error: 'Invalid input provided. Please verify your details and try again.' 
+                    error: errorMsg
                 });
             }
             

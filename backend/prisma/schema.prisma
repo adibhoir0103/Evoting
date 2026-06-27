@@ -50,6 +50,7 @@ model User {
   role                  Role     @default(VOTER)
   registration_status   String   @default("PENDING")  // PENDING | APPROVED | REJECTED
   must_change_password  Boolean  @default(false)        // true = first-login temp-password flow
+  temp_password_expires_at DateTime?                     // When the temp password expires (48h from approval)
   created_at            DateTime @default(now())
   
   father_name      String?

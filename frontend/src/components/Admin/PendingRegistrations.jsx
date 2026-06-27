@@ -7,6 +7,7 @@ function PendingRegistrations() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [filterStatus, setFilterStatus] = useState('PENDING'); // PENDING, APPROVED, REJECTED
+    const [manualCreds, setManualCreds] = useState(null);
 
     const fetchRegistrations = async () => {
         setLoading(true);
@@ -43,8 +44,12 @@ function PendingRegistrations() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Approval failed');
-            
-            toast.success(data.message);
+            if (data.emailFailed && data.manualCredentials) {
+                toast.error('Approval succeeded, but email delivery failed.');
+                setManualCreds(data.manualCredentials);
+            } else {
+                toast.success(data.message);
+            }
             fetchRegistrations(); // refresh
         } catch (err) {
             toast.error(err.message);
@@ -189,6 +194,61 @@ function PendingRegistrations() {
                     </table>
                 </div>
             </div>
+
+            {/* Manual Credentials Modal */}
+            {manualCreds && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-fade-in">
+                        <div className="bg-amber-50 p-6 border-b border-amber-100 flex items-start gap-4">
+                            <i className="fa-solid fa-triangle-exclamation text-amber-500 text-2xl mt-1"></i>
+                            <div>
+                                <h3 className="text-lg font-bold text-amber-900">Email Delivery Failed</h3>
+                                <p className="text-sm text-amber-700 mt-1">
+                                    The voter was approved, but the system could not send the credentials email. Please share these credentials manually.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Voter ID</label>
+                                <div className="bg-gray-50 px-3 py-2 rounded border border-gray-200 font-mono text-sm">{manualCreds.voterId}</div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Email</label>
+                                <div className="bg-gray-50 px-3 py-2 rounded border border-gray-200 font-mono text-sm">{manualCreds.email}</div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Temporary Password (Expires in 48h)</label>
+                                <div className="flex gap-2">
+                                    <input 
+                                        type="text" 
+                                        readOnly 
+                                        value={manualCreds.tempPassword} 
+                                        className="flex-grow bg-blue-50 px-3 py-2 rounded border border-blue-200 font-mono text-blue-900 font-bold"
+                                    />
+                                    <button 
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(manualCreds.tempPassword);
+                                            toast.success('Password copied!');
+                                        }}
+                                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition font-medium"
+                                    >
+                                        Copy
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="bg-gray-50 p-4 border-t border-gray-100 flex justify-end">
+                            <button 
+                                onClick={() => setManualCreds(null)}
+                                className="px-6 py-2 bg-primary hover:bg-primary-800 text-white font-bold rounded-lg transition"
+                            >
+                                Done
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

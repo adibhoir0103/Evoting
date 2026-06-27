@@ -59,7 +59,8 @@ exports.approveVoterRegistration = async (req, res) => {
         data: {
             registration_status: 'APPROVED',
             password: hashedPassword,
-            must_change_password: true
+            must_change_password: true,
+            temp_password_expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000) // 48 hours from now
         }
     });
 
@@ -123,13 +124,30 @@ exports.createElection = async (req, res) => {
         return res.status(400).json({ error: 'Election name is required' });
     }
 
+    let parsedStart = null;
+    let parsedEnd = null;
+
+    if (start_time) {
+        parsedStart = new Date(start_time);
+        if (isNaN(parsedStart.getTime())) return res.status(400).json({ error: 'Invalid start_time format' });
+        if (parsedStart < new Date()) return res.status(400).json({ error: 'start_time cannot be in the past' });
+    }
+    
+    if (end_time) {
+        parsedEnd = new Date(end_time);
+        if (isNaN(parsedEnd.getTime())) return res.status(400).json({ error: 'Invalid end_time format' });
+        if (parsedStart && parsedEnd <= parsedStart) {
+            return res.status(400).json({ error: 'end_time must be strictly after start_time' });
+        }
+    }
+
     const election = await prisma.election.create({
         data: {
             name,
             description,
             instructions,
-            start_time: start_time ? new Date(start_time) : null,
-            end_time: end_time ? new Date(end_time) : null,
+            start_time: parsedStart,
+            end_time: parsedEnd,
             rules: rules ? rules : {},
             status: 'DRAFT'
         }
@@ -154,19 +172,35 @@ exports.updateElectionStatus = async (req, res) => {
     const election = await prisma.election.findUnique({ where: { id: electionId } });
     if (!election) return res.status(404).json({ error: 'Election not found' });
 
-    // ===== APPROVAL GATE REMOVED =====
-    // The ADMIN has full control to activate elections directly.
-    if (status === 'AWAITING_APPROVAL' && election.status !== 'PUBLISHED') {
-        return res.status(400).json({ error: 'Election must be in PUBLISHED state before submitting.' });
+    // STRICT STATE MACHINE ENFORCEMENT
+    const validTransitions = {
+        'DRAFT': ['PUBLISHED'],
+        'PUBLISHED': ['AWAITING_APPROVAL', 'DRAFT'],
+        'AWAITING_APPROVAL': ['ACTIVE', 'PUBLISHED', 'DRAFT'],
+        'ACTIVE': ['PAUSED', 'CLOSED'],
+        'PAUSED': ['ACTIVE', 'CLOSED'],
+        'CLOSED': ['ARCHIVED'],
+        'ARCHIVED': []
+    };
+
+    if (!validTransitions[election.status].includes(status) && status !== election.status) {
+        return res.status(400).json({ error: `Invalid status transition from ${election.status} to ${status}.` });
     }
 
-    // TIME-LOCK HEURISTIC: No critical configuration changes allowed within 60 minutes of start_time
-    // Only exceptions: Admin emergency PAUSE or CLOSE, or SUPER_ADMIN with explicit override_reason
+    // PREVENT PREMATURE ACTIVATION
+    if (status === 'ACTIVE' && election.start_time) {
+        const timeUntilStart = new Date(election.start_time).getTime() - Date.now();
+        if (timeUntilStart > 0 && !override_reason) {
+            return res.status(403).json({ error: 'Cannot ACTIVATE election before its start_time unless an explicit override_reason is provided.' });
+        }
+    }
+
+    // TIME-LOCK HEURISTIC: No structural changes (DRAFT/PUBLISHED) within 60 minutes of start
     if (election.start_time && ['DRAFT', 'PUBLISHED'].includes(status)) {
         const timeUntilStart = new Date(election.start_time).getTime() - Date.now();
         const ONE_HOUR = 60 * 60 * 1000;
 
-        if (timeUntilStart <= ONE_HOUR) {
+        if (timeUntilStart > 0 && timeUntilStart <= ONE_HOUR) {
             // ADMIN can bypass with an explicit audit-logged reason
             if (req.adminUser.role === 'ADMIN' && override_reason) {
                 await logAction(req.adminUser.email, 'TIME_LOCK_OVERRIDE', `ADMIN bypassed time-lock on Election ${id}. Reason: ${override_reason}`, req.ip);

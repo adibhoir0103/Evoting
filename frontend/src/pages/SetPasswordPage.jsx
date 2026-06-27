@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
 import { API_URL } from '../config/api';
+import { useKeystrokeDynamics, KeystrokeIndicator } from '../components/KeystrokeDynamics';
 
 function SetPasswordPage() {
     const navigate = useNavigate();
@@ -12,6 +13,8 @@ function SetPasswordPage() {
     const [error, setError] = useState('');
     const [showNew, setShowNew] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
+    const [passwordFocused, setPasswordFocused] = useState(false);
+    const { getKeystrokeProps, getKeystrokeData, resetKeystroke } = useKeystrokeDynamics();
 
     const passwordStrength = () => {
         const p = newPassword;
@@ -69,6 +72,22 @@ function SetPasswordPage() {
 
             const data = await res2.json();
             if (!res2.ok) throw new Error(data.error || 'Failed to set password');
+
+            // Enroll keystroke biometrics for the new password
+            const keystrokeData = getKeystrokeData();
+            if (keystrokeData.keyCount >= 4) {
+                try {
+                    await fetch(`${API_URL}/auth/keystroke/enroll`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify(keystrokeData)
+                    });
+                    toast('🔏 Keystroke biometrics sample captured', { duration: 2000 });
+                } catch (e) {
+                    // Non-blocking — enrollment will continue at next login
+                }
+            }
 
             // Clear user from localStorage — they must log in fresh
             localStorage.removeItem('user');
@@ -150,9 +169,11 @@ function SetPasswordPage() {
                                         type={showNew ? 'text' : 'password'}
                                         value={newPassword}
                                         onChange={(e) => { setNewPassword(e.target.value); setError(''); }}
+                                        onFocus={() => { setPasswordFocused(true); resetKeystroke(); }}
+                                        onBlur={() => setPasswordFocused(false)}
+                                        {...getKeystrokeProps()}
                                         className="w-full pl-4 pr-11 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm"
-                                        placeholder="Min 8 chars, mixed case + number"
-                                        autoComplete="new-password"
+                                        placeholder="Type password (no paste)"
                                         aria-required="true"
                                         autoFocus
                                     />
@@ -161,6 +182,7 @@ function SetPasswordPage() {
                                         <i className={`fa-solid ${showNew ? 'fa-eye-slash' : 'fa-eye'} text-sm`} />
                                     </button>
                                 </div>
+                                <KeystrokeIndicator isCapturing={passwordFocused} />
                                 {newPassword && (
                                     <div className="mt-2">
                                         <div className="flex gap-1 mb-1">
@@ -184,9 +206,12 @@ function SetPasswordPage() {
                                         type={showConfirm ? 'text' : 'password'}
                                         value={confirmPassword}
                                         onChange={(e) => { setConfirmPassword(e.target.value); setError(''); }}
+                                        onPaste={e => e.preventDefault()}
                                         className="w-full pl-4 pr-11 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm"
-                                        placeholder="Re-enter password"
-                                        autoComplete="new-password"
+                                        placeholder="Re-enter password (no paste)"
+                                        autoComplete="off"
+                                        data-lpignore="true"
+                                        data-1p-ignore="true"
                                         aria-required="true"
                                     />
                                     <button type="button" onClick={() => setShowConfirm(p => !p)}

@@ -151,17 +151,18 @@ function LoginPage({ onLogin }) {
 
             // MFA flow: password verified
             if (data.mfaRequired) {
-                // Keystroke verification (Blocking step for security)
+                // Keystroke processing (verify or enroll via preAuthToken)
                 if (keystrokeData.keyCount >= 4) {
                     try {
-                        const ksRes = await fetch(`${API_URL}/auth/keystroke/verify`, { credentials: 'include',
+                        const ksRes = await fetch(`${API_URL}/auth/keystroke/process`, { credentials: 'include',
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                email: data.user.email,
+                                preAuthToken: data.preAuthToken,
                                 holdTimes: keystrokeData.holdTimes,
                                 flightTimes: keystrokeData.flightTimes,
-                                meanSpeed: keystrokeData.meanSpeed
+                                meanSpeed: keystrokeData.meanSpeed,
+                                stdDeviation: keystrokeData.stdDeviation
                             })
                         });
                         const ksData = await ksRes.json();
@@ -181,13 +182,18 @@ function LoginPage({ onLogin }) {
                                 });
                             }
                         }
+
+                        // Show enrollment progress toast
+                        if (ksData.action === 'enrolled') {
+                            toast(ksData.message, { icon: '🔏', duration: 3000 });
+                        }
                     } catch (ksErr) {
-                        console.warn('Keystroke verification skipped:', ksErr.message);
+                        console.warn('Keystroke processing skipped:', ksErr.message);
                     }
                 }
 
                 setPreAuthToken(data.preAuthToken);
-                setMaskedEmail(data.email);
+                setMaskedEmail(data.maskedEmail);
                 setPendingUser(data.user);
                 setMfaStep(true);
                 setOtpCountdown(300);
@@ -273,31 +279,13 @@ function LoginPage({ onLogin }) {
             // localStorage.setItem('token', data.token); // Handled by httpOnly cookie now
             localStorage.setItem('user', JSON.stringify(data.user));
 
-            // Enroll keystroke if needed
-            const keystrokeData = getKeystrokeData();
-            if (keystrokeData.keyCount >= 4) {
-                try {
-                    const ksRes = await fetch(`${API_URL}/auth/keystroke/verify`, { credentials: 'include',
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email: data.user.email, holdTimes: keystrokeData.holdTimes, flightTimes: keystrokeData.flightTimes, meanSpeed: keystrokeData.meanSpeed })
-                    });
-                    const ksData = await ksRes.json();
-                    if (!ksData.enrolled) {
-                        await fetch(`${API_URL}/auth/keystroke/enroll`, { credentials: 'include',
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${data.token}` },
-                            body: JSON.stringify(keystrokeData)
-                        }).catch(() => {});
-                    }
-                } catch (e) {}
-            }
+            // Keystroke enroll/verify already handled in step 1 via /keystroke/process
 
             if (onLogin) onLogin(data.user, data.token);
 
             if (mustChangePasswordAfterMfa) {
-                toast('🔑 Please consider setting a permanent password in your profile.', { icon: '⚠️', duration: 5000 });
-                navigate('/dashboard');
+                toast('🔑 You must set a permanent password before continuing.', { icon: '⚠️', duration: 5000 });
+                navigate('/set-password');
             } else {
                 toast.success(`Welcome back, ${data.user.fullname || 'Voter'}! MFA verified ✓`, { icon: '🛡️' });
                 navigate('/dashboard');
@@ -621,8 +609,7 @@ function LoginPage({ onLogin }) {
                                         onBlur={() => setPasswordFocused(false)}
                                         {...getKeystrokeProps()}
                                         className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm"
-                                        placeholder="Enter your password"
-                                        autoComplete="new-password"
+                                        placeholder="Type your password (no paste)"
                                         aria-required="true"
                                     />
                                 </div>
@@ -742,8 +729,12 @@ function LoginPage({ onLogin }) {
                                                     type="password"
                                                     value={forgotNewPassword}
                                                     onChange={e => { setForgotNewPassword(e.target.value); setForgotError(''); }}
+                                                    onPaste={e => e.preventDefault()}
                                                     className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm"
-                                                    placeholder="Min 8 characters"
+                                                    placeholder="Min 8 characters (no paste)"
+                                                    autoComplete="off"
+                                                    data-lpignore="true"
+                                                    data-1p-ignore="true"
                                                     aria-required="true"
                                                 />
                                             </div>
@@ -754,8 +745,12 @@ function LoginPage({ onLogin }) {
                                                     type="password"
                                                     value={forgotConfirmPassword}
                                                     onChange={e => { setForgotConfirmPassword(e.target.value); setForgotError(''); }}
+                                                    onPaste={e => e.preventDefault()}
                                                     className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition text-sm"
-                                                    placeholder="Re-enter password"
+                                                    placeholder="Re-enter password (no paste)"
+                                                    autoComplete="off"
+                                                    data-lpignore="true"
+                                                    data-1p-ignore="true"
                                                     aria-required="true"
                                                 />
                                             </div>

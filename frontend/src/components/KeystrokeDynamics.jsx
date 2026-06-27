@@ -98,10 +98,27 @@ export function useKeystrokeDynamics() {
         allIntervals.current = [];
     }, []);
 
+    const handlePaste = useCallback((e) => {
+        e.preventDefault();
+        // Pasted content corrupts biometric data — block it entirely
+    }, []);
+
+    const handleCopy = useCallback((e) => {
+        e.preventDefault();
+    }, []);
+
     const getKeystrokeProps = useCallback(() => ({
         onKeyDown: handleKeyDown,
-        onKeyUp: handleKeyUp
-    }), [handleKeyDown, handleKeyUp]);
+        onKeyUp: handleKeyUp,
+        onPaste: handlePaste,
+        onCopy: handleCopy,
+        onCut: handleCopy,
+        autoComplete: 'off',
+        'data-lpignore': 'true',      // LastPass
+        'data-1p-ignore': 'true',     // 1Password
+        'data-form-type': 'other',    // Dashlane
+        'data-bwignore': 'true',      // Bitwarden
+    }), [handleKeyDown, handleKeyUp, handlePaste, handleCopy]);
 
     return {
         getKeystrokeProps,

@@ -88,7 +88,7 @@ exports.setNewPassword = async (req, res) => {
     await Promise.all([
         prisma.user.update({
             where: { id: user.id },
-            data: { password: hashedPassword, must_change_password: false, active_session_token: null, active_session_expires: null }
+            data: { password: hashedPassword, must_change_password: false, temp_password_expires_at: null, active_session_token: null, active_session_expires: null }
         }),
         redisService.clearActiveSession(user.id)
     ]);
@@ -194,6 +194,13 @@ exports.login = async (req, res) => {
     // Successful login - clear failed attempts
     await redisService.clearFailedLogin(cleanIdentifier);
 
+    // Check if temporary password has expired
+    if (user.must_change_password && user.temp_password_expires_at) {
+        if (new Date() > new Date(user.temp_password_expires_at)) {
+            return res.status(401).json({ error: 'Your temporary password has expired. Please contact the Election Officer for a new one.' });
+        }
+    }
+
     // MFA: Generate and send OTP
     const otp = String(crypto.randomInt(100000, 999999));
     const otpHash = await bcrypt.hash(otp, 10);
@@ -219,12 +226,19 @@ exports.login = async (req, res) => {
         data: { voter_id: user.voter_id, ip_address: req.ip, device_info: req.headers['user-agent']?.slice(0, 200), status: 'MFA_PENDING' }
     }).catch(() => {});
 
-    res.json({
+    const loginResponse = {
         message: 'Password verified. OTP sent to your registered email.', mfaRequired: true, preAuthToken,
         maskedEmail: user.email.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
         user: { id: user.id, fullname: user.fullname, voterId: user.voter_id, hasVoted: user.has_voted, walletAddress: user.wallet_address },
         mustChangePassword: user.must_change_password
-    });
+    };
+
+    // Include OTP in non-production for demo/testing
+    if (process.env.NODE_ENV !== 'production') {
+        loginResponse.otpDemo = otp;
+    }
+
+    res.json(loginResponse);
 };
 
 // ===================== VERIFY OTP (Step 2) =====================
@@ -308,7 +322,14 @@ exports.resendOtp = async (req, res) => {
     const emailService = require('../services/emailService');
     await emailService.sendOTP(user.email, otp, user.fullname || 'Voter');
 
-    res.json({ message: 'New OTP sent to your registered email.', email: user.email.replace(/(.{2})(.*)(@.*)/, '$1***$3') });
+    const resendResponse = { message: 'New OTP sent to your registered email.', email: user.email.replace(/(.{2})(.*)(@.*)/, '$1***$3') };
+
+    // Include OTP in non-production for demo/testing
+    if (process.env.NODE_ENV !== 'production') {
+        resendResponse.otpDemo = otp;
+    }
+
+    res.json(resendResponse);
 };
 
 // ===================== LOGOUT =====================
@@ -524,14 +545,84 @@ exports.keystrokeVerify = async (req, res) => {
     res.json({ verified, score, threshold: THRESHOLD, enrolled: true, reason: verified ? 'Keystroke pattern matches enrolled profile' : 'Keystroke pattern differs significantly from enrolled profile' });
 };
 
+/**
+ * keystrokeProcess — Combined verify + auto-enroll endpoint for login flow.
+ * Uses preAuthToken (JWT with step:'mfa_pending') so it works BEFORE full
+ * session JWT exists. This is the primary endpoint the frontend uses.
+ */
+exports.keystrokeProcess = async (req, res) => {
+    const { preAuthToken, holdTimes, flightTimes, meanSpeed, stdDeviation } = req.body;
+    if (!preAuthToken) return res.status(400).json({ error: 'Pre-auth token is required' });
+    if (!holdTimes || !flightTimes) return res.status(400).json({ error: 'Keystroke timing data is required' });
+
+    // Decode the preAuthToken (same mechanism as verifyOtp)
+    let decoded;
+    try { decoded = jwt.verify(preAuthToken, EFFECTIVE_JWT_SECRET); }
+    catch (err) { return res.status(401).json({ error: 'Session expired. Please login again.' }); }
+
+    const userEmail = decoded.email;
+    if (!userEmail) return res.status(400).json({ error: 'Invalid token: missing email' });
+
+    const MIN_SAMPLES = 3;
+    const THRESHOLD = 500;
+
+    let profile = await prisma.keystrokeProfile.findUnique({ where: { user_email: userEmail } });
+
+    // If no profile or not enrolled — enroll (collect samples)
+    if (!profile) {
+        profile = await prisma.keystrokeProfile.create({
+            data: { user_email: userEmail, hold_times: JSON.stringify(holdTimes), flight_times: JSON.stringify(flightTimes), mean_speed: meanSpeed || 0, std_deviation: stdDeviation || 0, sample_count: 1, is_enrolled: false }
+        });
+        return res.json({ action: 'enrolled', verified: true, enrolled: false, sampleCount: 1, samplesNeeded: MIN_SAMPLES, message: `Keystroke sample 1/${MIN_SAMPLES} recorded`, reason: 'First sample recorded — building profile' });
+    }
+
+    if (!profile.is_enrolled) {
+        // Continue enrollment
+        const existingHold = JSON.parse(profile.hold_times);
+        const existingFlight = JSON.parse(profile.flight_times);
+        const newCount = profile.sample_count + 1;
+        const avgHold = holdTimes.map((val, i) => { const prev = existingHold[i] || 0; return ((prev * profile.sample_count) + val) / newCount; });
+        const avgFlight = flightTimes.map((val, i) => { const prev = existingFlight[i] || 0; return ((prev * profile.sample_count) + val) / newCount; });
+        const avgSpeed = ((profile.mean_speed * profile.sample_count) + (meanSpeed || 0)) / newCount;
+        const avgStd = ((profile.std_deviation * profile.sample_count) + (stdDeviation || 0)) / newCount;
+
+        profile = await prisma.keystrokeProfile.update({
+            where: { user_email: userEmail },
+            data: { hold_times: JSON.stringify(avgHold), flight_times: JSON.stringify(avgFlight), mean_speed: avgSpeed, std_deviation: avgStd, sample_count: newCount, is_enrolled: newCount >= MIN_SAMPLES }
+        });
+        return res.json({ action: 'enrolled', verified: true, enrolled: profile.is_enrolled, sampleCount: profile.sample_count, samplesNeeded: MIN_SAMPLES, message: profile.is_enrolled ? 'Keystroke profile enrolled successfully' : `Sample ${profile.sample_count}/${MIN_SAMPLES} recorded`, reason: profile.is_enrolled ? 'Profile complete — verification active from next login' : 'Building keystroke profile' });
+    }
+
+    // Profile is enrolled — verify
+    const storedHold = JSON.parse(profile.hold_times);
+    const storedFlight = JSON.parse(profile.flight_times);
+    let holdDistance = 0, flightDistance = 0;
+    for (let i = 0; i < Math.min(holdTimes.length, storedHold.length); i++) holdDistance += Math.pow((holdTimes[i] - storedHold[i]), 2);
+    for (let i = 0; i < Math.min(flightTimes.length, storedFlight.length); i++) flightDistance += Math.pow((flightTimes[i] - storedFlight[i]), 2);
+
+    const totalDistance = Math.sqrt(holdDistance + flightDistance);
+    const speedDiff = Math.abs((meanSpeed || 0) - profile.mean_speed);
+    const score = parseFloat((totalDistance + speedDiff * 10).toFixed(2));
+    const verified = score < THRESHOLD;
+
+    await prisma.keystrokeProfile.update({
+        where: { user_email: userEmail },
+        data: { last_verified: new Date(), last_score: score, flagged_count: verified ? profile.flagged_count : profile.flagged_count + 1 }
+    });
+
+    if (!verified) console.warn(`⚠️ Keystroke mismatch for ${userEmail} — Score: ${score} (threshold: ${THRESHOLD})`);
+
+    res.json({ action: 'verified', verified, score, threshold: THRESHOLD, enrolled: true, reason: verified ? 'Keystroke pattern matches enrolled profile' : 'Keystroke pattern differs significantly from enrolled profile' });
+};
+
 // ===================== USER PROFILE =====================
 exports.getMe = async (req, res) => {
     const user = await prisma.user.findUnique({
         where: { id: req.user.id },
-        select: { id: true, fullname: true, voter_id: true, email: true, wallet_address: true, has_voted: true, father_name: true, gender: true, dob: true }
+        select: { id: true, fullname: true, voter_id: true, email: true, wallet_address: true, has_voted: true, father_name: true, gender: true, dob: true, must_change_password: true }
     });
     if (!user) return res.status(401).json({ error: 'Authentication failed.' });
-    res.json({ id: user.id, fullname: user.fullname, voterId: user.voter_id, email: user.email, hasVoted: user.has_voted, walletAddress: user.wallet_address, fatherName: user.father_name, gender: user.gender, dob: user.dob });
+    res.json({ id: user.id, fullname: user.fullname, voterId: user.voter_id, email: user.email, hasVoted: user.has_voted, walletAddress: user.wallet_address, fatherName: user.father_name, gender: user.gender, dob: user.dob, mustChangePassword: user.must_change_password });
 };
 
 exports.updateProfile = async (req, res) => {

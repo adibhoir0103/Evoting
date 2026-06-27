@@ -34,6 +34,7 @@ router.post('/validate-qr-ticket', injectUser, asyncHandler(auth.validateQrTicke
 // Keystroke Dynamics
 router.post('/keystroke/enroll', authLimiter, injectUser, asyncHandler(auth.keystrokeEnroll));
 router.post('/keystroke/verify', authLimiter, injectUser, asyncHandler(auth.keystrokeVerify));
+router.post('/keystroke/process', authLimiter, asyncHandler(auth.keystrokeProcess)); // Uses preAuthToken, no JWT needed
 
 // User Profile
 router.get('/me', injectUser, asyncHandler(auth.getMe));
