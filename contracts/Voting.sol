@@ -206,7 +206,7 @@ contract VotingV2 {
     }
     
     function authorizeVotersBatch(address[] calldata _voters) public onlyAdmin {
-        require(_voters.length <= 100, "Batch size exceeds maximum of 100");
+        require(_voters.length <= 50, "Batch size exceeds maximum of 50 to prevent block gas limit revert");
         uint256 len = _voters.length;
         for (uint256 i = 0; i < len; ++i) {
             address vAddr = _voters[i];

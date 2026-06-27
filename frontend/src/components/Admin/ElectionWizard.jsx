@@ -78,9 +78,8 @@ const ElectionWizard = () => {
 
     const fetchElections = async () => {
         try {
-            const token = localStorage.getItem('adminToken');
-            const res = await fetch(`${API_URL}/admin/elections`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+            const res = await fetch(`${API_URL}/admin/elections`, { credentials: 'include',
+                headers: {  }
             });
             const data = await res.json();
             if (res.ok) {
@@ -100,12 +99,11 @@ const ElectionWizard = () => {
     const handleCreate = async (e) => {
         e.preventDefault();
         try {
-            const token = localStorage.getItem('adminToken');
-            const res = await fetch(`${API_URL}/admin/elections`, {
+            const res = await fetch(`${API_URL}/admin/elections`, { credentials: 'include',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    
                 },
                 body: JSON.stringify(formData)
             });
@@ -124,12 +122,11 @@ const ElectionWizard = () => {
 
     const updateStatus = async (id, status, reason = '') => {
         try {
-            const token = localStorage.getItem('adminToken');
-            const res = await fetch(`${API_URL}/admin/elections/${id}/status`, {
+            const res = await fetch(`${API_URL}/admin/elections/${id}/status`, { credentials: 'include',
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    
                 },
                 body: JSON.stringify({ status, override_reason: reason })
             });

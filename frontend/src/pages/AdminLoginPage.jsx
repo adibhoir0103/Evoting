@@ -26,7 +26,7 @@ function AdminLoginPage({ onAdminLogin }) {
         setLoading(true);
 
         try {
-            const response = await fetch(`${API_URL}/admin/login`, {
+            const response = await fetch(`${API_URL}/admin/login`, { credentials: 'include',
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password, turnstileToken })
@@ -45,7 +45,7 @@ function AdminLoginPage({ onAdminLogin }) {
                 setMaskedEmail(data.email || '');
             } else if (data.token) {
                 // Direct login (legacy fallback)
-                localStorage.setItem('adminToken', data.token);
+                localStorage.setItem('admin', JSON.stringify(data.admin));
                 localStorage.setItem('admin', JSON.stringify(data.admin));
                 if (onAdminLogin) onAdminLogin(data.admin);
                 navigate('/admin-panel');
@@ -63,7 +63,7 @@ function AdminLoginPage({ onAdminLogin }) {
         setLoading(true);
 
         try {
-            const response = await fetch(`${API_URL}/admin/verify-mfa`, {
+            const response = await fetch(`${API_URL}/admin/verify-mfa`, { credentials: 'include',
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ preAuthToken, otp })
@@ -75,7 +75,7 @@ function AdminLoginPage({ onAdminLogin }) {
                 throw new Error(data.error || 'MFA verification failed');
             }
 
-            localStorage.setItem('adminToken', data.token);
+            localStorage.setItem('admin', JSON.stringify(data.admin));
             localStorage.setItem('admin', JSON.stringify(data.admin));
 
             if (onAdminLogin) {

@@ -25,8 +25,11 @@ const supabaseAdmin = require('../lib/supabase');
  * Verifies the Supabase JWT access token.
  */
 const injectUser = async (req, res, next) => {
+    // Priority: httpOnly cookie > Authorization header
+    const cookieToken = req.cookies && req.cookies.token;
     const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+    const headerToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+    const token = cookieToken || headerToken;
 
     if (!token) {
         return res.status(401).json({ error: 'Authentication required. Please log in.' });

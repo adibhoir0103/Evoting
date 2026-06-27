@@ -76,7 +76,7 @@ function Navbar({ user, onLogout, isAdmin }) {
         }
     }, [mobileMenuOpen]);
 
-    const isAdminUser = isAdmin || localStorage.getItem('adminToken');
+    const isAdminUser = isAdmin || localStorage.getItem('admin');
 
     const navLinkClass = (path) => `text-sm font-semibold hover:text-primary transition-colors ${location.pathname === path ? 'text-primary border-b-2 border-primary pb-1' : 'text-gray-600'}`;
 

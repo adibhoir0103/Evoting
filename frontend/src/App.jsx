@@ -91,7 +91,7 @@ function App() {
                         setUser(freshUser);
                     }
                 }
-                setIsAdmin(!!localStorage.getItem('adminToken'));
+                setIsAdmin(!!localStorage.getItem('admin'));
             } catch (err) {
                 console.error('Auth init error:', err);
             } finally {
@@ -232,7 +232,7 @@ function AppLayout({ user, isAdmin, setIsAdmin, handleLogin, handleLogout, handl
     const isAuthPage = ['/login', '/signup'].includes(location.pathname);
 
     // Inactivity auto-logout (10 min idle = security standard for govt apps)
-    const isAuthenticated = !!(user || localStorage.getItem('adminToken'));
+    const isAuthenticated = !!(user || localStorage.getItem('admin'));
     const { showWarning, remainingSeconds, stayLoggedIn } = useInactivityTimer(
         handleLogout,
         isAuthenticated ? 10 * 60 * 1000 : Infinity // Only active when logged in
@@ -337,7 +337,7 @@ function AppLayout({ user, isAdmin, setIsAdmin, handleLogin, handleLogout, handl
                     {/* Admin */}
                     <Route path="/admin-login" element={<AdminLoginPage onAdminLogin={(adminAddress) => { setIsAdmin(true); checkAdminStatus(adminAddress); }} />} />
                     <Route path="/admin-panel" element={
-                        (isAdmin || localStorage.getItem('adminToken')) ? <AdminPanel onAdminLogout={() => { setIsAdmin(false); localStorage.removeItem('adminToken'); localStorage.removeItem('admin'); }} /> : <Navigate to="/admin-login" replace />
+                        (isAdmin || localStorage.getItem('admin')) ? <AdminPanel onAdminLogout={() => { setIsAdmin(false); localStorage.removeItem('admin'); }} /> : <Navigate to="/admin-login" replace />
                     } />
 
                     {/* 404 */}

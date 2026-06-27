@@ -221,7 +221,7 @@ export const zkpClientService = {
      * Verify a proof via the backend API
      */
     async verifyProofRemote(commitment, nullifierHash, proof, candidatesCount) {
-        const response = await fetch(`${API_URL}/zkp/verify-proof`, {
+        const response = await fetch(`${API_URL}/zkp/verify-proof`, { credentials: 'include',
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ commitment, nullifierHash, proof, candidatesCount })
@@ -234,7 +234,7 @@ export const zkpClientService = {
      */
     async pinVoteToIPFS(commitment, nullifierHash) {
         const token = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/ipfs/pin-vote`, {
+        const response = await fetch(`${API_URL}/ipfs/pin-vote`, { credentials: 'include',
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

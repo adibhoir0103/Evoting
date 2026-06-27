@@ -22,9 +22,8 @@ function AdminPanel({ onAdminLogout }) {
     const fetchStats = async () => {
         try {
             setStatsError('');
-            const token = localStorage.getItem('adminToken');
-            const res = await fetch(`${import.meta.env.VITE_API_URL || '/api/v1'}/admin/stats`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+            const res = await fetch(`${import.meta.env.VITE_API_URL || '/api/v1'}/admin/stats`, { credentials: 'include',
+                headers: {  }
             });
             if (res.ok) {
                 const data = await res.json();
@@ -41,7 +40,6 @@ function AdminPanel({ onAdminLogout }) {
     };
 
     useEffect(() => {
-        const token = localStorage.getItem('adminToken');
         if (!token) {
             navigate('/admin-login');
             return;

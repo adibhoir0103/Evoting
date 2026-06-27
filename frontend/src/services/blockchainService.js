@@ -106,7 +106,7 @@ export class BlockchainService {
             });
 
             const connectedAddress = accounts[0];
-            const isAdminContext = !!localStorage.getItem('adminToken');
+            const isAdminContext = !!localStorage.getItem('admin');
             const dedicatedAdminWallet = import.meta.env.VITE_DEDICATED_ADMIN_WALLET;
 
             if (isAdminContext && dedicatedAdminWallet) {

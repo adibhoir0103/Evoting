@@ -137,7 +137,7 @@ function LoginPage({ onLogin }) {
         try {
             const keystrokeData = getKeystrokeData();
 
-            const res = await fetch(`${API_URL}/auth/login`, {
+            const res = await fetch(`${API_URL}/auth/login`, { credentials: 'include',
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ identifier: identifier.trim(), password, turnstileToken })
@@ -154,7 +154,7 @@ function LoginPage({ onLogin }) {
                 // Keystroke verification (Blocking step for security)
                 if (keystrokeData.keyCount >= 4) {
                     try {
-                        const ksRes = await fetch(`${API_URL}/auth/keystroke/verify`, {
+                        const ksRes = await fetch(`${API_URL}/auth/keystroke/verify`, { credentials: 'include',
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -257,7 +257,7 @@ function LoginPage({ onLogin }) {
         setOtpError('');
 
         try {
-            const res = await fetch(`${API_URL}/auth/mfa/verify-otp`, {
+            const res = await fetch(`${API_URL}/auth/mfa/verify-otp`, { credentials: 'include',
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ preAuthToken, otp })
@@ -277,14 +277,14 @@ function LoginPage({ onLogin }) {
             const keystrokeData = getKeystrokeData();
             if (keystrokeData.keyCount >= 4) {
                 try {
-                    const ksRes = await fetch(`${API_URL}/auth/keystroke/verify`, {
+                    const ksRes = await fetch(`${API_URL}/auth/keystroke/verify`, { credentials: 'include',
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ email: data.user.email, holdTimes: keystrokeData.holdTimes, flightTimes: keystrokeData.flightTimes, meanSpeed: keystrokeData.meanSpeed })
                     });
                     const ksData = await ksRes.json();
                     if (!ksData.enrolled) {
-                        await fetch(`${API_URL}/auth/keystroke/enroll`, {
+                        await fetch(`${API_URL}/auth/keystroke/enroll`, { credentials: 'include',
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${data.token}` },
                             body: JSON.stringify(keystrokeData)
@@ -317,7 +317,7 @@ function LoginPage({ onLogin }) {
         if (resendCooldown > 0) return;
 
         try {
-            const res = await fetch(`${API_URL}/auth/mfa/resend-otp`, {
+            const res = await fetch(`${API_URL}/auth/mfa/resend-otp`, { credentials: 'include',
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ preAuthToken })
@@ -358,7 +358,7 @@ function LoginPage({ onLogin }) {
         setForgotLoading(true);
         setForgotError('');
         try {
-            const res = await fetch(`${API_URL}/auth/forgot-password`, {
+            const res = await fetch(`${API_URL}/auth/forgot-password`, { credentials: 'include',
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email: forgotEmail.trim() })
@@ -384,7 +384,7 @@ function LoginPage({ onLogin }) {
         setForgotLoading(true);
         setForgotError('');
         try {
-            const res = await fetch(`${API_URL}/auth/reset-password`, {
+            const res = await fetch(`${API_URL}/auth/reset-password`, { credentials: 'include',
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ resetToken: forgotResetToken, otp: forgotOtp.trim(), newPassword: forgotNewPassword })

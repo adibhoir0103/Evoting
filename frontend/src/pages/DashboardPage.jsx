@@ -42,7 +42,7 @@ function DashboardPage({ user, onUserUpdate }) {
             if (voted) {
                 try {
                     const token = authService.getToken();
-                    const res = await fetch(`${API_URL}/vote/receipt`, {
+                    const res = await fetch(`${API_URL}/vote/receipt`, { credentials: 'include',
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     if (res.ok) {

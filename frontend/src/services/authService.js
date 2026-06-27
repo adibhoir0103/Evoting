@@ -1,5 +1,4 @@
 import { API_URL } from '../config/api';
-import { supabase } from './supabase';
 
 /**
  * Auth service — handles voter authentication via Supabase and API calls.
@@ -7,11 +6,8 @@ import { supabase } from './supabase';
 export const authService = {
 
     async getAuthHeaders() {
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
         return {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
+            'Content-Type': 'application/json'
         };
     },
 
@@ -22,6 +18,7 @@ export const authService = {
         const response = await fetch(`${API_URL}/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify(formData)
         });
 
@@ -33,24 +30,7 @@ export const authService = {
         return data;
     },
 
-    /**
-     * Login voter using Supabase
-     */
-    async login(identifier, password) {
-        // Supabase requires email for password login
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email: identifier,
-            password: password
-        });
 
-        if (error) {
-            throw new Error(error.message);
-        }
-
-        // Fetch our custom backend user metadata
-        const user = await this.getCurrentUser();
-        return { user, session: data.session };
-    },
 
     /**
      * Get current user from backend using Supabase JWT
@@ -58,10 +38,10 @@ export const authService = {
     async getCurrentUser() {
         try {
             const headers = await this.getAuthHeaders();
-            if (!headers.Authorization) return null;
 
             const response = await fetch(`${API_URL}/auth/me`, {
-                headers
+                headers,
+                credentials: 'include'
             });
 
             if (!response.ok) {
@@ -93,11 +73,11 @@ export const authService = {
     },
 
     /**
-     * Logout user from Supabase and clear local storage
+     * Logout user by clearing session
      */
     async logout() {
         try {
-            await supabase.auth.signOut();
+            await fetch(`${API_URL}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
         } catch (e) {
             console.error('Logout error', e);
         }
@@ -112,6 +92,7 @@ export const authService = {
         const response = await fetch(`${API_URL}/user/link-wallet`, {
             method: 'POST',
             headers,
+            credentials: 'include',
             body: JSON.stringify({ walletAddress })
         });
 
@@ -137,6 +118,7 @@ export const authService = {
         const response = await fetch(`${API_URL}/vote/record`, {
             method: 'POST',
             headers,
+            credentials: 'include',
             body: JSON.stringify({ txHash })
         });
 
@@ -162,6 +144,7 @@ export const authService = {
         const response = await fetch(`${API_URL}/user/profile`, {
             method: 'PUT',
             headers,
+            credentials: 'include',
             body: JSON.stringify(data)
         });
 
@@ -186,7 +169,8 @@ export const authService = {
         try {
             const headers = await this.getAuthHeaders();
             const response = await fetch(`${API_URL}/vote/status`, {
-                headers
+                headers,
+                credentials: 'include'
             });
 
             if (!response.ok) return false;

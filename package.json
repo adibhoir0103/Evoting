@@ -5,7 +5,9 @@
     "scripts": {
         "test": "hardhat test",
         "compile": "hardhat compile",
-        "deploy": "hardhat run scripts/deploy.js --network localhost",
+        "deploy": "hardhat run scripts/deploy.js",
+        "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+        "deploy:testnet": "hardhat run scripts/deploy.js --network sepolia",
         "node": "hardhat node",
         "start": "concurrently \"npm run start --prefix backend\" \"npm run start --prefix frontend\"",
         "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend"

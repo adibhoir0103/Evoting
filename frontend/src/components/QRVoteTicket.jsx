@@ -53,7 +53,7 @@ function QRVoteTicket({ user, onTicketValidated, onCancel }) {
         setError('');
 
         try {
-            const res = await fetch(`${API_URL}/auth/generate-qr-ticket`, {
+            const res = await fetch(`${API_URL}/auth/generate-qr-ticket`, { credentials: 'include',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -97,7 +97,7 @@ function QRVoteTicket({ user, onTicketValidated, onCancel }) {
         setState('validating');
 
         try {
-            const res = await fetch(`${API_URL}/auth/validate-qr-ticket`, {
+            const res = await fetch(`${API_URL}/auth/validate-qr-ticket`, { credentials: 'include',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

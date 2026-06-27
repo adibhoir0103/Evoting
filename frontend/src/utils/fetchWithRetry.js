@@ -16,7 +16,7 @@ export async function fetchWithRetry(url, options = {}, maxRetries = 3) {
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-            const response = await fetch(url, {
+            const response = await fetch(url, { credentials: 'include',
                 ...options,
                 signal: options.signal || AbortSignal.timeout(15000), // 15s timeout
             });
