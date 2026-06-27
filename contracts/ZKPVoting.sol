@@ -269,12 +269,18 @@ contract ZKPVoting {
     // ============ Goal 2: On-Chain Proof Verification ============
 
     /**
-     * @dev Verify a simulated ZK proof. 
+     * @dev Verify a simulated ZK proof.
      * NOTE: In a true production environment, this would use a Groth16 or PLONK verifier.
      * For this Proof-of-Concept, we use a deterministic Schnorr-like challenge mechanism.
-     * @param _commitment The Pedersen commitment
-     * @param _nullifierHash The nullifier hash
-     * @param _proof [challenge, response_v, response_r, candidateCount]
+     *
+     * The proof array layout:
+     *   _proof[0] = challenge   (Fiat-Shamir hash)
+     *   _proof[1] = k_v         (original blinding nonce for candidateId)
+     *   _proof[2] = k_r         (original blinding nonce for randomness)
+     *   _proof[3] = candidatesCount (public signal)
+     *
+     * Verification: recompute challenge = H(commitment, nullifier, k_v, k_r, n)
+     * and assert it equals _proof[0].
      */
     function _verifyVoteProof(
         bytes32 _commitment,
@@ -282,16 +288,17 @@ contract ZKPVoting {
         bytes32 /* _identityCommitment */,
         uint256[4] memory _proof
     ) internal view returns (bool) {
-        uint256 challenge = _proof[0];
-        uint256 response_v = _proof[1];
-        uint256 response_r = _proof[2];
+        uint256 challenge          = _proof[0];
+        uint256 k_v                = _proof[1];
+        uint256 k_r                = _proof[2];
         uint256 proofCandidateCount = _proof[3];
 
         require(proofCandidateCount == candidatesCount, "ZKP: Candidate count mismatch");
-        require(challenge != 0 && response_v != 0 && response_r != 0, "ZKP: Zero proof component");
+        require(challenge != 0 && k_v != 0 && k_r != 0, "ZKP: Zero proof component");
 
+        // Recompute the Fiat-Shamir challenge using the original nonces
         bytes32 expectedHash = keccak256(
-            abi.encodePacked(_commitment, _nullifierHash, response_v, response_r, proofCandidateCount)
+            abi.encodePacked(_commitment, _nullifierHash, k_v, k_r, proofCandidateCount)
         );
 
         uint256 expectedChallenge = uint256(expectedHash) % PRIME;

@@ -18,7 +18,6 @@ if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
 const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'dev-only-local-key-fixed-for-clustering';
 
 const prisma = require('../lib/prisma');
-const supabaseAdmin = require('../lib/supabase');
 
 /**
  * Voter authentication middleware.

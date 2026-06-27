@@ -107,14 +107,21 @@ export const zkpClientService = {
 
     /**
      * Generate a ZK proof locally (Schnorr-style Sigma protocol)
+     *
+     * Proof layout (matches ZKPVoting.sol):
+     *   [0] challenge      = H(commitment, nullifier, k_v, k_r, n)
+     *   [1] k_v            = original blinding nonce for candidateId
+     *   [2] k_r            = original blinding nonce for randomness
+     *   [3] candidatesCount = public signal
+     *
+     * The response values (s_v, s_r) are NOT sent on-chain; only the nonces
+     * are needed for the verifier to re-derive the challenge.
      */
     async generateVoteProof(candidateId, randomnessHex, candidatesCount, commitmentHash, nullifierHash) {
-        const v = BigInt(candidateId);
-        const r = BigInt(randomnessHex);
-
         const k_v = randomFieldElement();
         const k_r = randomFieldElement();
 
+        // Fiat-Shamir challenge: H(C, N, k_v, k_r, n)
         const challenge = await hashToField(
             BigInt(commitmentHash),
             BigInt(nullifierHash),
@@ -123,14 +130,13 @@ export const zkpClientService = {
             BigInt(candidatesCount)
         );
 
-        const response_v = ((k_v - challenge * v) % PRIME + PRIME) % PRIME;
-        const response_r = ((k_r - challenge * r) % PRIME + PRIME) % PRIME;
-
+        // Proof sends k_v and k_r directly so the verifier can reconstruct
+        // the same hash without knowing the secret witness.
         return {
             proof: [
                 '0x' + challenge.toString(16).padStart(64, '0'),
-                '0x' + response_v.toString(16).padStart(64, '0'),
-                '0x' + response_r.toString(16).padStart(64, '0'),
+                '0x' + k_v.toString(16).padStart(64, '0'),
+                '0x' + k_r.toString(16).padStart(64, '0'),
                 '0x' + BigInt(candidatesCount).toString(16).padStart(64, '0')
             ]
         };
@@ -181,29 +187,30 @@ export const zkpClientService = {
     },
 
     /**
-     * Verify a ZK proof locally
+     * Verify a ZK proof locally (mirrors the on-chain verifier logic)
      */
     async verifyProofLocally(commitmentHash, nullifierHash, proof, candidatesCount) {
         try {
-            const [challengeHex, responseVHex, responseRHex, proofCountHex] = proof;
-            const challenge = BigInt(challengeHex);
-            const response_v = BigInt(responseVHex);
-            const response_r = BigInt(responseRHex);
+            const [challengeHex, kvHex, krHex, proofCountHex] = proof;
+            const challenge  = BigInt(challengeHex);
+            const k_v        = BigInt(kvHex);
+            const k_r        = BigInt(krHex);
             const proofCount = BigInt(proofCountHex);
 
             if (proofCount !== BigInt(candidatesCount)) {
                 return { valid: false, reason: 'Candidate count mismatch' };
             }
 
-            if (challenge === 0n || response_v === 0n || response_r === 0n) {
+            if (challenge === 0n || k_v === 0n || k_r === 0n) {
                 return { valid: false, reason: 'Zero proof component' };
             }
 
+            // Recompute H(C, N, k_v, k_r, n) — must equal challenge
             const expectedChallenge = await hashToField(
                 BigInt(commitmentHash),
                 BigInt(nullifierHash),
-                response_v,
-                response_r,
+                k_v,
+                k_r,
                 proofCount
             );
 
@@ -233,13 +240,11 @@ export const zkpClientService = {
      * Pin vote metadata to IPFS
      */
     async pinVoteToIPFS(commitment, nullifierHash) {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/ipfs/pin-vote`, { credentials: 'include',
+        // Auth is via httpOnly cookie — no need for localStorage token
+        const response = await fetch(`${API_URL}/ipfs/pin-vote`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ commitment, nullifierHash })
         });
         return response.json();

@@ -106,25 +106,21 @@ const zkpService = {
     },
 
     /**
-     * Generate a ZK proof that the commitment contains a valid candidateId
+     * Generate a ZK proof that the commitment contains a valid candidateId.
      * Uses a Schnorr-style Sigma protocol (Fiat-Shamir heuristic for non-interactive)
-     * 
-     * @param {number} candidateId - The candidate voted for
-     * @param {string} randomnessHex - The randomness used in the commitment
-     * @param {number} candidatesCount - Total number of candidates
-     * @param {string} commitmentHash - The commitment hash
-     * @param {string} nullifierHash - The nullifier hash
-     * @returns {{ proof: [string, string, string, string] }}
+     *
+     * Proof layout (must match ZKPVoting.sol and frontend zkpService.js):
+     *   [0] challenge       = H(commitment, nullifier, k_v, k_r, n)
+     *   [1] k_v             = original blinding nonce for candidateId
+     *   [2] k_r             = original blinding nonce for randomness
+     *   [3] candidatesCount = public signal
      */
     generateVoteProof(candidateId, randomnessHex, candidatesCount, commitmentHash, nullifierHash) {
-        const v = BigInt(candidateId);
-        const r = BigInt(randomnessHex);
-
         // Generate random blinding factors
         const k_v = randomFieldElement();
         const k_r = randomFieldElement();
 
-        // Fiat-Shamir challenge: hash(commitment, nullifier, k_v, k_r, candidatesCount)
+        // Fiat-Shamir challenge: H(commitment, nullifier, k_v, k_r, candidatesCount)
         const challenge = hashToField(
             BigInt(commitmentHash),
             BigInt(nullifierHash),
@@ -133,15 +129,13 @@ const zkpService = {
             BigInt(candidatesCount)
         );
 
-        // Compute responses
-        const response_v = ((k_v - challenge * v) % PRIME + PRIME) % PRIME;
-        const response_r = ((k_r - challenge * r) % PRIME + PRIME) % PRIME;
-
+        // Proof carries k_v and k_r so the on-chain verifier can reproduce the hash.
+        // The secret witness (candidateId, randomness) never appears in the proof.
         return {
             proof: [
                 '0x' + challenge.toString(16).padStart(64, '0'),
-                '0x' + response_v.toString(16).padStart(64, '0'),
-                '0x' + response_r.toString(16).padStart(64, '0'),
+                '0x' + k_v.toString(16).padStart(64, '0'),
+                '0x' + k_r.toString(16).padStart(64, '0'),
                 '0x' + BigInt(candidatesCount).toString(16).padStart(64, '0')
             ]
         };
@@ -177,40 +171,39 @@ const zkpService = {
 
     /**
      * Verify a ZK proof locally (server-side pre-validation)
+     * Must mirror ZKPVoting.sol _verifyVoteProof logic exactly.
      *
-     * @param {string} commitmentHash - The commitment hash
-     * @param {string} nullifierHash - The nullifier hash
-     * @param {string[]} proof - The proof components [challenge, response_v, response_r, candidateCount]
-     * @param {number} candidatesCount - Expected number of candidates
+     * @param {string} commitmentHash
+     * @param {string} nullifierHash
+     * @param {string[]} proof - [challenge, k_v, k_r, candidateCount]
+     * @param {number} candidatesCount
      * @returns {{ valid: boolean, reason?: string }}
      */
     verifyProof(commitmentHash, nullifierHash, proof, candidatesCount) {
         try {
-            const [challengeHex, responseVHex, responseRHex, proofCountHex] = proof;
-            const challenge = BigInt(challengeHex);
-            const response_v = BigInt(responseVHex);
-            const response_r = BigInt(responseRHex);
+            const [challengeHex, kvHex, krHex, proofCountHex] = proof;
+            const challenge  = BigInt(challengeHex);
+            const k_v        = BigInt(kvHex);
+            const k_r        = BigInt(krHex);
             const proofCount = BigInt(proofCountHex);
 
-            // Check candidate count matches
             if (proofCount !== BigInt(candidatesCount)) {
                 return { valid: false, reason: 'Candidate count mismatch' };
             }
 
-            // Check components are non-zero and within field
-            if (challenge === 0n || response_v === 0n || response_r === 0n) {
+            if (challenge === 0n || k_v === 0n || k_r === 0n) {
                 return { valid: false, reason: 'Zero proof component' };
             }
-            if (challenge >= PRIME || response_v >= PRIME || response_r >= PRIME) {
+            if (challenge >= PRIME || k_v >= PRIME || k_r >= PRIME) {
                 return { valid: false, reason: 'Proof component out of field' };
             }
 
-            // Recompute challenge hash
+            // Recompute H(commitment, nullifier, k_v, k_r, n) — must equal challenge
             const expectedChallenge = hashToField(
                 BigInt(commitmentHash),
                 BigInt(nullifierHash),
-                response_v,
-                response_r,
+                k_v,
+                k_r,
                 proofCount
             );
 
