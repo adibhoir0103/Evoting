@@ -37,8 +37,10 @@ async function verifyTurnstile(req, res, next) {
             return res.status(403).json({ error: 'Anti-bot verification failed. Please try again.' });
         }
     } catch (err) {
-        logger.error('Error verifying Turnstile token:', err);
-        return res.status(500).json({ error: 'Internal server error during anti-bot verification' });
+        logger.error('Error verifying Turnstile token:', err.message || err);
+        // Fallback open: If Cloudflare API is down/unreachable, we shouldn't block legitimate users.
+        // We log the error but allow the request to proceed.
+        return next();
     }
 }
 
