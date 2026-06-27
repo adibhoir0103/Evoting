@@ -40,7 +40,7 @@ function AdminPanel({ onAdminLogout }) {
     };
 
     useEffect(() => {
-        if (!token) {
+        if (!localStorage.getItem('admin')) {
             navigate('/admin-login');
             return;
         }
