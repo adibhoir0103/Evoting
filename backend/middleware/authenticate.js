@@ -81,14 +81,14 @@ const isAdmin = (req, res, next) => {
             const decoded = jwt.verify(token, EFFECTIVE_JWT_SECRET);
             
             // SECURITY: Enforce role check!
-            if (!decoded.role || !['admin', 'SUPER_ADMIN', 'ELECTION_OFFICER', 'AUDITOR'].includes(decoded.role)) {
+            if (!decoded.role || !['admin', 'ADMIN'].includes(decoded.role)) {
                 return res.status(403).json({ error: 'Access denied: Admin privileges required.' });
             }
 
             req.adminUser = {
                 id: decoded.id || 0,
                 email: decoded.email,
-                role: decoded.role === 'admin' ? 'SUPER_ADMIN' : (decoded.role || 'SUPER_ADMIN')
+                role: 'ADMIN' // All legacy admins map to ADMIN
             };
             return next();
         } catch (err) {

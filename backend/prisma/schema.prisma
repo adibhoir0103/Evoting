@@ -16,9 +16,7 @@ datasource db {
 
 enum Role {
   VOTER
-  SUPER_ADMIN
-  ELECTION_OFFICER
-  AUDITOR
+  ADMIN
 }
 
 enum ElectionStatus {

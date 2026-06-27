@@ -154,20 +154,10 @@ exports.updateElectionStatus = async (req, res) => {
     const election = await prisma.election.findUnique({ where: { id: electionId } });
     if (!election) return res.status(404).json({ error: 'Election not found' });
 
-    // ===== HOD → PRINCIPAL APPROVAL GATE =====
-    // ELECTION_OFFICER (HOD) can only draft and submit for approval
-    // SUPER_ADMIN (Principal) is required to activate the election
-    if (status === 'ACTIVE' && req.adminUser.role !== 'SUPER_ADMIN') {
-        await logAction(req.adminUser.email, 'ACTIVATION_DENIED', `Election Officer attempted to activate Election ${id} without Principal approval`, req.ip);
-        return res.status(403).json({
-            error: 'Activation Denied: Only the Super Admin (Principal) can activate an election. Please submit for approval first.',
-            requiredAction: 'AWAITING_APPROVAL'
-        });
-    }
-
-    // ELECTION_OFFICER must submit for approval before activation
+    // ===== APPROVAL GATE REMOVED =====
+    // The ADMIN has full control to activate elections directly.
     if (status === 'AWAITING_APPROVAL' && election.status !== 'PUBLISHED') {
-        return res.status(400).json({ error: 'Election must be in PUBLISHED state before submitting for approval.' });
+        return res.status(400).json({ error: 'Election must be in PUBLISHED state before submitting.' });
     }
 
     // TIME-LOCK HEURISTIC: No critical configuration changes allowed within 60 minutes of start_time
@@ -177,12 +167,12 @@ exports.updateElectionStatus = async (req, res) => {
         const ONE_HOUR = 60 * 60 * 1000;
 
         if (timeUntilStart <= ONE_HOUR) {
-            // SUPER_ADMIN can bypass with an explicit audit-logged reason
-            if (req.adminUser.role === 'SUPER_ADMIN' && override_reason) {
-                await logAction(req.adminUser.email, 'TIME_LOCK_OVERRIDE', `SUPER_ADMIN bypassed time-lock on Election ${id}. Reason: ${override_reason}`, req.ip);
+            // ADMIN can bypass with an explicit audit-logged reason
+            if (req.adminUser.role === 'ADMIN' && override_reason) {
+                await logAction(req.adminUser.email, 'TIME_LOCK_OVERRIDE', `ADMIN bypassed time-lock on Election ${id}. Reason: ${override_reason}`, req.ip);
             } else {
                 return res.status(403).json({
-                    error: 'Time-Lock Active. Structural changes are strictly prohibited within 60 minutes of the election start time. SUPER_ADMIN can override by providing an override_reason.'
+                    error: 'Time-Lock Active. Structural changes are strictly prohibited within 60 minutes of the election start time. ADMIN can override by providing an override_reason.'
                 });
             }
         }
@@ -376,14 +366,14 @@ exports.uploadElectionVoters = async (req, res) => {
 };
 
 // ==========================================
-// ROLE MANAGEMENT (SUPER_ADMIN ONLY)
+// ROLE MANAGEMENT (ADMIN ONLY)
 // ==========================================
 
 // Get all admins
 exports.getAdmins = async (req, res) => {
     const admins = await prisma.user.findMany({
         where: {
-            role: { in: ['SUPER_ADMIN', 'ELECTION_OFFICER', 'AUDITOR'] }
+            role: 'ADMIN'
         },
         select: { id: true, fullname: true, email: true, role: true }
     });
@@ -392,8 +382,8 @@ exports.getAdmins = async (req, res) => {
 
 // Update user role
 exports.updateUserRole = async (req, res) => {
-    if (req.adminUser.role !== 'SUPER_ADMIN') {
-        return res.status(403).json({ error: 'Only SUPER_ADMIN can assign roles' });
+    if (req.adminUser.role !== 'ADMIN') {
+        return res.status(403).json({ error: 'Only ADMIN can assign roles' });
     }
 
     const { id } = req.params;
@@ -401,7 +391,7 @@ exports.updateUserRole = async (req, res) => {
     const userId = parseInt(id);
     if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user ID' });
 
-    const validRoles = ['VOTER', 'SUPER_ADMIN', 'ELECTION_OFFICER', 'AUDITOR'];
+    const validRoles = ['VOTER', 'ADMIN'];
     if (!validRoles.includes(role)) return res.status(400).json({ error: 'Invalid role' });
 
     const updatedUser = await prisma.user.update({

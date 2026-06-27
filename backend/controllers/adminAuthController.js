@@ -38,7 +38,7 @@ exports.adminLogin = async (req, res) => {
 
     // Issue final JWT immediately — no OTP required for admin
     const token = jwt.sign(
-        { id: 'admin', email: trimmedEmail, role: 'admin' },
+        { id: 'admin', email: trimmedEmail, role: 'ADMIN' },
         EFFECTIVE_JWT_SECRET, { expiresIn: '2h' }
     );
 
@@ -47,5 +47,5 @@ exports.adminLogin = async (req, res) => {
     // Set admin JWT as httpOnly cookie
     setTokenCookie(res, 'admin_token', token, 2 * 60 * 60 * 1000);
 
-    res.json({ message: 'Admin login successful', token, admin: { email: trimmedEmail, role: 'admin' } });
+    res.json({ message: 'Admin login successful', token, admin: { email: trimmedEmail, role: 'ADMIN' } });
 };
