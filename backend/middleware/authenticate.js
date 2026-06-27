@@ -100,13 +100,10 @@ const isAdmin = (req, res, next) => {
 };
 
 // ============ Cookie Configuration ============
-const isProduction = process.env.NODE_ENV === 'production';
-
 const COOKIE_OPTIONS = {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? 'strict' : 'lax',
-    domain: isProduction ? '.bharat-evote.me' : undefined,
+    secure: true, // Required for sameSite 'none'
+    sameSite: 'none', // Allow cross-domain requests (Vercel -> Render)
     path: '/'
 };
 
