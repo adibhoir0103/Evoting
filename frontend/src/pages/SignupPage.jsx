@@ -64,8 +64,16 @@ function SignupPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const err = validateStep(2);
-        if (err) { setError(err); return; }
+        
+        if (step === 1) {
+            nextStep();
+            return;
+        }
+
+        const err1 = validateStep(1);
+        const err2 = validateStep(2);
+        if (err1) { setStep(1); setError(err1); return; }
+        if (err2) { setError(err2); return; }
 
         setLoading(true);
         setError('');
