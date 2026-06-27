@@ -330,7 +330,12 @@ exports.forgotPassword = async (req, res) => {
 
     const cleanEmail = email.trim().toLowerCase();
     const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
-    if (!user) return res.json({ message: 'If that email is registered, you\'ll receive a reset link' });
+    
+    if (!user) {
+        // Return a fake token to prevent user enumeration
+        const fakeToken = jwt.sign({ email: cleanEmail, purpose: 'fake_password_reset' }, EFFECTIVE_JWT_SECRET, { expiresIn: '10m' });
+        return res.json({ message: 'If that email is registered, you\'ll receive a reset link', resetToken: fakeToken });
+    }
 
     const otp = String(crypto.randomInt(100000, 999999));
     const otpHash = await bcrypt.hash(otp, 10);
@@ -346,7 +351,7 @@ exports.forgotPassword = async (req, res) => {
 
     const resetToken = jwt.sign({ email: cleanEmail, purpose: 'password_reset' }, EFFECTIVE_JWT_SECRET, { expiresIn: '10m' });
 
-    res.json({ message: 'If that email is registered, you\'ll receive a reset link' });
+    res.json({ message: 'If that email is registered, you\'ll receive a reset link', resetToken });
 };
 
 // ===================== RESET PASSWORD =====================
