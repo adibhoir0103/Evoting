@@ -39,7 +39,7 @@ describe("ZKP Voting System", function () {
         );
     }
 
-    function generateProof(commitment, nullifier, candidatesCount) {
+    function generateProof(commitment, nullifier, candidatesCount, senderAddress) {
         // Generate a valid Schnorr-style proof
         const k_v = BigInt(randomBytes32());
         const k_r = BigInt(randomBytes32());
@@ -47,8 +47,8 @@ describe("ZKP Voting System", function () {
         // Fiat-Shamir challenge
         const challengeHash = ethers.keccak256(
             ethers.AbiCoder.defaultAbiCoder().encode(
-                ["bytes32", "bytes32", "uint256", "uint256", "uint256"],
-                [commitment, nullifier, k_v % PRIME, k_r % PRIME, candidatesCount]
+                ["bytes32", "bytes32", "uint256", "uint256", "uint256", "address"],
+                [commitment, nullifier, k_v % PRIME, k_r % PRIME, candidatesCount, senderAddress]
             )
         );
 
@@ -57,11 +57,11 @@ describe("ZKP Voting System", function () {
         const response_r = ((k_r % PRIME) - challenge + PRIME) % PRIME;
 
         // Now recompute what the contract will check:
-        // expectedChallenge = keccak256(commitment, nullifier, response_v, response_r, candidatesCount)
+        // expectedChallenge = keccak256(commitment, nullifier, response_v, response_r, candidatesCount, senderAddress)
         const expectedHash = ethers.keccak256(
             ethers.solidityPacked(
-                ["bytes32", "bytes32", "uint256", "uint256", "uint256"],
-                [commitment, nullifier, response_v, response_r, candidatesCount]
+                ["bytes32", "bytes32", "uint256", "uint256", "uint256", "address"],
+                [commitment, nullifier, response_v, response_r, candidatesCount, senderAddress]
             )
         );
         const expectedChallenge = BigInt(expectedHash) % PRIME;
@@ -111,7 +111,7 @@ describe("ZKP Voting System", function () {
         it("Should accept valid encrypted vote with commitment", async function () {
             const randomness = randomBytes32();
             const commitment = generateCommitment(1, randomness);
-            const proof = generateProof(commitment, nullifier1, 3);
+            const proof = generateProof(commitment, nullifier1, 3, admin.address);
 
             await expect(
                 zkpVoting.submitEncryptedVote(
@@ -125,7 +125,7 @@ describe("ZKP Voting System", function () {
         it("Should not reveal vote choice from on-chain data", async function () {
             const randomness = randomBytes32();
             const commitment = generateCommitment(1, randomness);
-            const proof = generateProof(commitment, nullifier1, 3);
+            const proof = generateProof(commitment, nullifier1, 3, admin.address);
 
             await zkpVoting.submitEncryptedVote(
                 commitment, nullifier1, identityCommitment1, proof, ""
@@ -147,8 +147,8 @@ describe("ZKP Voting System", function () {
             // Same candidate (1) but different randomness = different commitments
             expect(commitment1).to.not.equal(commitment2);
 
-            const proof1 = generateProof(commitment1, nullifier1, 3);
-            const proof2 = generateProof(commitment2, nullifier2, 3);
+            const proof1 = generateProof(commitment1, nullifier1, 3, admin.address);
+            const proof2 = generateProof(commitment2, nullifier2, 3, admin.address);
 
             await zkpVoting.submitEncryptedVote(
                 commitment1, nullifier1, identityCommitment1, proof1, ""
@@ -177,7 +177,7 @@ describe("ZKP Voting System", function () {
             const randomness = randomBytes32();
             const commitment = generateCommitment(1, randomness);
             // Generate proof with wrong candidate count (5 instead of 3)
-            const proof = generateProof(commitment, nullifier, 5);
+            const proof = generateProof(commitment, nullifier, 5, admin.address);
 
             await expect(
                 zkpVoting.submitEncryptedVote(
@@ -201,7 +201,7 @@ describe("ZKP Voting System", function () {
         it("Should reject manipulated proof (challenge mismatch)", async function () {
             const randomness = randomBytes32();
             const commitment = generateCommitment(1, randomness);
-            const proof = generateProof(commitment, nullifier, 3);
+            const proof = generateProof(commitment, nullifier, 3, admin.address);
 
             // Tamper with the challenge
             proof[0] = proof[0] + 1n;
@@ -216,7 +216,7 @@ describe("ZKP Voting System", function () {
         it("Should accept valid proof and verify math on-chain", async function () {
             const randomness = randomBytes32();
             const commitment = generateCommitment(1, randomness);
-            const proof = generateProof(commitment, nullifier, 3);
+            const proof = generateProof(commitment, nullifier, 3, admin.address);
 
             // This should succeed — the on-chain verifier accepted the proof
             await zkpVoting.submitEncryptedVote(
@@ -245,7 +245,7 @@ describe("ZKP Voting System", function () {
             const unregisteredIdentity = generateIdentityCommitment("unknown");
             const nullifier = generateNullifier("unknown", "bharat-evote-2026");
             const commitment = generateCommitment(1, randomBytes32());
-            const proof = generateProof(commitment, nullifier, 3);
+            const proof = generateProof(commitment, nullifier, 3, admin.address);
 
             await expect(
                 zkpVoting.submitEncryptedVote(
@@ -261,7 +261,7 @@ describe("ZKP Voting System", function () {
 
             // First vote
             const commitment1 = generateCommitment(1, randomBytes32());
-            const proof1 = generateProof(commitment1, nullifier, 3);
+            const proof1 = generateProof(commitment1, nullifier, 3, admin.address);
             await zkpVoting.submitEncryptedVote(commitment1, nullifier, identity, proof1, "");
 
             // Second vote attempt — contract checks identity.hasVoted first
@@ -319,7 +319,7 @@ describe("ZKP Voting System", function () {
 
             const randomness = randomBytes32();
             commitment = generateCommitment(1, randomness);
-            proof = generateProof(commitment, nullifier, 3);
+            proof = generateProof(commitment, nullifier, 3, admin.address);
 
             await zkpVoting.submitEncryptedVote(
                 commitment, nullifier, identity, proof, "QmTestIPFSHash"
@@ -412,7 +412,7 @@ describe("ZKP Voting System", function () {
             await zkpVoting.registerEligibleVoter(identity);
 
             const commitment = generateCommitment(1, randomBytes32());
-            const proof = generateProof(commitment, nullifier, 3);
+            const proof = generateProof(commitment, nullifier, 3, admin.address);
 
             await zkpVoting.submitEncryptedVote(
                 commitment, nullifier, identity, proof, "QmIPFSTestCID12345"

@@ -263,6 +263,7 @@ contract VotingV2 {
     function vote(uint256 _candidateId, uint256 _secretSalt) public votingIsActive {
         require(!zkpEnabled, "ZKP mode is active: use the ZKP voting contract instead");
         require(_msgSender() != admin, "Admin cannot vote");
+        require(_secretSalt != 0, "Invalid salt");
         Voter memory voter = voters[_msgSender()];
         
         // Security Check 1: Ensure voter is authorized

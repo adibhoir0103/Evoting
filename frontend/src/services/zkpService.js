@@ -117,17 +117,18 @@ export const zkpClientService = {
      * The response values (s_v, s_r) are NOT sent on-chain; only the nonces
      * are needed for the verifier to re-derive the challenge.
      */
-    async generateVoteProof(candidateId, randomnessHex, candidatesCount, commitmentHash, nullifierHash) {
+    async generateVoteProof(candidateId, randomnessHex, candidatesCount, commitmentHash, nullifierHash, voterAddress) {
         const k_v = randomFieldElement();
         const k_r = randomFieldElement();
 
-        // Fiat-Shamir challenge: H(C, N, k_v, k_r, n)
+        // Fiat-Shamir challenge: H(C, N, k_v, k_r, n, voterAddress)
         const challenge = await hashToField(
             BigInt(commitmentHash),
             BigInt(nullifierHash),
             k_v,
             k_r,
-            BigInt(candidatesCount)
+            BigInt(candidatesCount),
+            voterAddress
         );
 
         // Proof sends k_v and k_r directly so the verifier can reconstruct
@@ -166,12 +167,12 @@ export const zkpClientService = {
     /**
      * Generate complete vote package locally (preferred for maximum privacy)
      */
-    async generateVotePackage(candidateId, voterSecret, candidatesCount, electionId = 'bharat-evote-2026') {
+    async generateVotePackage(candidateId, voterSecret, candidatesCount, voterAddress, electionId = 'bharat-evote-2026') {
         const { identityCommitment } = await this.generateIdentityCommitment(voterSecret);
         const { nullifierHash } = await this.generateNullifier(voterSecret, electionId);
         const { commitment, randomness, rawCommitment } = await this.generateCommitment(candidateId);
         const { proof } = await this.generateVoteProof(
-            candidateId, randomness, candidatesCount, commitment, nullifierHash
+            candidateId, randomness, candidatesCount, commitment, nullifierHash, voterAddress
         );
 
         return {
@@ -189,7 +190,7 @@ export const zkpClientService = {
     /**
      * Verify a ZK proof locally (mirrors the on-chain verifier logic)
      */
-    async verifyProofLocally(commitmentHash, nullifierHash, proof, candidatesCount) {
+    async verifyProofLocally(commitmentHash, nullifierHash, proof, candidatesCount, voterAddress) {
         try {
             const [challengeHex, kvHex, krHex, proofCountHex] = proof;
             const challenge  = BigInt(challengeHex);
@@ -205,13 +206,14 @@ export const zkpClientService = {
                 return { valid: false, reason: 'Zero proof component' };
             }
 
-            // Recompute H(C, N, k_v, k_r, n) — must equal challenge
+            // Recompute H(C, N, k_v, k_r, n, voterAddress) — must equal challenge
             const expectedChallenge = await hashToField(
                 BigInt(commitmentHash),
                 BigInt(nullifierHash),
                 k_v,
                 k_r,
-                proofCount
+                proofCount,
+                voterAddress
             );
 
             if (expectedChallenge % PRIME !== challenge % PRIME) {

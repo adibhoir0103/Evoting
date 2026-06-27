@@ -41,6 +41,11 @@ contract ZKPVoting {
     uint256 public zkpVoteCount;
     string public electionId;
 
+    // Timeline controls
+    bool public timelineEnabled;
+    uint256 public votingStartTime;
+    uint256 public votingEndTime;
+
     // ============ Data Structures ============
 
     struct ZKPVote {
@@ -93,6 +98,7 @@ contract ZKPVoting {
     event CandidateMetadataStored(uint256 indexed candidateId, string ipfsHash);
     event ForwarderUpdated(address indexed newForwarder);
     event MetaTransactionExecuted(address indexed relayer, address indexed sender);
+    event VotingTimelineSet(uint256 startTime, uint256 endTime);
 
     // ============ Modifiers ============
 
@@ -114,6 +120,7 @@ contract ZKPVoting {
         candidatesCount = _candidatesCount;
         electionId = _electionId;
         zkpEnabled = true;
+        timelineEnabled = false;
     }
 
     // ============ ERC-2771 Meta-Transaction Support ============
@@ -171,6 +178,26 @@ contract ZKPVoting {
         require(_candidateId > 0 && _candidateId <= candidatesCount, "ZKP: Invalid candidate ID");
         candidateIPFSHashes[_candidateId] = _ipfsHash;
         emit CandidateMetadataStored(_candidateId, _ipfsHash);
+    }
+
+    /**
+     * @dev Set voting timeline
+     */
+    function setVotingTimeline(uint256 _startTime, uint256 _endTime) external onlyAdmin {
+        require(_endTime > _startTime, "ZKP: End time must be after start time");
+        votingStartTime = _startTime;
+        votingEndTime = _endTime;
+        timelineEnabled = true;
+        emit VotingTimelineSet(_startTime, _endTime);
+    }
+
+    /**
+     * @dev Disable voting timeline
+     */
+    function disableTimeline() external onlyAdmin {
+        timelineEnabled = false;
+        votingStartTime = 0;
+        votingEndTime = 0;
     }
 
     // ============ Goal 3: Voter Eligibility ============
@@ -233,6 +260,12 @@ contract ZKPVoting {
         uint256[4] memory _proof,
         string memory _ipfsHash
     ) external zkpModeRequired {
+        // --- Timeline enforcement ---
+        if (timelineEnabled) {
+            require(block.timestamp >= votingStartTime, "ZKP: Voting has not started yet");
+            require(block.timestamp <= votingEndTime, "ZKP: Voting period has ended");
+        }
+
         // --- Goal 3: Verify voter eligibility ---
         require(identityRegistered[_identityCommitment], "ZKP: Not a registered voter");
         require(!eligibleVoters[_identityCommitment].hasVoted, "ZKP: Voter already voted");
@@ -296,9 +329,9 @@ contract ZKPVoting {
         require(proofCandidateCount == candidatesCount, "ZKP: Candidate count mismatch");
         require(challenge != 0 && k_v != 0 && k_r != 0, "ZKP: Zero proof component");
 
-        // Recompute the Fiat-Shamir challenge using the original nonces
+        // Recompute the Fiat-Shamir challenge using the original nonces and sender address
         bytes32 expectedHash = keccak256(
-            abi.encodePacked(_commitment, _nullifierHash, k_v, k_r, proofCandidateCount)
+            abi.encodePacked(_commitment, _nullifierHash, k_v, k_r, proofCandidateCount, _msgSender())
         );
 
         uint256 expectedChallenge = uint256(expectedHash) % PRIME;

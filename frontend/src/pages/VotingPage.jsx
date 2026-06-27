@@ -234,10 +234,12 @@ function VotingPage({ user, onUserUpdate }) {
             setVoteState('signing');
 
             if (isZKP && voterSecret) {
+                const voterAddress = await service.getCurrentAccount();
                 const votePackage = await zkpClientService.generateVotePackage(
                     candidate.id,
                     voterSecret,
                     candidates.length,
+                    voterAddress,
                     'bharat-evote-2026'
                 );
 
