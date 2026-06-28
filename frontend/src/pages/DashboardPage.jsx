@@ -34,7 +34,10 @@ function DashboardPage({ user, onUserUpdate }) {
             const userData = await authService.getCurrentUser();
             // Use backend data if available, otherwise fall back to props
             setProfile(userData || user || { fullname: 'Voter', voterId: 'N/A', email: 'voter@evote.gov' });
-            if (onUserUpdate) onUserUpdate(userData);
+            // Only update global user state if we successfully fetched the user data
+            if (userData && onUserUpdate) {
+                onUserUpdate(userData);
+            }
 
             const voted = await authService.checkVoteStatus();
             setHasVoted(voted);
