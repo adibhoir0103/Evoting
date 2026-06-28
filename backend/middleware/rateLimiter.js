@@ -12,10 +12,9 @@ const logger = require('../lib/logger');
 let upstashRedis = null;
 if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
     try {
-        upstashRedis = new Redis({
-            url: process.env.UPSTASH_REDIS_REST_URL,
-            token: process.env.UPSTASH_REDIS_REST_TOKEN,
-        });
+        const url = process.env.UPSTASH_REDIS_REST_URL.replace(/['"]/g, '').trim();
+        const token = process.env.UPSTASH_REDIS_REST_TOKEN.replace(/['"]/g, '').trim();
+        upstashRedis = new Redis({ url, token });
         logger.info('✅ Upstash Redis bound for Rate Limiting');
     } catch (err) {
         logger.error('Failed to initialize Upstash Redis for rate limiting:', err);

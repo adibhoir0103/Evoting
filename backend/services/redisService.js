@@ -5,10 +5,9 @@ let redis;
 
 try {
     if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-        redis = new Redis({
-            url: process.env.UPSTASH_REDIS_REST_URL,
-            token: process.env.UPSTASH_REDIS_REST_TOKEN,
-        });
+        const url = process.env.UPSTASH_REDIS_REST_URL.replace(/['"]/g, '').trim();
+        const token = process.env.UPSTASH_REDIS_REST_TOKEN.replace(/['"]/g, '').trim();
+        redis = new Redis({ url, token });
         logger.info('✅ Upstash Redis initialized for session management');
     } else {
         logger.warn('⚠️ Redis credentials missing. Falling back to memory storage for sessions (NOT FOR PRODUCTION).');
