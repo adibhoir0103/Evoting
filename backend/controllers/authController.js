@@ -506,7 +506,7 @@ exports.keystrokeVerify = async (req, res) => {
     const totalDistance = Math.sqrt(holdDistance + flightDistance);
     const speedDiff = Math.abs((meanSpeed || 0) - profile.mean_speed);
     const score = parseFloat((totalDistance + speedDiff * 10).toFixed(2));
-    const THRESHOLD = 500;
+    const THRESHOLD = 2000;
     const verified = score < THRESHOLD;
 
     await prisma.keystrokeProfile.update({
@@ -538,7 +538,7 @@ exports.keystrokeProcess = async (req, res) => {
     if (!userEmail) return res.status(400).json({ error: 'Invalid token: missing email' });
 
     const MIN_SAMPLES = 3;
-    const THRESHOLD = 500;
+    const THRESHOLD = 2000;
 
     let profile = await prisma.keystrokeProfile.findUnique({ where: { user_email: userEmail } });
 
