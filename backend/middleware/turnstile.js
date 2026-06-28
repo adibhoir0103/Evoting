@@ -6,7 +6,7 @@ const axios = require('axios');
 const logger = require('../lib/logger');
 
 async function verifyTurnstile(req, res, next) {
-    const token = req.body['cf-turnstile-response'] || req.headers['x-turnstile-response'];
+    const token = req.body['cf-turnstile-response'] || req.body.turnstileToken || req.headers['x-turnstile-response'];
     if (!token) {
         return res.status(400).json({ error: 'Turnstile token missing.' });
     }
