@@ -2,16 +2,20 @@
  * Shared API configuration — Single source of truth for backend URL.
  * Import this everywhere instead of duplicating the rawUrl/API_URL pattern.
  *
- * Supports three forms:
- *   1. Relative path:  "/api/v1"         → used as-is (Vite proxy in dev)
- *   2. Full URL:       "http(s)://…"     → ensures /api/v1 suffix
- *   3. Bare hostname:  "my-api.render.com"→ prepends https:// + /api/v1
+ * In PRODUCTION (Vercel), we ALWAYS use the relative path "/api/v1"
+ * so requests go through Vercel's proxy rewrite (vercel.json) to Render.
+ * This avoids ALL cross-domain cookie issues.
+ *
+ * In DEVELOPMENT, VITE_API_URL can be set to a full URL for direct calls.
  */
-const rawUrl = import.meta.env.VITE_API_URL || '/api/v1';
+const isDevMode = import.meta.env.DEV;
+const rawUrl = isDevMode
+    ? (import.meta.env.VITE_API_URL || '/api/v1')
+    : '/api/v1'; // ALWAYS use Vercel proxy in production
 
 let API_URL;
 if (rawUrl.startsWith('/')) {
-    // Relative path — use as-is (works with Vite dev proxy or same-origin deploy)
+    // Relative path — use as-is (works with Vite dev proxy or Vercel rewrite)
     API_URL = rawUrl;
 } else if (rawUrl.startsWith('http')) {
     // Full URL — ensure /api/v1 suffix

@@ -85,10 +85,17 @@ function App() {
                     if (storedUser) {
                         setUser(storedUser);
                     }
-                    // Verify token with backend
-                    const freshUser = await authService.getCurrentUser();
-                    if (freshUser) {
-                        setUser(freshUser);
+                    // Verify token with backend (may fail on Render cold start — that's OK)
+                    try {
+                        const freshUser = await authService.getCurrentUser();
+                        if (freshUser) {
+                            setUser(freshUser);
+                        }
+                        // If freshUser is null but we have storedUser, KEEP storedUser
+                        // Don't wipe the session just because the backend is slow/cold
+                    } catch (verifyErr) {
+                        console.warn('Backend verification failed (cold start?), keeping stored session:', verifyErr.message);
+                        // Keep storedUser — don't logout
                     }
                 }
                 setIsAdmin(!!localStorage.getItem('admin'));
@@ -172,6 +179,10 @@ function App() {
 
     const handleLogin = (userData, token) => {
         setUser(userData);
+        // Persist to localStorage so the session survives page refresh
+        if (userData) localStorage.setItem('user', JSON.stringify(userData));
+        if (token) localStorage.setItem('token', token);
+
         if (userData.walletAddress) {
             checkAdminStatus(userData.walletAddress);
         }

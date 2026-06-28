@@ -47,9 +47,16 @@ const injectUser = async (req, res, next) => {
 
         // Additional Redis session check for active session token
         if (decoded.active_session_token) {
-            const activeSessionToken = await redisService.getActiveSession(dbUser.id);
-            if (activeSessionToken !== decoded.active_session_token) {
-                return res.status(401).json({ error: 'Session superseded by a newer login.' });
+            try {
+                const activeSessionToken = await redisService.getActiveSession(dbUser.id);
+                // Only reject if Redis returned a DIFFERENT valid token (session superseded)
+                // If Redis returns null (Redis down/timeout), let the request through
+                if (activeSessionToken && activeSessionToken !== decoded.active_session_token) {
+                    return res.status(401).json({ error: 'Session superseded by a newer login.' });
+                }
+            } catch (redisErr) {
+                // Redis is down — log but DON'T block the user
+                console.warn('Redis session check failed, allowing request:', redisErr.message);
             }
         }
 

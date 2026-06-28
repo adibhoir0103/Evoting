@@ -48,9 +48,10 @@ export const authService = {
             });
 
             if (!response.ok) {
-                if (response.status === 401) {
-                    await this.logout();
-                }
+                // DO NOT call logout() here — let the caller decide.
+                // Calling logout() on transient 401s (cold starts, Redis blips)
+                // was the #1 cause of the login redirect loop.
+                console.warn('getCurrentUser failed with status:', response.status);
                 return null;
             }
 
