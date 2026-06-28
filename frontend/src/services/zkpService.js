@@ -147,10 +147,9 @@ export const zkpClientService = {
      * Generate nullifier hash locally
      */
     async generateNullifier(voterSecret, electionId = 'bharat-evote-2026') {
-        const nullifierHash = await keccak256(BigInt('0x' + Buffer.from ? 
-            Buffer.from(voterSecret).toString('hex') : 
-            Array.from(new TextEncoder().encode(voterSecret)).map(b => b.toString(16).padStart(2, '0')).join('')
-        ), BigInt('0x' + Array.from(new TextEncoder().encode(electionId)).map(b => b.toString(16).padStart(2, '0')).join('')));
+        const voterSecretHex = Array.from(new TextEncoder().encode(voterSecret)).map(b => b.toString(16).padStart(2, '0')).join('');
+        const electionIdHex = Array.from(new TextEncoder().encode(electionId)).map(b => b.toString(16).padStart(2, '0')).join('');
+        const nullifierHash = await keccak256(BigInt('0x' + voterSecretHex), BigInt('0x' + electionIdHex));
         return { nullifierHash };
     },
 

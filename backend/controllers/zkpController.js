@@ -22,14 +22,14 @@ exports.generateCommitment = (req, res) => {
 };
 
 exports.generateProof = (req, res) => {
-    const { candidateId, randomness, candidatesCount, commitment, nullifierHash } = req.body;
-    if (!candidateId || !randomness || !candidatesCount || !commitment || !nullifierHash) {
+    const { candidateId, randomness, candidatesCount, commitment, nullifierHash, voterAddress } = req.body;
+    if (!candidateId || !randomness || !candidatesCount || !commitment || !nullifierHash || !voterAddress) {
         return res.status(400).json({ error: 'All proof parameters are required' });
     }
     if (!isValidHex(randomness) || !isValidHex(commitment) || !isValidHex(nullifierHash)) {
         return res.status(400).json({ error: 'Invalid hex format for cryptographic parameters' });
     }
-    const result = zkpService.generateVoteProof(candidateId, randomness, candidatesCount, commitment, nullifierHash);
+    const result = zkpService.generateVoteProof(candidateId, randomness, candidatesCount, commitment, nullifierHash, voterAddress);
     res.json({ proof: result.proof, message: 'ZK proof generated successfully' });
 };
 
@@ -43,18 +43,18 @@ exports.generateNullifier = (req, res) => {
 };
 
 exports.verifyProof = (req, res) => {
-    const { commitment, nullifierHash, proof, candidatesCount } = req.body;
-    if (!commitment || !nullifierHash || !proof || !candidatesCount) return res.status(400).json({ error: 'All verification parameters are required' });
+    const { commitment, nullifierHash, proof, candidatesCount, voterAddress } = req.body;
+    if (!commitment || !nullifierHash || !proof || !candidatesCount || !voterAddress) return res.status(400).json({ error: 'All verification parameters are required' });
     if (!isValidHex(commitment) || !isValidHex(nullifierHash)) return res.status(400).json({ error: 'Invalid hex format for commitment or nullifier' });
     if (!Array.isArray(proof) || !proof.every(p => isValidHex(p) || typeof p === 'string')) return res.status(400).json({ error: 'Invalid proof format' });
-    const result = zkpService.verifyProof(commitment, nullifierHash, proof, candidatesCount);
+    const result = zkpService.verifyProof(commitment, nullifierHash, proof, candidatesCount, voterAddress);
     res.json({ valid: result.valid, reason: result.reason || 'Proof is valid', message: result.valid ? 'ZK proof verified successfully' : 'ZK proof verification failed' });
 };
 
 exports.generateVotePackage = (req, res) => {
-    const { candidateId, voterSecret, candidatesCount, electionId } = req.body;
-    if (!candidateId || !voterSecret || !candidatesCount) return res.status(400).json({ error: 'candidateId, voterSecret, and candidatesCount are required' });
+    const { candidateId, voterSecret, candidatesCount, electionId, voterAddress } = req.body;
+    if (!candidateId || !voterSecret || !candidatesCount || !voterAddress) return res.status(400).json({ error: 'candidateId, voterSecret, candidatesCount, and voterAddress are required' });
     const cleanElectionId = sanitize(electionId || 'bharat-evote-2026');
-    const votePackage = zkpService.generateVotePackage(candidateId, voterSecret, candidatesCount, cleanElectionId);
+    const votePackage = zkpService.generateVotePackage(candidateId, voterSecret, candidatesCount, cleanElectionId, voterAddress);
     res.json({ ...votePackage, message: 'Complete ZKP vote package generated' });
 };

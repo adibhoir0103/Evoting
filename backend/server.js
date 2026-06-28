@@ -85,7 +85,7 @@ app.use(cors({
         if (origin === 'null') {
             return callback(new Error('Not allowed by CORS: null origin rejected'));
         }
-        if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'strict_production') {
+        if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
             // Dynamically allow the requesting origin so it works with credentials:true
             callback(null, origin || true);
         } else {

@@ -270,8 +270,8 @@ exports.addCandidate = async (req, res) => {
             candidate_name,
             party_name,
             party_symbol,
-            state_code: state_code ? parseInt(state_code) : 0,
-            constituency_code: constituency_code ? parseInt(constituency_code) : 0
+            state_code: state_code ? parseInt(state_code) : null,
+            constituency_code: constituency_code ? parseInt(constituency_code) : null
         }
     });
 
@@ -345,11 +345,19 @@ exports.uploadElectionVoters = async (req, res) => {
                         continue;
                     }
 
+                    // Hash Aadhaar if provided in CSV for lookup
+                    let lookupAadhaar = identifier;
+                    if (row.aadhaar_number) {
+                        const cleanAadhaar = row.aadhaar_number.replace(/\s/g, '');
+                        const pepper = process.env.AADHAAR_PEPPER || 'dev-local-aadhaar-pepper';
+                        lookupAadhaar = crypto.createHmac('sha256', pepper).update(cleanAadhaar).digest('hex');
+                    }
+
                     // Find user in master DB
                     const user = await localPrisma.user.findFirst({
                         where: {
                             OR: [
-                                { aadhaar_number: identifier },
+                                { aadhaar_number: lookupAadhaar },
                                 { email: identifier },
                                 { voter_id: identifier }
                             ]

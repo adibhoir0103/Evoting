@@ -36,7 +36,7 @@ function errorHandler(err, req, res, next) {
 
     const statusCode = err.status || err.statusCode || 500;
     res.status(statusCode).json({
-        error: `[DEBUG] ${err.message}` // Temporarily expose the real error message for debugging
+        error: process.env.NODE_ENV === 'production' ? 'An internal server error occurred.' : `[DEBUG] ${err.message}`
     });
 }
 

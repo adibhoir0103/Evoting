@@ -201,29 +201,18 @@ exports.login = async (req, res) => {
         }
     }
 
-    // --- BYPASS MFA ---
-    // Create final session directly
-    const sessionToken = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
-    await redisService.setActiveSession(user.id, sessionToken, 1200);
-
-    const token = jwt.sign(
-        { id: user.id, email: user.email, voterId: user.voter_id, voter_id: user.voter_id, role: user.role, mfa: true, active_session_token: sessionToken },
-        EFFECTIVE_JWT_SECRET, { expiresIn: '20m' }
+    // Generate pre-auth token for MFA step
+    const preAuthToken = jwt.sign(
+        { id: user.id, email: user.email, voterId: user.voter_id, step: 'mfa_pending' },
+        EFFECTIVE_JWT_SECRET, { expiresIn: '5m' }
     );
 
-    await prisma.loginHistory.create({
-        data: { voter_id: user.voter_id, ip_address: req.ip, device_info: req.headers['user-agent']?.slice(0, 200), status: 'SUCCESS' }
-    }).catch(() => {});
-
-    setTokenCookie(res, 'token', token, 20 * 60 * 1000);
-
-    const loginResponse = {
-        message: 'Password verified. MFA bypassed for testing.', mfaRequired: false, token,
-        user: { id: user.id, fullname: user.fullname, email: user.email, voterId: user.voter_id, hasVoted: user.has_voted, walletAddress: user.wallet_address },
+    res.json({
+        message: 'Password verified. Proceed to MFA.',
+        mfaRequired: true,
+        preAuthToken,
         mustChangePassword: user.must_change_password
-    };
-
-    res.json(loginResponse);
+    });
 };
 
 // ===================== VERIFY OTP (Step 2) =====================

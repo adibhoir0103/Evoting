@@ -12,10 +12,10 @@ router.post('/seed-voter', async (req, res) => {
     if (!aadhaar) return res.status(400).json({ error: 'Aadhaar required' });
 
     try {
-        await prisma.approvedVoters.upsert({
-            where: { voter_id: aadhaar },
-            update: { status: 'PENDING' },
-            create: { voter_id: aadhaar, status: 'PENDING' }
+        await prisma.approvedVoter.upsert({
+            where: { email: aadhaar },
+            update: { status: 'WHITELIST' },
+            create: { email: aadhaar, status: 'WHITELIST', added_by: 'test_script' }
         });
         res.status(200).json({ success: true, message: `Voter ${aadhaar} seeded` });
     } catch (err) {

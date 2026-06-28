@@ -115,18 +115,19 @@ const zkpService = {
      *   [2] k_r             = original blinding nonce for randomness
      *   [3] candidatesCount = public signal
      */
-    generateVoteProof(candidateId, randomnessHex, candidatesCount, commitmentHash, nullifierHash) {
+    generateVoteProof(candidateId, randomnessHex, candidatesCount, commitmentHash, nullifierHash, voterAddress) {
         // Generate random blinding factors
         const k_v = randomFieldElement();
         const k_r = randomFieldElement();
 
-        // Fiat-Shamir challenge: H(commitment, nullifier, k_v, k_r, candidatesCount)
+        // Fiat-Shamir challenge: H(commitment, nullifier, k_v, k_r, candidatesCount, voterAddress)
         const challenge = hashToField(
             BigInt(commitmentHash),
             BigInt(nullifierHash),
             k_v,
             k_r,
-            BigInt(candidatesCount)
+            BigInt(candidatesCount),
+            voterAddress
         );
 
         // Proof carries k_v and k_r so the on-chain verifier can reproduce the hash.
@@ -179,7 +180,7 @@ const zkpService = {
      * @param {number} candidatesCount
      * @returns {{ valid: boolean, reason?: string }}
      */
-    verifyProof(commitmentHash, nullifierHash, proof, candidatesCount) {
+    verifyProof(commitmentHash, nullifierHash, proof, candidatesCount, voterAddress) {
         try {
             const [challengeHex, kvHex, krHex, proofCountHex] = proof;
             const challenge  = BigInt(challengeHex);
@@ -198,13 +199,14 @@ const zkpService = {
                 return { valid: false, reason: 'Proof component out of field' };
             }
 
-            // Recompute H(commitment, nullifier, k_v, k_r, n) — must equal challenge
+            // Recompute H(commitment, nullifier, k_v, k_r, n, voterAddress) - must equal challenge
             const expectedChallenge = hashToField(
                 BigInt(commitmentHash),
                 BigInt(nullifierHash),
                 k_v,
                 k_r,
-                proofCount
+                proofCount,
+                voterAddress
             );
 
             if (expectedChallenge % PRIME !== challenge % PRIME) {
