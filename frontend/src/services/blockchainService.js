@@ -2,9 +2,16 @@ import { ethers } from 'ethers';
 import VotingArtifact from '../contracts/Voting.json';
 import contractAddress from '../contracts/contract-address.json';
 
-// Environment detection: if VITE_API_URL points to localhost, we use local Hardhat node
-const _apiUrl = import.meta.env.VITE_API_URL || '/api/v1';
-const IS_LOCAL = _apiUrl.includes('localhost') || _apiUrl.includes('127.0.0.1');
+// Environment detection
+// We use local Hardhat node if:
+// 1. Explicitly requested via env var
+// 2. We are running the frontend on localhost
+// 3. We are running in Vite dev mode (fallback)
+const isLocalhostHost = typeof window !== 'undefined' && 
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+const IS_LOCAL = import.meta.env.VITE_USE_LOCAL_BLOCKCHAIN === 'true' || isLocalhostHost || import.meta.env.DEV;
+
 const LOCAL_RPC = 'http://127.0.0.1:8545';
 const SEPOLIA_RPC = 'https://eth-sepolia.g.alchemy.com/v2/XbNu_qjjYV_V-FGBmkc3K';
 const LOCAL_CHAIN_ID = '0x539';   // 1337
