@@ -6,9 +6,12 @@ import { API_URL } from '../config/api';
 export const authService = {
 
     async getAuthHeaders() {
-        return {
-            'Content-Type': 'application/json'
-        };
+        const token = localStorage.getItem('token');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        return headers;
     },
 
     /**
@@ -69,7 +72,11 @@ export const authService = {
     },
 
     isLoggedIn() {
-        return !!localStorage.getItem('user');
+        return !!localStorage.getItem('user') || !!localStorage.getItem('token');
+    },
+
+    getToken() {
+        return localStorage.getItem('token');
     },
 
     /**
