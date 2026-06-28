@@ -4,6 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
 import { API_URL } from '../config/api';
 import { useKeystrokeDynamics, KeystrokeIndicator } from '../components/KeystrokeDynamics';
+import { authService } from '../services/authService';
 
 function SetPasswordPage() {
     const navigate = useNavigate();
@@ -59,19 +60,12 @@ function SetPasswordPage() {
             const res = await fetch(`${API_URL}/auth/set-new-password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include' // send httpOnly cookie
-            });
-
-            // Body with passwords
-            const res2 = await fetch(`${API_URL}/auth/set-new-password`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify({ newPassword, confirmPassword })
             });
 
-            const data = await res2.json();
-            if (!res2.ok) throw new Error(data.error || 'Failed to set password');
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to set password');
 
             // Enroll keystroke biometrics for the new password
             const keystrokeData = getKeystrokeData();
@@ -90,10 +84,14 @@ function SetPasswordPage() {
             }
 
             // Clear user from localStorage — they must log in fresh
-            localStorage.removeItem('user');
+            authService.logout();
 
             toast.success('Password set! Please log in with your new password.', { duration: 5000 });
-            navigate('/login', { state: { message: 'Password set successfully. Please log in with your new password.' } });
+            
+            // Hard reload to clear all React state and force user to login page
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 1000);
 
         } catch (err) {
             setError(err.message);
