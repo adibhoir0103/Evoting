@@ -12,11 +12,14 @@ async function verifyTurnstile(req, res, next) {
     }
 
     try {
-        const response = await axios.post('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-            secret: process.env.TURNSTILE_SECRET_KEY,
-            response: token,
-            remoteip: req.ip
-        }, {
+        const secretKey = process.env.TURNSTILE_SECRET_KEY || '1x0000000000000000000000000000000AA';
+
+        const params = new URLSearchParams();
+        params.append('secret', secretKey);
+        params.append('response', token);
+        if (req.ip) params.append('remoteip', req.ip);
+
+        const response = await axios.post('https://challenges.cloudflare.com/turnstile/v0/siteverify', params, {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         });
 
