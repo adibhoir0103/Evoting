@@ -77,11 +77,17 @@ export const authService = {
      */
     async logout() {
         try {
-            await fetch(`${API_URL}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
+            const headers = await this.getAuthHeaders();
+            await fetch(`${API_URL}/auth/logout`, { 
+                method: 'POST', 
+                headers,
+                credentials: 'include' 
+            }).catch(() => {});
         } catch (e) {
             console.error('Logout error', e);
         }
         localStorage.removeItem('user');
+        localStorage.removeItem('token');
     },
 
     /**

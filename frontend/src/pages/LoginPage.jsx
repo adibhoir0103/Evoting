@@ -276,7 +276,7 @@ function LoginPage({ onLogin }) {
             }
 
             // MFA complete — store final JWT and proceed
-            // localStorage.setItem('token', data.token); // Handled by httpOnly cookie now
+            localStorage.setItem('token', data.token); // Handled by httpOnly cookie now, but we need fallback for cross-domain
             localStorage.setItem('user', JSON.stringify(data.user));
 
             // Keystroke enroll/verify already handled in step 1 via /keystroke/process

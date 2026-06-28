@@ -57,9 +57,10 @@ function SetPasswordPage() {
 
         setLoading(true);
         try {
+            const headers = await authService.getAuthHeaders();
             const res = await fetch(`${API_URL}/auth/set-new-password`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 credentials: 'include',
                 body: JSON.stringify({ newPassword, confirmPassword })
             });
@@ -73,7 +74,7 @@ function SetPasswordPage() {
                 try {
                     await fetch(`${API_URL}/auth/keystroke/enroll`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers,
                         credentials: 'include',
                         body: JSON.stringify(keystrokeData)
                     });
