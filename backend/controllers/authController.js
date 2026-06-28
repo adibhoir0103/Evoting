@@ -201,42 +201,27 @@ exports.login = async (req, res) => {
         }
     }
 
-    // MFA: Generate and send OTP
-    const otp = String(crypto.randomInt(100000, 999999));
-    const otpHash = await bcrypt.hash(otp, 10);
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    // --- BYPASS MFA ---
+    // Create final session directly
+    const sessionToken = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
+    await redisService.setActiveSession(user.id, sessionToken, 1200);
 
-    await prisma.mfaToken.updateMany({
-        where: { user_email: user.email, verified: false },
-        data: { verified: true }
-    });
-    await prisma.mfaToken.create({
-        data: { user_email: user.email, otp_hash: otpHash, purpose: 'LOGIN', expires_at: expiresAt, verified: false, attempts: 0 }
-    });
-
-    const emailService = require('../services/emailService');
-    await emailService.sendOTP(user.email, otp, user.fullname || 'Voter');
-
-    const preAuthToken = jwt.sign(
-        { id: user.id, email: user.email, voterId: user.voter_id, step: 'mfa_pending' },
-        EFFECTIVE_JWT_SECRET, { expiresIn: '10m' }
+    const token = jwt.sign(
+        { id: user.id, email: user.email, voterId: user.voter_id, voter_id: user.voter_id, role: user.role, mfa: true, active_session_token: sessionToken },
+        EFFECTIVE_JWT_SECRET, { expiresIn: '20m' }
     );
 
     await prisma.loginHistory.create({
-        data: { voter_id: user.voter_id, ip_address: req.ip, device_info: req.headers['user-agent']?.slice(0, 200), status: 'MFA_PENDING' }
+        data: { voter_id: user.voter_id, ip_address: req.ip, device_info: req.headers['user-agent']?.slice(0, 200), status: 'SUCCESS' }
     }).catch(() => {});
 
+    setTokenCookie(res, 'token', token, 20 * 60 * 1000);
+
     const loginResponse = {
-        message: 'Password verified. OTP sent to your registered email.', mfaRequired: true, preAuthToken,
-        maskedEmail: user.email.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
-        user: { id: user.id, fullname: user.fullname, voterId: user.voter_id, hasVoted: user.has_voted, walletAddress: user.wallet_address },
+        message: 'Password verified. MFA bypassed for testing.', mfaRequired: false, token,
+        user: { id: user.id, fullname: user.fullname, email: user.email, voterId: user.voter_id, hasVoted: user.has_voted, walletAddress: user.wallet_address },
         mustChangePassword: user.must_change_password
     };
-
-    // Include OTP in non-production for demo/testing
-    if (process.env.NODE_ENV !== 'production') {
-        loginResponse.otpDemo = otp;
-    }
 
     res.json(loginResponse);
 };

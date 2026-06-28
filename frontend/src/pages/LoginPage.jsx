@@ -205,6 +205,20 @@ function LoginPage({ onLogin }) {
                 toast.success('OTP sent to your email!', { icon: '📧' });
                 // Focus first OTP input
                 setTimeout(() => otpRefs.current[0]?.focus(), 100);
+            } else if (data.token) {
+                // MFA Bypassed flow
+                localStorage.setItem('token', data.token); // Handled by httpOnly cookie now, but we need fallback for cross-domain
+                localStorage.setItem('user', JSON.stringify(data.user));
+
+                if (onLogin) onLogin(data.user, data.token);
+
+                if (data.mustChangePassword) {
+                    toast('🔑 You must set a permanent password before continuing.', { icon: '⚠️', duration: 5000 });
+                    navigate('/set-password');
+                } else {
+                    toast.success(`Welcome back, ${data.user.fullname || 'Voter'}!`, { icon: '🛡️' });
+                    navigate('/dashboard');
+                }
             }
         } catch (err) {
             setError(err.message);
