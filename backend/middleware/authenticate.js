@@ -99,11 +99,12 @@ const isAdmin = (req, res, next) => {
     return res.status(401).json({ error: 'Admin authentication required.' });
 };
 
-// ============ Cookie Configuration ============
+const isProduction = process.env.NODE_ENV === 'production';
+
 const COOKIE_OPTIONS = {
     httpOnly: true,
-    secure: true, // Required for sameSite 'none'
-    sameSite: 'none', // Allow cross-domain requests (Vercel -> Render)
+    secure: isProduction, // Required for sameSite 'none' in production, but drops cookies on localhost HTTP
+    sameSite: isProduction ? 'none' : 'lax', // Allow cross-domain requests in production
     path: '/'
 };
 
