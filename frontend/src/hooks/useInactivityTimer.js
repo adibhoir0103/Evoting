@@ -37,6 +37,9 @@ const useInactivityTimer = (onLogout, timeoutMs = 10 * 60 * 1000, warningMs = 60
     const resetTimer = useCallback(() => {
         clearAllTimers();
 
+        // If timeout is Infinity (user not logged in), don't start any timers
+        if (timeoutMs === Infinity) return;
+
         // Set warning timer (fires warningMs before logout)
         warningTimerRef.current = setTimeout(() => {
             setShowWarning(true);
