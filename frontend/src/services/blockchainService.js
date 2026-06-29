@@ -217,6 +217,25 @@ export class BlockchainService {
     }
 
     /**
+     * Atomically resets candidate registry and loads a new list
+     */
+    async resetAndLoadCandidates(names, partyNames, partySymbols, stateCodes, constituencyCodes) {
+        try {
+            await this.ensureConnection();
+            const tx = await this.contract.resetAndLoadCandidates(
+                names, partyNames, partySymbols, stateCodes, constituencyCodes
+            );
+            devLog('⏳ Transaction sent:', tx.hash);
+            const receipt = await tx.wait();
+            devLog('✅ Candidates reset and loaded successfully');
+            return receipt;
+        } catch (error) {
+            console.error('Error resetting candidates:', error);
+            throw this.handleError(error);
+        }
+    }
+
+    /**
      * Authorize a voter with constituency info
      */
     async authorizeVoter(voterAddress, stateCode = 0, constituencyCode = 0) {

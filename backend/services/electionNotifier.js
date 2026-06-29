@@ -2,21 +2,21 @@
  * Election Notification Scheduler
  * 
  * Runs every 60 seconds and checks for election events that need email notifications:
- * 1. REMINDER_24H — 24 hours before election starts
- * 2. VOTING_STARTED — When election goes ACTIVE (start_time reached)
- * 3. LAST_CALL_30M — 30 minutes before election ends, only to non-voters
+ * 1. VOTING_STARTED — When election goes ACTIVE (start_time reached)
+ * 2. FIVE_MIN_WARNING — 5 minutes before election ends, only to non-voters
+ * 3. ELECTION_ENDED — When election timer fires and voting closes
+ * 4. RESULTS_RELEASED — 1 hour after election closes, auto-releases results
  */
 
 const prisma = require('../lib/prisma');
 const logger = require('../lib/logger');
+const emailService = require('./emailService');
+const blockchainReader = require('./blockchainReader');
 
 const notifLog = logger.child('notification');
 
 let isRunning = false; // Prevent overlapping runs
 
-/**
- * Check and send election notifications
- */
 async function checkAndNotify() {
     if (isRunning) return;
     isRunning = true;
@@ -37,121 +37,159 @@ async function checkAndNotify() {
             const startTime = new Date(election.start_time);
             const endTime = new Date(election.end_time);
 
-            // 1. REMINDER_24H: 24 hours before start (±5 min window)
-            const reminderTime = new Date(startTime.getTime() - 24 * 60 * 60 * 1000);
-            const reminderWindowStart = new Date(reminderTime.getTime() - 5 * 60 * 1000);
-            const reminderWindowEnd = new Date(reminderTime.getTime() + 5 * 60 * 1000);
-
-            if (now >= reminderWindowStart && now <= reminderWindowEnd) {
-                await sendNotification(election, 'REMINDER_24H', {
-                    subject: 'Voting Reminder — Tomorrow',
-                    getBody: (name, elName) => `Dear ${name},\n\nThis is a reminder that voting for "${elName}" opens tomorrow at ${startTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}.\n\nPlease ensure:\n• Your MetaMask wallet is configured\n• You have your Voter ID ready\n• Check eligibility at the Bharat E-Vote portal\n\nYour vote matters for India's democracy!`
-                });
-            }
-
-            // 2. VOTING_STARTED: When start_time is reached (±5 min window)
+            // 1. VOTING_STARTED: When start_time is reached (±5 min window)
             const startWindowStart = new Date(startTime.getTime() - 2 * 60 * 1000);
             const startWindowEnd = new Date(startTime.getTime() + 5 * 60 * 1000);
 
-            if (now >= startWindowStart && now <= startWindowEnd) {
+            if (now >= startWindowStart && now <= startWindowEnd && election.status === 'ACTIVE') {
                 await sendNotification(election, 'VOTING_STARTED', {
                     subject: 'Voting Is Now Open!',
-                    getBody: (name, elName) => `Dear ${name},\n\nVoting for "${elName}" is NOW OPEN!\n\n🗳️ Cast your vote at: https://bharat-evote.me/vote\n\n⏰ Voting closes at: ${endTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n\nRemember:\n• Each voter can cast only ONE vote\n• Your vote is encrypted on the blockchain\n• Results will be announced after polls close\n\nJai Hind! 🇮🇳`
+                    getBody: (name, elName) => `Dear ${name},\n\nVoting for "${elName}" is NOW OPEN!\n\n🗳️ Cast your vote at: https://bharat-evote.me/vote\n\n⏰ Voting closes at: ${endTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n\nRemember:\n• Each voter can cast only ONE vote\n• Your vote is encrypted on the blockchain\n• Results will be announced 1 hour after polls close\n\nJai Hind! 🇮🇳`
                 });
             }
 
-            // 3. LAST_CALL_30M: 30 minutes before end, only to non-voters
-            const lastCallTime = new Date(endTime.getTime() - 30 * 60 * 1000);
-            const lastCallWindowStart = new Date(lastCallTime.getTime() - 2 * 60 * 1000);
-            const lastCallWindowEnd = new Date(lastCallTime.getTime() + 5 * 60 * 1000);
+            // 2. FIVE_MIN_WARNING: 5 minutes before end, only to non-voters
+            const warningTime = new Date(endTime.getTime() - 5 * 60 * 1000);
+            const warningWindowStart = new Date(warningTime.getTime() - 2 * 60 * 1000);
+            const warningWindowEnd = new Date(warningTime.getTime() + 2 * 60 * 1000);
 
-            if (now >= lastCallWindowStart && now <= lastCallWindowEnd) {
-                await sendNotification(election, 'LAST_CALL_30M', {
-                    subject: '⚠️ Last 30 Minutes to Vote!',
-                    getBody: (name, elName) => `Dear ${name},\n\n⚠️ URGENT: Only 30 minutes remain to cast your vote for "${elName}"!\n\nVoting closes at: ${endTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n\n🗳️ Vote now: https://bharat-evote.me/vote\n\nDon't miss your chance to participate in India's democracy!\n\nJai Hind! 🇮🇳`,
-                    onlyNonVoters: true // Only send to voters who haven't voted
+            if (now >= warningWindowStart && now <= warningWindowEnd && election.status === 'ACTIVE') {
+                await sendNotification(election, 'FIVE_MIN_WARNING', {
+                    subject: '⚠️ 5 Minutes Left to Vote!',
+                    getBody: (name, elName) => `Dear ${name},\n\n⚠️ URGENT: The election closes in exactly 5 minutes.\n\nYou haven't voted yet — cast your vote now before the blockchain locks!\n\n🗳️ Vote now: https://bharat-evote.me/vote\n\nJai Hind! 🇮🇳`,
+                    onlyNonVoters: true
                 });
             }
 
-            // 4. ELECTION_RESULTS_DECLARED: When election is officially CLOSED
-            if (election.status === 'CLOSED') {
-                await sendNotification(election, 'ELECTION_RESULTS_DECLARED', {
-                    subject: 'Election Results Are Now Live! 📊',
-                    getBody: (name, elName) => `Dear ${name},\n\nThe official polling for "${elName}" has officially concluded.\n\n📊 The mathematical tally has been unlocked, and cryptographically verified results are now finalized on the blockchain.\n\n🏆 View the Winners & Vote Distribution here:\nhttps://bharat-evote.me/results\n\nThank you for participating in India's secure democracy.\n\nJai Hind! 🇮🇳`
+            // 3. ELECTION_ENDED: Exactly when end_time is reached
+            const endWindowStart = new Date(endTime.getTime() - 1 * 60 * 1000);
+            const endWindowEnd = new Date(endTime.getTime() + 5 * 60 * 1000);
+
+            if (now >= endWindowStart && now <= endWindowEnd) {
+                // We don't check status === 'CLOSED' because admin might not have clicked it yet,
+                // but the time has passed.
+                await sendNotification(election, 'ELECTION_ENDED', {
+                    subject: 'Election Voting Has Ended',
+                    getBody: (name, elName) => `Dear ${name},\n\nVoting for "${elName}" has officially concluded and the blockchain is now locked.\n\n📊 Results will be mathematically tallied and published in exactly 1 hour.\n\nThank you for participating.\n\nJai Hind! 🇮🇳`
                 });
+            }
+
+            // 4. RESULTS_RELEASED: 1 hour after end_time
+            const resultsTime = new Date(endTime.getTime() + 60 * 60 * 1000);
+            const resultsWindowStart = new Date(resultsTime.getTime() - 2 * 60 * 1000);
+            const resultsWindowEnd = new Date(resultsTime.getTime() + 5 * 60 * 1000);
+
+            if (now >= resultsWindowStart && now <= resultsWindowEnd) {
+                // Ensure results are not sent if we haven't already
+                const sent = await prisma.electionNotification.findUnique({
+                    where: { election_id_type: { election_id: election.id, type: 'RESULTS_RELEASED' } }
+                });
+                
+                if (!sent) {
+                    // Compute tally from blockchain
+                    const candidates = await blockchainReader.getAllCandidates();
+                    
+                    if (candidates && candidates.length > 0) {
+                        const winner = candidates.reduce((best, c) => c.voteCount > best.voteCount ? c : best, candidates[0]);
+                        
+                        let breakdown = '';
+                        const sortedCandidates = [...candidates].sort((a, b) => b.voteCount - a.voteCount);
+                        for (const c of sortedCandidates) {
+                            breakdown += `${c.name} (${c.partyName || 'Independent'}): ${c.voteCount} votes\n`;
+                        }
+
+                        await sendNotification(election, 'RESULTS_RELEASED', {
+                            subject: 'Election Results Are Now Live! 📊',
+                            getBody: (name, elName) => `Dear ${name},\n\nThe official results for "${elName}" are now finalized on the blockchain.\n\n🏆 WINNER: ${winner.name} (${winner.partyName || 'Independent'}) with ${winner.voteCount} votes!\n\n--- Full Vote Breakdown ---\n${breakdown}\n\nView the verified results here: https://bharat-evote.me/results\n\nJai Hind! 🇮🇳`
+                        });
+                        
+                        // Auto-update election status to CLOSED if it wasn't already (auto-release)
+                        if (election.status !== 'CLOSED' && election.status !== 'ARCHIVED') {
+                            await prisma.election.update({
+                                where: { id: election.id },
+                                data: { status: 'CLOSED' }
+                            });
+                            notifLog.info(`Auto-closed election ${election.id} during results release`);
+                        }
+                    }
+                }
             }
         }
     } catch (error) {
-        const msg = error.message || '';
-        if (msg.includes("Can't reach database server") || msg.includes("connection to database closed") || msg.includes("PostgreSQL connection")) {
-            notifLog.warn('Notification scheduler skipped: Database connection unavailable (Supabase may be sleeping).');
-        } else {
-            notifLog.error('Notification scheduler error', { error: msg });
-        }
+        notifLog.error('Notification scheduler error', { error: error.message });
     } finally {
         isRunning = false;
     }
 }
 
-/**
- * Send a notification for a specific election event
- */
 async function sendNotification(election, type, { subject, getBody, onlyNonVoters = false }) {
     try {
-        // Check if already sent
         const existing = await prisma.electionNotification.findUnique({
             where: { election_id_type: { election_id: election.id, type } }
         });
 
         if (existing) {
-            return; // Already sent, skip
+            return;
         }
 
-        // Get recipients
-        let recipients;
+        // Get recipients for this specific election
+        const electionVoters = await prisma.electionVoter.findMany({
+            where: { election_id: election.id },
+            include: { user: true }
+        });
+
+        if (electionVoters.length === 0) {
+            return; // No one to notify
+        }
+
+        let recipients = [];
+
         if (onlyNonVoters) {
-            // Get approved voters who haven't voted in this election
-            const allApproved = await prisma.approvedVoter.findMany({
-                where: { status: 'WHITELIST' },
-                select: { email: true, fullname: true }
-            });
-
-            // Get users who HAVE voted
-            const votedUsers = await prisma.user.findMany({
-                where: { has_voted: true },
-                select: { email: true }
-            });
-            const votedEmails = new Set(votedUsers.map(u => u.email));
-
-            recipients = allApproved.filter(v => !votedEmails.has(v.email));
+            for (const ev of electionVoters) {
+                // If the DB says they haven't voted, check the blockchain to be absolutely sure
+                if (!ev.has_voted && ev.user && ev.user.wallet_address) {
+                    const hasVotedOnChain = await blockchainReader.hasVoterVoted(ev.user.wallet_address);
+                    if (!hasVotedOnChain) {
+                        recipients.push(ev.user);
+                    } else {
+                        // Fix sync issue silently
+                        await prisma.electionVoter.update({
+                            where: { id: ev.id },
+                            data: { has_voted: true }
+                        });
+                    }
+                } else if (!ev.has_voted && ev.user) {
+                    recipients.push(ev.user);
+                }
+            }
         } else {
-            recipients = await prisma.approvedVoter.findMany({
-                where: { status: 'WHITELIST' },
-                select: { email: true, fullname: true }
-            });
+            recipients = electionVoters.map(ev => ev.user).filter(u => u);
         }
 
         if (recipients.length === 0) {
             notifLog.info(`No recipients for ${type} - election ${election.id}`);
+            // We should still mark as sent so we don't keep polling
+            await prisma.electionNotification.create({
+                data: { election_id: election.id, type, sent_count: 0 }
+            });
             return;
         }
 
-        // Send emails in batches of 10 to avoid rate limits
-        const emailService = require('./emailService');
         let sentCount = 0;
         const batchSize = 10;
 
         for (let i = 0; i < recipients.length; i += batchSize) {
             const batch = recipients.slice(i, i + batchSize);
 
-            for (const voter of batch) {
+            for (const user of batch) {
+                if (!user.email) continue;
+                
                 try {
-                    const name = voter.fullname || 'Voter';
+                    const name = user.fullname || 'Voter';
                     const body = getBody(name, election.name);
 
-                    // Use the OTP email template but with custom content
                     await emailService.sendElectionNotification(
-                        voter.email,
+                        user.email,
                         name,
                         subject,
                         body,
@@ -159,17 +197,15 @@ async function sendNotification(election, type, { subject, getBody, onlyNonVoter
                     );
                     sentCount++;
                 } catch (emailErr) {
-                    notifLog.error(`Failed to send ${type} to ${voter.email}`, { error: emailErr.message });
+                    notifLog.error(`Failed to send ${type} to ${user.email}`, { error: emailErr.message });
                 }
             }
 
-            // Small delay between batches (2 seconds)
             if (i + batchSize < recipients.length) {
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
         }
 
-        // Record that notification was sent
         await prisma.electionNotification.create({
             data: {
                 election_id: election.id,
@@ -180,23 +216,13 @@ async function sendNotification(election, type, { subject, getBody, onlyNonVoter
 
         notifLog.info(`✅ ${type} sent for election "${election.name}" — ${sentCount}/${recipients.length} recipients`);
     } catch (error) {
-        const msg = error.message || '';
-        if (msg.includes("Can't reach database server") || msg.includes("connection to database closed") || msg.includes("PostgreSQL connection")) {
-            notifLog.warn(`Failed to send ${type} for election ${election.id}: Database connection unavailable.`);
-        } else {
-            notifLog.error(`Failed to send ${type} for election ${election.id}`, { error: msg });
-        }
+        notifLog.error(`Failed to send ${type} for election ${election.id}`, { error: error.message });
     }
 }
 
-/**
- * Start the notification scheduler
- */
 function start() {
     notifLog.info('📧 Election notification scheduler started (checking every 60s)');
-    // Run immediately on start
     checkAndNotify();
-    // Then every 60 seconds
     setInterval(checkAndNotify, 60 * 1000);
 }
 

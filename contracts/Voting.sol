@@ -174,6 +174,44 @@ contract VotingV2 {
         emit CandidateAdded(candidatesCount, _name, "", 0, 0);
     }
     
+    function resetAndLoadCandidates(
+        string[] calldata _names,
+        string[] calldata _partyNames,
+        string[] calldata _partySymbols,
+        uint8[] calldata _stateCodes,
+        uint8[] calldata _constituencyCodes
+    ) external onlyAdmin votingIsNotActive {
+        require(
+            _names.length == _partyNames.length &&
+            _names.length == _partySymbols.length &&
+            _names.length == _stateCodes.length &&
+            _names.length == _constituencyCodes.length,
+            "Array lengths must match"
+        );
+        require(_names.length <= 50, "Too many candidates for one transaction");
+
+        // Purge old candidates
+        for (uint256 i = 1; i <= candidatesCount; i++) {
+            delete candidates[i];
+        }
+
+        candidatesCount = 0;
+
+        for (uint256 i = 0; i < _names.length; i++) {
+            candidatesCount++;
+            candidates[candidatesCount] = Candidate({
+                id: candidatesCount,
+                stateCode: _stateCodes[i],
+                constituencyCode: _constituencyCodes[i],
+                voteCount: 0,
+                name: _names[i],
+                partyName: _partyNames[i],
+                partySymbol: _partySymbols[i]
+            });
+            emit CandidateAdded(candidatesCount, _names[i], _partyNames[i], _stateCodes[i], _constituencyCodes[i]);
+        }
+    }
+    
     function authorizeVoter(
         address _voter,
         uint8 _stateCode,

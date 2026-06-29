@@ -156,15 +156,35 @@ const ElectionWizard = () => {
             try {
                 const id = toast.loading('Initializing Election Validation...');
                 
-                // --- Mandatory NOTA Enforcement ---
                 const service = BlockchainService.getInstance();
-                const candidates = await service.getAllCandidates();
-                const hasNota = candidates.some(c => c.name.toUpperCase().includes('NOTA') || c.name.toUpperCase().includes('NONE OF THE ABOVE'));
                 
+                // Get election candidates from the state
+                const election = elections.find(e => e.id === electionId);
+                const dbCandidates = election?.candidates || [];
+                
+                let names = dbCandidates.map(c => c.candidate_name);
+                let parties = dbCandidates.map(c => c.party_name || '');
+                let symbols = dbCandidates.map(c => c.party_symbol || '');
+                let states = dbCandidates.map(c => c.state_code || 0);
+                let consts = dbCandidates.map(c => c.constituency_code || 0);
+                
+                // --- Mandatory NOTA Enforcement ---
+                const hasNota = names.some(n => n.toUpperCase().includes('NOTA') || n.toUpperCase().includes('NONE OF THE ABOVE'));
                 if (!hasNota) {
                     toast.loading('Injecting mandatory NOTA candidate to Blockchain...', { id });
-                    await service.addCandidate('None of the Above (NOTA)', 'NOTA', '🚫', 0, 0); // 0, 0 = available nationally
+                    names.push('None of the Above (NOTA)');
+                    parties.push('NOTA');
+                    symbols.push('🚫');
+                    states.push(0);
+                    consts.push(0);
                 }
+                
+                if (names.length === 0) {
+                    throw new Error("Cannot activate an election with zero candidates.");
+                }
+
+                toast.loading('Writing Candidates to Blockchain...', { id });
+                await service.resetAndLoadCandidates(names, parties, symbols, states, consts);
                 
                 toast.loading('Waiting for MetaMask signature to Start Election...', { id });
                 await service.startVoting();

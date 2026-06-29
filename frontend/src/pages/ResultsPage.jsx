@@ -17,10 +17,10 @@ function ResultsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    const loadResults = useCallback(async () => {
+    const loadResults = useCallback(async (isSilent = false) => {
         try {
-            setLoading(true);
-            setError('');
+            if (!isSilent) setLoading(true);
+            if (!isSilent) setError('');
             const service = BlockchainService.getInstance();
             
             // Try to connect, but don't fail if we can't (for public visibility)
@@ -41,16 +41,36 @@ function ResultsPage() {
             const total = candidates.reduce((sum, c) => sum + Number(c.voteCount), 0);
             setTotalVotes(total);
 
-            setFilteredCandidates(candidates);
+            // Do not override filtered if state/constituency is selected
+            setFilteredCandidates(prev => {
+                if (selectedState > 0 || selectedConstituency > 0) {
+                    let filtered = candidates;
+                    if (selectedState > 0) {
+                        filtered = filtered.filter(c => c.stateCode === 0 || c.stateCode === selectedState);
+                    }
+                    if (selectedConstituency > 0) {
+                        filtered = filtered.filter(c => c.constituencyCode === 0 || c.constituencyCode === selectedConstituency);
+                    }
+                    return filtered;
+                }
+                return candidates;
+            });
         } catch (err) {
-            setError('Failed to load blockchain ledger data: ' + err.message);
+            if (!isSilent) setError('Failed to load blockchain ledger data: ' + err.message);
         } finally {
-            setLoading(false);
+            if (!isSilent) setLoading(false);
         }
-    }, []);
+    }, [selectedState, selectedConstituency]);
 
     useEffect(() => {
         loadResults();
+        
+        // Auto-refresh polling every 30 seconds
+        const intervalId = setInterval(() => {
+            loadResults(true); // Silent reload
+        }, 30000);
+        
+        return () => clearInterval(intervalId);
     }, [loadResults]);
 
     // Filter when state/constituency changes

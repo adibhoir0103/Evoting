@@ -343,9 +343,12 @@ function VotingPage({ user, onUserUpdate }) {
             if (msg.includes('rejected') || msg.includes('action_rejected')) {
                 toast.error('You rejected the transaction — you have not voted yet.');
                 setVoteState('recovered');
+                setError('You rejected the transaction. You can try again.');
             } else {
-                toast.error(humanizeError(err));
+                const humanized = humanizeError(err);
+                toast.error(humanized);
                 setVoteState('failed');
+                setError(humanized);
             }
         }
     };

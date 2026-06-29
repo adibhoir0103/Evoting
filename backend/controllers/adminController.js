@@ -230,6 +230,7 @@ exports.updateElectionStatus = async (req, res) => {
 exports.getElections = async (req, res) => {
     const elections = await prisma.election.findMany({
         include: {
+            candidates: true,
             _count: {
                 select: { candidates: true, voters: true, votes: true }
             }
